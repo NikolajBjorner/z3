@@ -29,7 +29,6 @@ Author: Lev Nachmanson
 #include "util/lp/numeric_pair.h"
 #include "util/lp/binary_heap_upair_queue.h"
 #include "util/lp/stacked_value.h"
-#include "util/lp/stacked_vector.h"
 #include "util/lp/stacked_unordered_set.h"
 namespace lean {
 unsigned seed = 1;
@@ -1883,20 +1882,20 @@ void test_stacked_value() {
 }
 
 void test_stacked_vector() {
-    stacked_vector<int> v;
+    stacked_value<std::vector<int>> v;
           
-    v.push_back(0);
-    v.push_back(1);
+    v().push_back(0);
+    v().push_back(1);
     v.push();
-    v[0] = 3;
+    v()[0] = 3;
     v.push();
-    v[1] = 4;
-    v.clear();
-    v.push_back(10);
+    v()[1] = 4;
+    v().clear();
+    v().push_back(10);
     v.pop(2);
-    lean_assert(v.size() == 2);
-    lean_assert(v[0] == 0);
-    lean_assert(v[1] == 1);
+    lean_assert(v().size() == 2);
+    lean_assert(v()[0] == 0);
+    lean_assert(v()[1] == 1);
 }
 
 void test_stacked_set() {
