@@ -721,7 +721,6 @@ void lar_solver::print_constraint(constraint_index ci, std::ostream & out) {
 void lar_solver::print_constraints(std::ostream& out) {
     for (auto & it : m_normalized_constraints()) {
         print_constraint(& it.second, out);
-        out << std::endl;
     }
 }
 
