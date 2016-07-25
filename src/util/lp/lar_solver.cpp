@@ -78,10 +78,11 @@ void lar_solver::map_left_side_to_A_of_core_solver(const canonic_left_side &  le
     m_map_from_var_index_to_column_info_with_cls[additional_var] = ci_cls;
 }
 
-
 // this adds a row to A and set the basis column: -1 in the last column of the row
 template <typename U, typename V>
 void lar_solver::fill_row_of_A(static_matrix<U, V> & A, const canonic_left_side & ls) {
+    lean_assert(A.row_count() > 0);
+    lean_assert(A.column_count() > 0);
     unsigned i = A.row_count() - 1;
     for (auto & t : ls.m_coeffs) {
         var_index j = t.second;
@@ -111,7 +112,6 @@ void lar_solver::copy_from_mpq_matrix(static_matrix<U, V> & matr) {
         }
     }
 }
-
 
 void lar_solver::set_upper_bound_for_column_info(constraint_index i, const lar_normalized_constraint & norm_constr) {
     const mpq & v = norm_constr.m_right_side;
@@ -162,30 +162,21 @@ void lar_solver::set_low_bound_for_column_info(constraint_index i, const lar_nor
     column_info<mpq> &ci = ci_cls.m_column_info;
     lean_assert(norm_constr.m_kind == GE || norm_constr.m_kind == GT || norm_constr.m_kind == EQ);
     bool strict = norm_constr.m_kind == GT;
-    bool tmp_deb= false;
     if (!ci.low_bound_is_set()) {
-        tmp_deb = true;
         ci.set_low_bound(v);
         ul.m_low_bound_witness = i;
         ci.set_low_bound_strict(strict);
     } else if (ci.get_low_bound() < v) {
-        tmp_deb = true;
         ci.set_low_bound(v);
         ul.m_low_bound_witness = i;
         ci.set_low_bound_strict(strict);
     } else if (ci.get_low_bound() == v && strict && ci.low_bound_is_strict() == false) {
-        tmp_deb = true;
         ul.m_low_bound_witness = i;
         ci.set_low_bound_strict(strict);
     }
     m_map_from_var_index_to_column_info_with_cls[ul.m_additional_var_index] = ci_cls;
     m_map_of_canonic_left_sides[ls] = ul;
-    // debug code start
-    const ul_pair& ttt = m_map_of_canonic_left_sides[ls];
-    if (tmp_deb) {
-        lean_assert(ttt.m_low_bound_witness == i);
-    }
-    // debug conde end
+
     if (ci.is_infeasible()) {
         m_status = INFEASIBLE;
         m_infeasible_canonic_left_side = ls;
@@ -206,13 +197,10 @@ void lar_solver::update_column_info_of_normalized_constraint(constraint_index i,
     case GT:
         set_low_bound_for_column_info(i, norm_constr);
         break;
-
     case EQ:
-    {
         set_upper_bound_for_column_info(i, norm_constr);
         set_low_bound_for_column_info(i, norm_constr);
-    }
-    break;
+        break;
     default:
         lean_unreachable();
     }
@@ -269,7 +257,6 @@ void lar_solver::fill_bounds_for_core_solver(std::vector<V> & lb, std::vector<V>
     }
 }
 
-
 template <typename V>
 void lar_solver::resize_and_init_x_with_zeros(std::vector<V> & x, unsigned n) {
     x.clear();
@@ -299,10 +286,11 @@ template <typename V> V lar_solver::get_column_val(std::vector<V> & low_bound, s
 }
 
 var_index lar_solver::add_var(std::string s) {
-    auto it = m_var_names_to_var_index.find(s);
-    if (it != m_var_names_to_var_index.end())
-        return it->second;
-    var_index i = A().column_count();
+    var_index i;
+    if (m_var_names_to_var_index.try_get_value(s, i)) {
+        return i;
+    }
+    i = A().column_count();
     A().add_column();
     lean_assert(!m_map_from_var_index_to_column_info_with_cls.contains(i));
     auto ci_with_cls = column_info_with_cls();
@@ -430,6 +418,7 @@ bool lar_solver::the_right_sides_do_not_sum_to_zero(const buffer<std::pair<mpq, 
     }
     return !numeric_traits<mpq>::is_zero(ret);
 }
+
 #ifdef LEAN_DEBUG
 bool lar_solver::the_evidence_is_correct() {
     buffer<std::pair<mpq, unsigned>> evidence;
@@ -456,6 +445,7 @@ bool lar_solver::the_evidence_is_correct() {
     return true;
 }
 #endif
+
 void lar_solver::update_column_info_of_normalized_constraints() {
     for (auto & it : m_normalized_constraints()) {
         update_column_info_of_normalized_constraint(it.first, it.second);
@@ -476,6 +466,7 @@ mpq lar_solver::sum_of_right_sides_of_evidence(const buffer<std::pair<mpq, unsig
     }
     return ret;
 }
+
 /*
 // do not touch additional vars here
 void lar_solver::map_var_indices_to_columns_of_A() {
@@ -496,6 +487,7 @@ void lar_solver::map_var_indices_to_columns_of_A() {
     }
 }
 */
+
 void lar_solver::prepare_independently_of_numeric_type() {
     update_column_info_of_normalized_constraints();
     //    map_var_indices_to_columns_of_A();
@@ -514,10 +506,11 @@ void lar_solver::prepare_core_solver_fields(static_matrix<U, V> & A, std::vector
     fill_bounds_for_core_solver(low_bound, upper_bound);
     if (m_status == INFEASIBLE) {
         lean_assert(m_infeasible_canonic_left_side().size() > 0);
-        return;
     }
-    resize_and_init_x_with_zeros(x, A.column_count());
-    lean_assert(m_lar_core_solver_params.m_basis().size() == A.row_count());
+    else {
+        resize_and_init_x_with_zeros(x, A.column_count());
+        lean_assert(m_lar_core_solver_params.m_basis().size() == A.row_count());
+    }
 }
 
 template <typename U, typename V>
@@ -721,7 +714,6 @@ void lar_solver::print_constraint(constraint_index ci, std::ostream & out) {
 void lar_solver::print_constraints(std::ostream& out) {
     for (auto & it : m_normalized_constraints()) {
         print_constraint(& it.second, out);
-        out << std::endl;
     }
 }
 
@@ -854,8 +846,6 @@ void lar_solver::random_update(unsigned sz, var_index const * vars) {
     ru.update();
 }
 
-void lar_solver::random_update(var_index /*v */) {
-}
 
 
 const column_info<mpq> & lar_solver::get_column_info_from_var_index(var_index vi) {
@@ -875,7 +865,9 @@ void lar_solver::push() {
     m_map_of_canonic_left_sides.push();
     m_normalized_constraints.push();
     m_map_from_var_index_to_column_info_with_cls.push();
-    m_lar_core_solver_params.push();}
+    m_lar_core_solver_params.push();
+    m_var_names_to_var_index.push();
+}
 
 void lar_solver::pop() {
     pop(1);
@@ -887,6 +879,7 @@ void lar_solver::pop(unsigned k) {
     m_normalized_constraints.pop(k);
     m_map_from_var_index_to_column_info_with_cls.pop(k);
     m_lar_core_solver_params.pop(k);
+    m_var_names_to_var_index.pop(k);
 }
 }
 

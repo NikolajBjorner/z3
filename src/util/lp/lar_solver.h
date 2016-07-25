@@ -61,7 +61,7 @@ struct conversion_helper <double> {
 
 class lar_solver {
     stacked_value<lp_status> m_status = UNKNOWN;
-    std::unordered_map<std::string, var_index> m_var_names_to_var_index;
+    stacked_map<std::string, var_index> m_var_names_to_var_index;
     stacked_map<canonic_left_side, ul_pair, hash_and_equal_of_canonic_left_side_struct, hash_and_equal_of_canonic_left_side_struct> m_map_of_canonic_left_sides;
     stacked_map<constraint_index, lar_normalized_constraint> m_normalized_constraints;
     stacked_map<var_index, column_info_with_cls> m_map_from_var_index_to_column_info_with_cls;
@@ -250,7 +250,6 @@ public:
 // This method searches for a feasible solution with as many different values of variables, reverenced in vars, as it can find
 // Attention, after a call to this method the non-basic variables don't necesserarly stick to their bounds anymore
     void random_update(unsigned sz, var_index const* vars);
-    void random_update(var_index v);
     void try_pivot_fixed_vars_from_basis();
     void fill_var_set_for_random_update(unsigned sz, var_index const * vars, std::vector<unsigned>& column_list);
     std::vector<unsigned> get_list_of_all_var_indices() const {
@@ -270,7 +269,7 @@ public:
     }
     std::vector<std::string> get_all_var_names() const {
         std::vector<std::string> ret;
-        for (auto & it : m_var_names_to_var_index)
+        for (auto & it : m_var_names_to_var_index())
             ret.push_back(it.first);
         return ret;
     }
