@@ -162,7 +162,6 @@ void lar_solver::set_low_bound_for_column_info(constraint_index i, const lar_nor
     column_info<mpq> &ci = ci_cls.m_column_info;
     lean_assert(norm_constr.m_kind == GE || norm_constr.m_kind == GT || norm_constr.m_kind == EQ);
     bool strict = norm_constr.m_kind == GT;
-    bool tmp_deb = true;
     if (!ci.low_bound_is_set()) {
         ci.set_low_bound(v);
         ul.m_low_bound_witness = i;
@@ -175,14 +174,9 @@ void lar_solver::set_low_bound_for_column_info(constraint_index i, const lar_nor
         ul.m_low_bound_witness = i;
         ci.set_low_bound_strict(strict);
     }
-    else {
-        tmp_deb = false;
-    }
     m_map_from_var_index_to_column_info_with_cls[ul.m_additional_var_index] = ci_cls;
     m_map_of_canonic_left_sides[ls] = ul;
 
-    lean_assert(!tmp_deb || m_map_of_canonic_left_sides[ls].m_low_bound_witness == i);
-    
     if (ci.is_infeasible()) {
         m_status = INFEASIBLE;
         m_infeasible_canonic_left_side = ls;
@@ -852,8 +846,6 @@ void lar_solver::random_update(unsigned sz, var_index const * vars) {
     ru.update();
 }
 
-void lar_solver::random_update(var_index /*v */) {
-}
 
 
 const column_info<mpq> & lar_solver::get_column_info_from_var_index(var_index vi) {

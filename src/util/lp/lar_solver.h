@@ -250,7 +250,6 @@ public:
 // This method searches for a feasible solution with as many different values of variables, reverenced in vars, as it can find
 // Attention, after a call to this method the non-basic variables don't necesserarly stick to their bounds anymore
     void random_update(unsigned sz, var_index const* vars);
-    void random_update(var_index v);
     void try_pivot_fixed_vars_from_basis();
     void fill_var_set_for_random_update(unsigned sz, var_index const * vars, std::vector<unsigned>& column_list);
     std::vector<unsigned> get_list_of_all_var_indices() const {
