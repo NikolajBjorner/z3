@@ -108,6 +108,7 @@ namespace smt {
             unsigned m_delayed_equalities_lim;
             unsigned m_delayed_defs_lim;
             unsigned m_underspecified_lim;
+            unsigned m_var_trail_lim;
             expr*    m_not_handled;
         };
 
@@ -216,6 +217,7 @@ namespace smt {
         vector<delayed_def>    m_delayed_defs;
         expr*                  m_not_handled;
         ptr_vector<app>        m_underspecified;
+        unsigned_vector        m_var_trail;
 
         // attributes for incremental version:
         u_map<lp::bound*>      m_bool_var2bound;
@@ -455,6 +457,7 @@ namespace smt {
                 s << "v" << v;
                 result = m_solver->add_var(s.str());
                 m_theory_var2var_index.setx(v, result, UINT_MAX);
+                m_var_trail.push_back(v);
             }
             return result;
         }
@@ -772,6 +775,7 @@ namespace smt {
             s.m_delayed_defs_lim = m_delayed_defs.size();
             s.m_not_handled = m_not_handled;
             s.m_underspecified_lim = m_underspecified.size();
+            s.m_var_trail_lim = m_var_trail.size();
             if (!m_delay_constraints) m_solver->push();
         }
 
@@ -781,12 +785,16 @@ namespace smt {
             }
             unsigned old_size = m_scopes.size() - num_scopes;
             del_bounds(m_scopes[old_size].m_bounds_lim);
+            for (unsigned i = m_scopes[old_size].m_var_trail_lim; i < m_var_trail.size(); ++i) {
+                m_theory_var2var_index[m_var_trail[i]] = UINT_MAX;
+            }
             m_asserted_atoms.shrink(m_scopes[old_size].m_asserted_atoms_lim);
             m_delayed_terms.shrink(m_scopes[old_size].m_delayed_terms_lim);
             m_delayed_defs.shrink(m_scopes[old_size].m_delayed_defs_lim);
             m_delayed_equalities.shrink(m_scopes[old_size].m_delayed_equalities_lim);
             m_asserted_qhead = m_scopes[old_size].m_asserted_qhead;
             m_underspecified.shrink(m_scopes[old_size].m_underspecified_lim);
+            m_var_trail.shrink(m_scopes[old_size].m_var_trail_lim);
             m_not_handled = m_scopes[old_size].m_not_handled;
             m_scopes.resize(old_size);            
             if (!m_delay_constraints) m_solver->pop(num_scopes);

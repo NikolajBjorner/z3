@@ -299,10 +299,11 @@ template <typename V> V lar_solver::get_column_val(std::vector<V> & low_bound, s
 }
 
 var_index lar_solver::add_var(std::string s) {
-    auto it = m_var_names_to_var_index.find(s);
-    if (it != m_var_names_to_var_index.end())
-        return it->second;
-    var_index i = A().column_count();
+    var_index i;
+    if (m_var_names_to_var_index.try_get_value(s, i)) {
+        return i;
+    }
+    i = A().column_count();
     A().add_column();
     lean_assert(!m_map_from_var_index_to_column_info_with_cls.contains(i));
     auto ci_with_cls = column_info_with_cls();
@@ -874,7 +875,9 @@ void lar_solver::push() {
     m_map_of_canonic_left_sides.push();
     m_normalized_constraints.push();
     m_map_from_var_index_to_column_info_with_cls.push();
-    m_lar_core_solver_params.push();}
+    m_lar_core_solver_params.push();
+    m_var_names_to_var_index.push();
+}
 
 void lar_solver::pop() {
     pop(1);
@@ -886,6 +889,7 @@ void lar_solver::pop(unsigned k) {
     m_normalized_constraints.pop(k);
     m_map_from_var_index_to_column_info_with_cls.pop(k);
     m_lar_core_solver_params.pop(k);
+    m_var_names_to_var_index.pop(k);
 }
 }
 

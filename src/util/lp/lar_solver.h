@@ -61,7 +61,7 @@ struct conversion_helper <double> {
 
 class lar_solver {
     stacked_value<lp_status> m_status = UNKNOWN;
-    std::unordered_map<std::string, var_index> m_var_names_to_var_index;
+    stacked_map<std::string, var_index> m_var_names_to_var_index;
     stacked_map<canonic_left_side, ul_pair, hash_and_equal_of_canonic_left_side_struct, hash_and_equal_of_canonic_left_side_struct> m_map_of_canonic_left_sides;
     stacked_map<constraint_index, lar_normalized_constraint> m_normalized_constraints;
     stacked_map<var_index, column_info_with_cls> m_map_from_var_index_to_column_info_with_cls;
@@ -270,7 +270,7 @@ public:
     }
     std::vector<std::string> get_all_var_names() const {
         std::vector<std::string> ret;
-        for (auto & it : m_var_names_to_var_index)
+        for (auto & it : m_var_names_to_var_index())
             ret.push_back(it.first);
         return ret;
     }
