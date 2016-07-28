@@ -150,7 +150,6 @@ public:
                                      m_lar_core_solver_params.m_A,
                                      m_lar_core_solver_params.m_settings,
                                          m_lar_core_solver_params.m_column_names()) {
-        std::cout << "construct lar_solver" << std::endl;
     }
 
     bool all_constrained_variables_are_registered(const buffer<std::pair<mpq, var_index>>& left_side);

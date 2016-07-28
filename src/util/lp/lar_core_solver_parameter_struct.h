@@ -22,7 +22,7 @@ struct lar_core_solver_parameter_struct {
     lp_settings m_settings;
     stacked_map<unsigned, std::string> m_column_names;
     void push() {
-        m_x.push(); // the solution
+        m_x.push();
         m_column_types.push();
         m_low_bounds.push();
         m_upper_bounds.push();
@@ -34,7 +34,7 @@ struct lar_core_solver_parameter_struct {
         pop(1);
     }
     void pop(unsigned k) {
-        m_x.pop(k); // the solution
+        m_x.pop(k);
         m_column_types.pop(k);
         m_low_bounds.pop(k);
         m_upper_bounds.pop(k);
