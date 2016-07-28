@@ -21,7 +21,7 @@ template <typename A, typename B,
     struct delta {
         std::unordered_set<A, Hash, KeyEqual> m_new;
         std::unordered_map<A,B, Hash, KeyEqual, Allocator> m_original_changed;
-        std::unordered_map<A,B, Hash, KeyEqual, Allocator > m_deb_copy;
+        //        std::unordered_map<A,B, Hash, KeyEqual, Allocator > m_deb_copy;
     };
     std::unordered_map<A,B,Hash, KeyEqual, Allocator> m_map;
     std::stack<delta> m_stack;
@@ -52,7 +52,7 @@ private:
                 m_map.emplace(a, b);
             } else if (it->second != b) {
                 auto nit = d.m_new.find(a);
-                if (nit == d.m_new.end()) { // we have an old key
+                if (nit == d.m_new.end()) { // we do not have the old key
                     auto & orig_changed= d.m_original_changed;
                     auto itt = orig_changed.find(a);
                     if (itt == orig_changed.end()) {
@@ -112,7 +112,7 @@ public:
     
     void push() {
         delta d;
-        d.m_deb_copy = m_map;
+        //        d.m_deb_copy = m_map;
         m_stack.push(d);
     }
     
@@ -130,7 +130,7 @@ public:
             for (auto & t: d.m_original_changed) {
                 m_map[t.first] = t.second;
             }
-            lean_assert(d.m_deb_copy == m_map);
+            //            lean_assert(d.m_deb_copy == m_map);
             m_stack.pop();
         }
     }
