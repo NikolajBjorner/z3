@@ -22,5 +22,7 @@ template bool indexed_vector<mpq>::is_OK() const;
 template bool indexed_vector<lean::numeric_pair<mpq> >::is_OK() const;
 #endif
 }
+template void lean::print_vector<double>(std::vector<double, std::allocator<double> > const&, std::ostream&);
 template void lean::print_vector<unsigned int>(std::vector<unsigned int> const&, std::ostream&);
 template void lean::print_vector<std::string>(std::vector<std::string, std::allocator<std::string> > const&, std::ostream&);
+template void lean::print_vector<lean::numeric_pair<lean::mpq> >(std::vector<lean::numeric_pair<lean::mpq>, std::allocator<lean::numeric_pair<lean::mpq> > > const&, std::ostream&);

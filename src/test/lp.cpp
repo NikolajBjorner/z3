@@ -180,7 +180,7 @@ void test_small_lu(lp_settings & settings) {
 #endif
     std::vector<int> heading = allocate_basis_heading(m.column_count());
     std::vector<unsigned> non_basic_columns;
-    init_basis_heading_and_non_basic_columns_vector(basis, m.row_count(), heading, m.column_count(), non_basic_columns);
+    init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
     lu<double, double> l(m, basis, heading, settings, non_basic_columns);
     lean_assert(l.is_correct());
     indexed_vector<double> w(m.row_count());
@@ -306,7 +306,7 @@ void test_larger_lu_exp(lp_settings & settings) {
     // print_matrix(m);
     std::vector<int> heading = allocate_basis_heading(m.column_count());
     std::vector<unsigned> non_basic_columns;
-    init_basis_heading_and_non_basic_columns_vector(basis, m.row_count(), heading, m.column_count(), non_basic_columns);
+    init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
     lu<double, double> l(m, basis, heading, settings, non_basic_columns);
 
     dense_matrix<double, double> left_side = l.get_left_side();
@@ -350,7 +350,7 @@ void test_larger_lu_with_holes(lp_settings & settings) {
     print_matrix(m, std::cout);
     std::vector<int> heading = allocate_basis_heading(m.column_count());
     std::vector<unsigned> non_basic_columns;
-    init_basis_heading_and_non_basic_columns_vector(basis, m.row_count(), heading, m.column_count(), non_basic_columns);
+    init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
     lu<double, double> l(m, basis, heading, settings, non_basic_columns);
     std::cout << "printing factorization" << std::endl;
     for (int i = l.tail_size() - 1; i >=0; i--) {
@@ -391,7 +391,7 @@ void test_larger_lu(lp_settings& settings) {
 
     std::vector<int> heading = allocate_basis_heading(m.column_count());
     std::vector<unsigned> non_basic_columns;
-    init_basis_heading_and_non_basic_columns_vector(basis, m.row_count(), heading, m.column_count(), non_basic_columns);
+    init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
     auto l = lu<double, double> (m, basis, heading, settings, non_basic_columns);
     // std::cout << "printing factorization" << std::endl;
     // for (int i = lu.tail_size() - 1; i >=0; i--) {
@@ -2322,7 +2322,7 @@ void run_lar_solver(argument_parser & args_parser, lar_solver * solver, mps_read
         return;
     }
     int begin = get_millisecond_count();
-    lp_status status = solver->check();
+    lp_status status = solver->solve();
     std::cout << "status is " <<  lp_status_to_string(status) << ", processed for " << get_millisecond_span(begin) / 1000.0 <<" seconds, and " << solver->get_total_iterations() << " iterations" << std::endl;
     if (solver->get_status() == INFEASIBLE) {
         buffer<std::pair<lean::mpq, constraint_index>> evidence;
@@ -2640,7 +2640,8 @@ void incremental_test(argument_parser& args_parser, lp_settings & settings) {
             }
             std::cout << "adding a constraint " << std::endl;
             test_ls.add_constraint(left_side_or_orig, constr.m_kind, constr.m_right_side);
-            lp_status st = test_ls.check();
+            test_ls.push();
+            lp_status st = test_ls.solve();
             print_st(st);
             if (st != OPTIMAL) {
                 std::cout << "pop when the status is not optimal" << std::endl;

@@ -117,7 +117,7 @@ lp_primal_core_solver<T, X>::find_leaving_and_t_precisely(unsigned entering, X &
 
 template <typename T, typename X>    X lp_primal_core_solver<T, X>::get_harris_theta() {
     X theta = positive_infinity();
-    unsigned i = this->m_m;
+    unsigned i = this->m_m();
     while (i--) {
         if (this->m_settings.abs_val_is_smaller_than_pivot_tolerance(this->m_ed[i])) continue;
         limit_theta_on_basis_column(this->m_basis[i], - this->m_ed[i] * m_sign_of_entering_delta, theta);
@@ -133,12 +133,12 @@ template <typename T, typename X>    int lp_primal_core_solver<T, X>::find_leavi
     // we know already that there is no bound flip on entering
     // we also know that harris_theta is limited, so we will find a leaving
     zero_harris_eps();
-    unsigned i = my_random() % this->m_m;
+    unsigned i = my_random() % this->m_m();
     unsigned initial_i = i;
     int column_with_non_zero_cost = -1;
     do {
         if (this->m_settings.abs_val_is_smaller_than_pivot_tolerance(this->m_ed[i])) {
-            if (++i == this->m_m)
+            if (++i == this->m_m())
                 i = 0;
             continue;
         }
@@ -160,7 +160,7 @@ template <typename T, typename X>    int lp_primal_core_solver<T, X>::find_leavi
                 pivot_abs_max = abs(this->m_ed[i]);
             }
         }
-        if (++i == this->m_m) i = 0;
+        if (++i == this->m_m()) i = 0;
     } while ( i != initial_i);
     if (!precise<T>())
         restore_harris_eps();
@@ -307,7 +307,7 @@ template <typename T, typename X> bool lp_primal_core_solver<T, X>::initial_x_is
     for (unsigned i = 0; i < this->m_A.row_count(); i++) {
         basis_set.insert(this->m_basis[i]);
     }
-    for (unsigned j = 0; j < this->m_n; j++) {
+    for (unsigned j = 0; j < this->m_n(); j++) {
         if (column_has_low_bound(j) && this->m_x[j] < numeric_traits<T>::zero()) {
             LP_OUT(this->m_settings, "low bound for variable " << j << " does not hold: this->m_x[" << j << "] = " << this->m_x[j] << " is negative " << std::endl);
             return false;
@@ -338,11 +338,11 @@ template <typename T, typename X> bool lp_primal_core_solver<T, X>::initial_x_is
 template <typename T, typename X>   void lp_primal_core_solver<T, X>::check_Ax_equal_b() {
     dense_matrix<T, X> d(this->m_A);
     T * ls = d.apply_from_left_with_different_dims(this->m_x);
-    lean_assert(vectors_are_equal<T>(ls, this->m_b, this->m_m));
+    lean_assert(vectors_are_equal<T>(ls, this->m_b, this->m_m()));
     delete [] ls;
 }
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::check_the_bounds() {
-    for (unsigned i = 0; i < this->m_n; i++) {
+    for (unsigned i = 0; i < this->m_n(); i++) {
         check_bound(i);
     }
 }
@@ -364,7 +364,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::update_re
     // the basis heading has changed already
 #ifdef LEAN_DEBUG
     auto & basis_heading = this->m_factorization->m_basis_heading;
-    lean_assert(basis_heading[entering] >= 0 && static_cast<unsigned>(basis_heading[entering]) < this->m_m);
+    lean_assert(basis_heading[entering] >= 0 && static_cast<unsigned>(basis_heading[entering]) < this->m_m());
     lean_assert(basis_heading[leaving] < 0);
 #endif
     T pivot = this->m_pivot_row[entering];
@@ -389,7 +389,7 @@ template <typename T, typename X>    int lp_primal_core_solver<T, X>::refresh_re
     T reduced_at_entering_was = this->m_d[entering];  // can benefit from going over non-zeros of m_ed
     lean_assert(abs(reduced_at_entering_was) > m_epsilon_of_reduced_cost);
     T refreshed_cost = this->m_costs[entering];
-    unsigned i = this->m_m;
+    unsigned i = this->m_m();
     while (i--) refreshed_cost -= this->m_costs[this->m_basis[i]] * this->m_ed[i];
     this->m_d[entering] = refreshed_cost;
     T delta = abs(reduced_at_entering_was - refreshed_cost);
@@ -433,7 +433,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::init_run(
 
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::calc_working_vector_beta_for_column_norms(){
-    unsigned i = this->m_m;
+    unsigned i = this->m_m();
     while (i--)
         m_beta[i] = this->m_ed[i];
     this->m_factorization->solve_yB(m_beta);
@@ -562,7 +562,7 @@ template <typename T, typename X>  unsigned lp_primal_core_solver<T, X>::get_num
 
 template <typename T, typename X> void lp_primal_core_solver<T, X>::print_column_norms(std::ostream & out) {
     out << " column norms " << std::endl;
-    for (unsigned j = 0; j < this->m_n; j++) {
+    for (unsigned j = 0; j < this->m_n(); j++) {
         out << this->m_column_norms[j] << " ";
     }
     out << std::endl;
@@ -644,9 +644,9 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::init_column_
 
 // debug only
 template <typename T, typename X>    T lp_primal_core_solver<T, X>::calculate_column_norm_exactly(unsigned j) {
-    indexed_vector<T> w(this->m_m);
+    indexed_vector<T> w(this->m_m());
     this->m_A.copy_column_to_vector(j, w);
-    std::vector<T> d(this->m_m);
+    std::vector<T> d(this->m_m());
     this->m_factorization->solve_Bd_when_w_is_ready(d, w);
     T ret = zero_of_type<T>();
     for (auto v : d)
@@ -690,7 +690,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::update_co
 
 template <typename T, typename X>    T lp_primal_core_solver<T, X>::calculate_norm_of_entering_exactly() {
     T r = numeric_traits<T>::one();
-    unsigned i = this->m_m;
+    unsigned i = this->m_m();
     while (i--) {
         T t = this->m_ed[i];
         r += t * t;
@@ -707,7 +707,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::find_feas
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::calculate_infeasibility() {
     m_infeasibility = zero_of_type<X>();
-    unsigned i = this->m_m;
+    unsigned i = this->m_m();
     while (i--) {
         add_column_infeasibility(this->m_basis[i]);
     }
@@ -750,7 +750,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::one_iteratio
 
 template <typename T, typename X>  void lp_primal_core_solver<T, X>::fill_breakpoints_array(unsigned entering) {
     clear_breakpoints();
-    for (unsigned i = this->m_m; i--;)
+    for (unsigned i = this->m_m(); i--;)
         try_add_breakpoint_in_row(i);
 
     if (this->m_column_type[entering] == boxed) {
@@ -762,7 +762,7 @@ template <typename T, typename X>  void lp_primal_core_solver<T, X>::fill_breakp
 }
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::try_add_breakpoint_in_row(unsigned i) {
-    lean_assert(i < this->m_m);
+    lean_assert(i < this->m_m());
     const T & d = this->m_ed[i]; // the coefficient before m_entering in the i-th row
     if (d == 0) return; // the change of x[m_entering] will not change the corresponding basis x
     unsigned j = this->m_basis[i];
@@ -857,7 +857,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::update_ba
 
 
 template <typename T, typename X> bool lp_primal_core_solver<T, X>::calc_current_x_is_feasible() const {
-    unsigned i = this->m_m;
+    unsigned i = this->m_m();
     while (i--) {
         if (!this->column_is_feasible(this->m_basis[i]))
             return false;
@@ -907,11 +907,11 @@ template <typename T, typename X> bool lp_primal_core_solver<T, X>::done() {
 }
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::init_infeasibility_costs() {
-    lean_assert(this->m_x.size() >= this->m_n);
-    lean_assert(this->m_column_type.size() >= this->m_n);
+    lean_assert(this->m_x.size() >= this->m_n());
+    lean_assert(this->m_column_type.size() >= this->m_n());
     //        X inf = m_infeasibility;
     m_infeasibility = zero_of_type<X>();
-    for (unsigned j = this->m_n; j--;)
+    for (unsigned j = this->m_n(); j--;)
         init_infeasibility_cost_for_column(j);
     //        lean_assert(this->total_iterations() == 0 || (inf <= m_infeasibility + convert_struct<X, double>::convert(this->m_settings.tolerance_for_artificials)));
     //        if (inf == m_infeasibility)

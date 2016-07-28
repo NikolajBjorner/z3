@@ -37,7 +37,7 @@ core_solver_pretty_printer<T, X>::core_solver_pretty_printer(lp_core_solver_base
 }
 
 template <typename T, typename X> void core_solver_pretty_printer<T, X>::init_costs() {
-    vector<T> local_y(m_core_solver.m_m);
+    vector<T> local_y(m_core_solver.m_m());
     m_core_solver.solve_yB(local_y);
     for (unsigned i = 0; i < ncols(); i++) {
         if (m_core_solver.m_basis_heading[i] < 0) {

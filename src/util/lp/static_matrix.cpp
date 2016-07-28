@@ -365,10 +365,26 @@ template <typename T, typename X>    T static_matrix<T, X>::get_row_balance(unsi
     }
     return ret;
 }
-template <typename T, typename X> bool static_matrix<T, X>:: col_val_equal_to_row_val() const {
+template <typename T, typename X> bool static_matrix<T, X>::is_correct() const {
         for (auto & r : m_rows) {
             for (auto & rc : r) {
-                lean_assert(rc.get_val() == m_columns[rc.m_j][rc.m_offset].m_value);
+                if (rc.m_j >= m_columns.size())
+                    return false;
+                if (rc.m_offset >= m_columns[rc.m_j].size())
+                    return false;
+                if (rc.get_val() != m_columns[rc.m_j][rc.m_offset].m_value)
+                    return false;
+                
+            }
+        }
+        for (auto & c : m_columns) {
+            for (auto & cc : c) {
+                if (cc.m_i >= m_rows.size())
+                    return false;
+                if (cc.m_offset >= m_rows[cc.m_i].size())
+                    return false;
+                if (cc.get_val() != m_rows[cc.m_i][cc.m_offset].get_val())
+                    return false;
             }
         }
         return true;

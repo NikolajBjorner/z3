@@ -63,7 +63,7 @@ class lar_solver {
     stacked_value<lp_status> m_status = UNKNOWN;
     stacked_map<std::string, var_index> m_var_names_to_var_index;
     stacked_map<canonic_left_side, ul_pair, hash_and_equal_of_canonic_left_side_struct, hash_and_equal_of_canonic_left_side_struct> m_map_of_canonic_left_sides;
-    stacked_map<constraint_index, lar_normalized_constraint> m_normalized_constraints;
+    stacked_value<std::vector<lar_normalized_constraint>> m_normalized_constraints;
     stacked_map<var_index, column_info_with_cls> m_map_from_var_index_to_column_info_with_cls;
     lar_core_solver_parameter_struct<mpq, numeric_pair<mpq>> m_lar_core_solver_params;
     lar_core_solver<mpq, numeric_pair<mpq>> m_mpq_lar_core_solver;
@@ -122,7 +122,7 @@ class lar_solver {
 
 
     template <typename V>
-    void resize_and_init_x_with_zeros(std::vector<V> & x, unsigned n);
+    void resize_and_init_x_with_zeros(std::vector<V> & x);
 
     template <typename V>
     void resize_and_init_x_with_signature(std::vector<V> & x, std::vector<V> & low_bound,
@@ -132,7 +132,7 @@ class lar_solver {
 
     void register_in_map(std::unordered_map<var_index, mpq> & coeffs, const lar_constraint & cn, const mpq & a);
 
-    const column_info<mpq> & get_column_info_from_var_index(var_index vi);
+    const column_info<mpq> & get_column_info_from_var_index(var_index vi) const;
 
 public:
     lp_settings & settings() { return m_lar_core_solver_params.m_settings;}
@@ -149,7 +149,8 @@ public:
                                      m_lar_core_solver_params.m_basis,
                                      m_lar_core_solver_params.m_A,
                                      m_lar_core_solver_params.m_settings,
-                                     m_lar_core_solver_params.m_column_names) {
+                                         m_lar_core_solver_params.m_column_names()) {
+        std::cout << "construct lar_solver" << std::endl;
     }
 
     bool all_constrained_variables_are_registered(const buffer<std::pair<mpq, var_index>>& left_side);
@@ -158,19 +159,17 @@ public:
 
     constraint_index add_constraint(const buffer<std::pair<mpq, var_index>>& left_side, lconstraint_kind kind_par, mpq right_side_par);
 
-    bool get_constraint(constraint_index ci, lar_constraint& ci_constr) const {
-        auto it = m_normalized_constraints().find(ci);
-        if (it == m_normalized_constraints().end())
+    bool get_constraint(constraint_index ci, lar_constraint& ci_constr) {
+        if (ci < m_normalized_constraints().size())
             return false;
-
-        ci_constr = it->second.m_origin_constraint;
+        ci_constr =  m_normalized_constraints()[ci].m_origin_constraint;
         return true;
     }
 
     
-    bool all_constraints_hold();
+    bool all_constraints_hold() const;
 
-    bool constraint_holds(const lar_constraint & constr, std::unordered_map<var_index, mpq> & var_map);
+    bool constraint_holds(const lar_constraint & constr, std::unordered_map<var_index, mpq> & var_map) const;
 
     lp_status get_status() const { return m_status;}
 
@@ -206,9 +205,8 @@ public:
 
     void solve_on_signature(const lar_solution_signature & signature);
 
-    void solve();
+    lp_status solve();
 
-    lp_status check();
     void get_infeasibility_evidence(buffer<std::pair<mpq, constraint_index>> & evidence);
     void fill_evidence_from_canonic_left_side(buffer<std::pair<mpq, constraint_index>> & evidence);
 
@@ -217,12 +215,12 @@ public:
                                                  int inf_sign);
 
 
-    mpq find_delta_for_strict_bounds();
+    mpq find_delta_for_strict_bounds() const;
 
-    void restrict_delta_on_low_bound_column(mpq& delta, unsigned j);
-    void restrict_delta_on_upper_bound(mpq& delta, unsigned j);
+    void restrict_delta_on_low_bound_column(mpq& delta, unsigned j) const;
+    void restrict_delta_on_upper_bound(mpq& delta, unsigned j) const;
 
-    void get_model(std::unordered_map<var_index, mpq> & variable_values);
+    void get_model(std::unordered_map<var_index, mpq> & variable_values) const;
 
     std::string get_variable_name(var_index vi) const;
 
@@ -242,7 +240,7 @@ public:
 
     mpq get_canonic_left_side_val(const canonic_left_side & ls, std::unordered_map<std::string, mpq> & solution);
 
-    mpq get_left_side_val(const lar_constraint &  cns, const std::unordered_map<var_index, mpq> & var_map);
+    mpq get_left_side_val(const lar_constraint &  cns, const std::unordered_map<var_index, mpq> & var_map) const;
 
     void print_constraint(const lar_base_constraint * c, std::ostream & out);
     unsigned get_total_iterations() const { return m_mpq_lar_core_solver.total_iterations(); }
@@ -263,8 +261,9 @@ public:
     void pop(unsigned k);
     std::vector<constraint_index> get_all_constraint_indices() const {
         std::vector<constraint_index> ret;
-        for (auto & it : m_normalized_constraints())
-            ret.push_back(it.first);
+        constraint_index i = 0;
+        while ( i < m_normalized_constraints().size())
+            ret.push_back(i++);
         return ret;
     }
     std::vector<std::string> get_all_var_names() const {

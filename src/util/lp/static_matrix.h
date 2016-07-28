@@ -22,6 +22,7 @@ struct column_cell {
     T m_value;
     column_cell(unsigned i, unsigned offset, T v) : m_i(i), m_offset(offset), m_value(v) {
     }
+    const T & get_val() const { return m_value; }
 };
 
 template <typename T>
@@ -197,22 +198,51 @@ public:
 
     T get_row_balance(unsigned row) const;
 
-    bool col_val_equal_to_row_val() const; // TBD: has no definition.
+    bool is_correct() const;
     void push() {
         dim d(row_count(), column_count());
         m_stack.push(d);
     }
+
+    void pop_row_columns(const std::vector<row_cell<T>> & row) {
+        for (auto & c : row) {
+            unsigned j = c.m_j;
+            auto & col = m_columns[j];
+            lean_assert(col[col.size() - 1].m_i == m_rows.size() -1 );
+            col.pop_back();
+        }
+    }
+        
+    
     void pop(unsigned k) {
+#ifdef LEAN_DEBUG
+        std::set<std::pair<unsigned, unsigned>> pairs_to_remove_from_domain;
+#endif
         while (k-- > 0) {
             if (m_stack.empty()) break;
             unsigned m = m_stack.top().m_m;
-            while (m < row_count())
+            while (m < row_count()) {
+                unsigned i = m_rows.size() -1 ;
+                auto & row = m_rows[i];
+#ifdef LEAN_DEBUG
+                for (auto  & c : row) {
+                    pairs_to_remove_from_domain.emplace(i, c.m_j);
+                }
+#endif
+                pop_row_columns(row);
                 m_rows.pop_back(); // delete the last row
+            }
             unsigned n = m_stack.top().m_n;
             while (n < column_count())
                 m_columns.pop_back(); // delete the last column
+#ifdef LEAN_DEBUG
+            for (auto  & p : pairs_to_remove_from_domain) {
+                m_domain.erase(p);
+            }
+#endif
             m_stack.pop();
         }
+        lean_assert(is_correct());
     }
     
 };

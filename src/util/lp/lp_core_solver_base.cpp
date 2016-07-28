@@ -10,16 +10,17 @@
 #include "util/lp/lp_utils.h"
 #include "util/lp/lp_core_solver_base.h"
 namespace lean {
-void init_basic_part_of_basis_heading(std::vector<unsigned> & basis, unsigned m, std::vector<int> & basis_heading) {
+void init_basic_part_of_basis_heading(std::vector<unsigned> & basis, std::vector<int> & basis_heading) {
+    unsigned m = basis.size();
     for (unsigned i = 0; i < m; i++) {
         unsigned column = basis[i];
         basis_heading[column] = i;
     }
 }
 
-void init_non_basic_part_of_basis_heading(std::vector<int> & basis_heading, std::vector<unsigned> & non_basic_columns, unsigned n) {
+void init_non_basic_part_of_basis_heading(std::vector<int> & basis_heading, std::vector<unsigned> & non_basic_columns) {
     non_basic_columns.clear();
-    for (int j = n; j--;){
+    for (int j = basis_heading.size(); j--;){
         if (basis_heading[j] < 0) {
             non_basic_columns.push_back(j);
             // the index of column j in m_non_basic_columns is (- basis_heading[j] - 1)
@@ -28,12 +29,10 @@ void init_non_basic_part_of_basis_heading(std::vector<int> & basis_heading, std:
     }
 }
 void init_basis_heading_and_non_basic_columns_vector(std::vector<unsigned> & basis,
-                                                     unsigned m,
                                                      std::vector<int> & basis_heading,
-                                                     unsigned n,
                                                      std::vector<unsigned> & non_basic_columns) {
-    init_basic_part_of_basis_heading(basis, m, basis_heading);
-    init_non_basic_part_of_basis_heading(basis_heading, non_basic_columns, n);
+    init_basic_part_of_basis_heading(basis, basis_heading);
+    init_non_basic_part_of_basis_heading(basis_heading, non_basic_columns);
 }
 
 template <typename T, typename X> lp_core_solver_base<T, X>::
@@ -47,30 +46,28 @@ lp_core_solver_base(static_matrix<T, X> & A,
                     std::vector<column_type> & column_types,
                     std::vector<X> & low_bound_values,
                     std::vector<X> & upper_bound_values):
-    m_m(A.row_count()),
-    m_n(A.column_count()),
-    m_pivot_row_of_B_1(m_m),
-    m_pivot_row(m_n, zero_of_type<T>()),
+    m_pivot_row_of_B_1(A.row_count()),
+    m_pivot_row(A.column_count(), zero_of_type<T>()),
     m_A(A),
     m_b(b),
     m_basis(basis),
     m_x(x),
     m_costs(costs),
     m_settings(settings),
-    m_y(m_m),
+    m_y(m_m()),
     m_status(FEASIBLE),
     m_factorization(nullptr),
     m_column_names(column_names),
-    m_w(m_m),
-    m_d(m_n),
-    m_ed(m_m),
+    m_w(m_m()),
+    m_d(m_n()),
+    m_ed(m_m()),
     m_column_type(column_types),
     m_low_bound_values(low_bound_values),
     m_upper_bound_values(upper_bound_values),
-    m_column_norms(m_n, T(1)),
-    m_copy_of_xB(m_m),
+    m_column_norms(m_n(), T(1)),
+    m_copy_of_xB(m_m()),
     m_steepest_edge_coefficients(A.column_count()) {
-    if (m_m) {
+    if (m_m()) {
         init();
         init_basis_heading();
     }
@@ -79,13 +76,13 @@ lp_core_solver_base(static_matrix<T, X> & A,
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 allocate_basis_heading() { // the rest of initilization will be handled by the factorization class
     m_basis_heading.clear();
-    m_basis_heading.resize(m_n, -1);
+    m_basis_heading.resize(m_n(), -1);
 }
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 init() {
-    lean_assert(m_costs.size() == m_n);
-    lean_assert(m_basis.size() == m_m);
-    lean_assert(m_b.size() == m_m);
+    lean_assert(m_costs.size() == m_n());
+    lean_assert(m_basis.size() == m_m());
+    lean_assert(m_b.size() == m_m());
     allocate_basis_heading();
     init_factorization(m_factorization, m_A, m_basis, m_basis_heading, m_settings, m_non_basic_columns);
     unsigned seed = 1;
@@ -94,7 +91,7 @@ init() {
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 fill_cb(T * y){
-    for (unsigned i = 0; i < m_m; i++) {
+    for (unsigned i = 0; i < m_m(); i++) {
         y[i] = m_costs[m_basis[i]];
     }
 }
@@ -102,7 +99,7 @@ fill_cb(T * y){
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 fill_cb(std::vector<T> & y){
-    for (unsigned i = 0; i < m_m; i++) {
+    for (unsigned i = 0; i < m_m(); i++) {
         y[i] = m_costs[m_basis[i]];
     }
 }
@@ -130,6 +127,7 @@ template <typename T, typename X> void lp_core_solver_base<T, X>::solve_Bd(unsig
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 solve_Bd(unsigned entering) {
     m_factorization->solve_Bd(entering, m_ed, m_w);
+    lean_assert(m_w.is_OK());
 #ifdef LEAN_DEBUG
     // auto B = get_B(m_factorization);
     // vector<T>  a(m_m);
@@ -160,7 +158,7 @@ restore_state(T * w_buffer, T * d_buffer) {
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 copy_m_w(T * buffer) {
-    unsigned i = m_m;
+    unsigned i = m_m();
     while (i --) {
         buffer[i] = m_w[i];
     }
@@ -169,7 +167,7 @@ copy_m_w(T * buffer) {
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 restore_m_w(T * buffer) {
     m_w.m_index.clear();
-    unsigned i = m_m;
+    unsigned i = m_m();
     while (i--) {
         if (!is_zero(m_w[i] = buffer[i]))
             m_w.m_index.push_back(i);
@@ -179,7 +177,7 @@ restore_m_w(T * buffer) {
 // needed for debugging
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 copy_m_ed(T * buffer) {
-    unsigned i = m_m;
+    unsigned i = m_m();
     while (i --) {
         buffer[i] = m_ed[i];
     }
@@ -187,7 +185,7 @@ copy_m_ed(T * buffer) {
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 restore_m_ed(T * buffer) {
-    unsigned i = m_m;
+    unsigned i = m_m();
     while (i --) {
         m_ed[i] = buffer[i];
     }
@@ -195,8 +193,9 @@ restore_m_ed(T * buffer) {
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 A_mult_x_is_off() {
+    lean_assert(m_x.size() == m_A.column_count());
     if (precise<T>()) {
-        for (unsigned i = 0; i < m_m; i++) {
+        for (unsigned i = 0; i < m_m(); i++) {
             X delta = m_b[i] - m_A.dot_product_with_row(i, m_x);
             if (delta != numeric_traits<X>::zero()) {
                 // std::cout << "x is off (";
@@ -212,7 +211,7 @@ A_mult_x_is_off() {
 
     T feps = convert_struct<T, double>::convert(m_settings.refactor_tolerance);
     X one = convert_struct<X, double>::convert(1.0);
-    for (unsigned i = 0; i < m_m; i++) {
+    for (unsigned i = 0; i < m_m(); i++) {
         X delta = abs(m_b[i] - m_A.dot_product_with_row(i, m_x));
         X eps = feps * (one + T(0.1) * abs(m_b[i]));
 
@@ -232,7 +231,7 @@ A_mult_x_is_off() {
 // from page 182 of Istvan Maros's book
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 calculate_pivot_row_of_B_1(unsigned pivot_row) {
-    unsigned i = m_m;
+    unsigned i = m_m();
     while (i--) {
         m_pivot_row_of_B_1[i] = numeric_traits<T>::zero();
     }
@@ -250,7 +249,7 @@ zero_pivot_row() {
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 calculate_pivot_row_when_pivot_row_of_B1_is_ready() {
     zero_pivot_row();
-    int i = m_m;
+    int i = m_m();
     while (i--) {
         T pi_1 = m_pivot_row_of_B_1[i];
         if (numeric_traits<T>::is_zero(pi_1)) {
@@ -388,7 +387,7 @@ time_is_over() {
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 rs_minus_Anx(std::vector<X> & rs) {
-    unsigned row = m_m;
+    unsigned row = m_m();
     while (row--) {
         auto &rsv = rs[row] = m_b[row];
         for (auto & it : m_A.m_rows[row]) {
@@ -444,7 +443,7 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::column_is_feas
 }
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::calc_current_x_is_feasible_include_non_basis() const {
-    unsigned j = this->m_n;
+    unsigned j = this->m_n();
     while (j--) {
         if (!column_is_feasible(j))
             return false;
@@ -501,17 +500,17 @@ update_basis_and_x(int entering, int leaving, X const & tt) {
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 init_basis_heading() {
-    init_basis_heading_and_non_basic_columns_vector(m_basis, m_m, m_basis_heading, m_n, m_non_basic_columns);
+    init_basis_heading_and_non_basic_columns_vector(m_basis, m_basis_heading, m_non_basic_columns);
     lean_assert(basis_heading_is_correct());
 }
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 basis_has_no_doubles() {
     std::set<unsigned> bm;
-    for (unsigned i = 0; i < m_m; i++) {
+    for (unsigned i = 0; i < m_m(); i++) {
         bm.insert(m_basis[i]);
     }
-    return bm.size() == m_m;
+    return bm.size() == m_m();
 }
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
@@ -525,7 +524,7 @@ non_basis_has_no_doubles() {
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 basis_is_correctly_represented_in_heading() {
-    for (unsigned i = 0; i < m_m; i++) {
+    for (unsigned i = 0; i < m_m(); i++) {
         if (m_basis_heading[m_basis[i]] != static_cast<int>(i))
             return false;
     }
@@ -599,7 +598,7 @@ restore_x(unsigned entering, X const & t) {
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 fill_reduced_costs_from_m_y_by_rows() {
-    unsigned j = m_n;
+    unsigned j = m_n();
     while (j--) {
         if (m_factorization->m_basis_heading[j] < 0)
             m_d[j] = m_costs[j];
@@ -607,7 +606,7 @@ fill_reduced_costs_from_m_y_by_rows() {
             m_d[j] = numeric_traits<T>::zero();
     }
 
-    unsigned i = m_m;
+    unsigned i = m_m();
     while (i--) {
         const T & y = m_y[i];
         if (is_zero(y)) continue;
@@ -622,7 +621,7 @@ fill_reduced_costs_from_m_y_by_rows() {
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 copy_rs_to_xB(std::vector<X> & rs) {
-    unsigned j = m_m;
+    unsigned j = m_m();
     while (j--) {
         m_x[m_basis[j]] = rs[j];
     }
@@ -640,7 +639,7 @@ column_name(unsigned column) const {
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 copy_right_side(std::vector<X> & rs) {
-    unsigned i = m_m;
+    unsigned i = m_m();
     while (i --) {
         rs[i] = m_b[i];
     }
@@ -648,7 +647,7 @@ copy_right_side(std::vector<X> & rs) {
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 add_delta_to_xB(std::vector<X> & del) {
-    unsigned i = m_m;
+    unsigned i = m_m();
     while (i--) {
         this->m_x[this->m_basis[i]] -= del[i];
     }
@@ -656,7 +655,7 @@ add_delta_to_xB(std::vector<X> & del) {
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 find_error_in_BxB(std::vector<X>& rs){
-    unsigned row = m_m;
+    unsigned row = m_m();
     while (row--) {
         auto &rsv = rs[row];
         for (auto & it : m_A.m_rows[row]) {
@@ -671,7 +670,7 @@ find_error_in_BxB(std::vector<X>& rs){
 // recalculates the projection of x to B, such that Ax = b, whereab is the right side
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 solve_Ax_eq_b() {
-    std::vector<X> rs(m_m);
+    std::vector<X> rs(m_m());
     rs_minus_Anx(rs);
     std::vector<X> rrs = rs; // another copy of rs
     m_factorization->solve_By(rs);

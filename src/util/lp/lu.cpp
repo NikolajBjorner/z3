@@ -69,9 +69,10 @@ void print_matrix(sparse_matrix<T, X>& m, std::ostream & out) {
 #endif
 
 template <typename T, typename X>
-X dot_product(const std::vector<T> & a, const std::vector<X> & b, unsigned l) {
+X dot_product(const std::vector<T> & a, const std::vector<X> & b) {
+    lean_assert(a.size() == b.size());
     auto r = zero_of_type<X>();
-    for (unsigned i = 0; i < l; i++) {
+    for (unsigned i = 0; i < a.size(); i++) {
         r += a[i] * b[i];
     }
     return r;
@@ -637,6 +638,8 @@ void lu<T, X>::create_initial_factorization(){
     }
     if (j == m_dim) {
         // TBD does not compile: lean_assert(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
+        //        lean_assert(is_correct());
+        // lean_assert(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
         return;
     }
     j++;
@@ -653,8 +656,8 @@ void lu<T, X>::create_initial_factorization(){
     m_dense_LU->conjugate_by_permutation(m_Q);
     push_matrix_to_tail(m_dense_LU);
     m_refactor_counter = 0;
-    // lean_assert(is_correct());
-    // lean_assert(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
+    lean_assert(is_correct());
+    lean_assert(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
 }
 
 template <typename T, typename X>
@@ -818,14 +821,11 @@ void lu<T, X>::calculate_Lwave_Pwave_for_last_row(unsigned lowest_row_of_the_bum
 
 template <typename T, typename X>
 void init_factorization(lu<T, X>* & factorization, static_matrix<T, X> & m_A, std::vector<unsigned> & m_basis, std::vector<int> & m_basis_heading, lp_settings &m_settings, std::vector<unsigned> & non_basic_columns) {
-    if (factorization != nullptr) {
+    if (factorization != nullptr)
         delete factorization;
-    }
     factorization = new lu<T, X>(m_A, m_basis, m_basis_heading, m_settings, non_basic_columns);
-    if (factorization->get_status() != LU_status::OK) {
+    if (factorization->get_status() != LU_status::OK) 
         LP_OUT(m_settings, "failing in init_factorization" << std::endl);
-        return;
-    }
 }
 
 #ifdef LEAN_DEBUG

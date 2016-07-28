@@ -33,7 +33,7 @@ void print_matrix(sparse_matrix<T, X>& m, std::ostream & out);
 #endif
 
 template <typename T, typename X>
-X dot_product(const std::vector<T> & a, const std::vector<X> & b, unsigned l);
+X dot_product(const std::vector<T> & a, const std::vector<X> & b);
 
 template <typename T, typename X>
 class one_elem_on_diag: public tail_matrix<T, X> {

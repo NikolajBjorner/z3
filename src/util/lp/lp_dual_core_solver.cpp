@@ -33,16 +33,16 @@ lp_dual_core_solver<T, X>::lp_dual_core_solver(static_matrix<T, X> & A,
                               low_bound_values,
                               upper_bound_values),
     m_can_enter_basis(can_enter_basis),
-    m_a_wave(this->m_m),
-    m_betas(this->m_m) {
+    m_a_wave(this->m_m()),
+    m_betas(this->m_m()) {
     m_harris_tolerance = numeric_traits<T>::precise()? numeric_traits<T>::zero() : T(this->m_settings.harris_feasibility_tolerance);
     this->solve_yB(this->m_y);
-    init_basic_part_of_basis_heading(this->m_basis, this->m_m, this->m_basis_heading);
+    init_basic_part_of_basis_heading(this->m_basis, this->m_basis_heading);
     fill_non_basis_with_only_able_to_enter_columns();
 }
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::init_a_wave_by_zeros() {
-    unsigned j = this->m_m;
+    unsigned j = this->m_m();
     while (j--) {
         m_a_wave[j] = numeric_traits<T>::zero();
     }
@@ -51,7 +51,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::init_a_wave_by
 template <typename T, typename X> void lp_dual_core_solver<T, X>::fill_non_basis_with_only_able_to_enter_columns() {
     auto & nb = this->m_factorization->m_non_basic_columns;
     nb.clear();
-    unsigned j = this->m_n;
+    unsigned j = this->m_n();
     while (j--) {
         if (this->m_basis_heading[j] >= 0 || !m_can_enter_basis[j]) continue;
         nb.push_back(j);
@@ -62,7 +62,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::fill_non_basis
 template <typename T, typename X> void lp_dual_core_solver<T, X>::restore_non_basis() {
     auto & nb = this->m_factorization->m_non_basic_columns;
     nb.clear();
-    unsigned j = this->m_n;
+    unsigned j = this->m_n();
     while (j--) {
         if (this->m_basis_heading[j] >= 0 ) continue;
         if (m_can_enter_basis[j]) {
@@ -107,7 +107,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::recalculate_d(
 template <typename T, typename X> void lp_dual_core_solver<T, X>::init_betas() {
     // todo : look at page 194 of Progress in the dual simplex algorithm for solving large scale LP problems : techniques for a fast and stable implementation
     // the current implementation is not good enough: todo
-    unsigned i = this->m_m;
+    unsigned i = this->m_m();
     while (i--) {
         m_betas[i] = 1;
     }
@@ -136,14 +136,14 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::done() {
 }
 
 template <typename T, typename X> T lp_dual_core_solver<T, X>::get_edge_steepness_for_low_bound(unsigned p) {
-    lean_assert(this->m_basis_heading[p] >= 0 && static_cast<unsigned>(this->m_basis_heading[p]) < this->m_m);
+    lean_assert(this->m_basis_heading[p] >= 0 && static_cast<unsigned>(this->m_basis_heading[p]) < this->m_m());
     T del = this->m_x[p] - this->m_low_bound_values[p];
     del *= del;
     return del / this->m_betas[this->m_basis_heading[p]];
 }
 
 template <typename T, typename X> T lp_dual_core_solver<T, X>::get_edge_steepness_for_upper_bound(unsigned p) {
-    lean_assert(this->m_basis_heading[p] >= 0 && static_cast<unsigned>(this->m_basis_heading[p]) < this->m_m);
+    lean_assert(this->m_basis_heading[p] >= 0 && static_cast<unsigned>(this->m_basis_heading[p]) < this->m_m());
     T del = this->m_x[p] - this->m_upper_bound_values[p];
     del *= del;
     return del / this->m_betas[this->m_basis_heading[p]];
@@ -195,7 +195,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::pricing_loop(u
     unsigned rows_left = number_of_rows_to_try;
     do  {
         if (m_forbidden_rows.find(i) != m_forbidden_rows.end()) {
-            if (++i == this->m_m) {
+            if (++i == this->m_m()) {
                 i = 0;
             }
             continue;
@@ -208,7 +208,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::pricing_loop(u
                 rows_left--;
             }
         }
-        if (++i == this->m_m) {
+        if (++i == this->m_m()) {
             i = 0;
         }
     } while (i != initial_offset_in_rows && rows_left);
@@ -376,7 +376,7 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::d_is_correct()
 }
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::xb_minus_delta_p_pivot_column() {
-    unsigned i = this->m_m;
+    unsigned i = this->m_m();
     while (i--) {
         this->m_x[this->m_basis[i]] -= m_theta_P * this->m_ed[i];
     }
@@ -386,7 +386,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::update_betas()
     T one_over_arq = numeric_traits<T>::one() / this->m_pivot_row[m_q];
     T beta_r = this->m_betas[m_r] = std::max(T(0.0001), (m_betas[m_r] * one_over_arq) *  one_over_arq);
     T k = -2 * one_over_arq;
-    unsigned i = this->m_m;
+    unsigned i = this->m_m();
     while (i--) {
         if (static_cast<int>(i) == m_r) continue;
         T a = this->m_ed[i];
@@ -439,7 +439,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::snap_xN_to_bou
 }
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::init_beta_precisely(unsigned i) {
-    std::vector<T> vec(this->m_m, numeric_traits<T>::zero());
+    std::vector<T> vec(this->m_m(), numeric_traits<T>::zero());
     vec[i] = numeric_traits<T>::one();
     this->m_factorization->solve_yB(vec);
     T beta = numeric_traits<T>::zero();
@@ -450,7 +450,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::init_beta_prec
 }
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::init_betas_precisely() {
-    unsigned i = this->m_m;
+    unsigned i = this->m_m();
     while (i--) {
         init_beta_precisely(i);
     }
@@ -576,8 +576,8 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::problem_is_dua
 }
 
 template <typename T, typename X> unsigned lp_dual_core_solver<T, X>::get_number_of_rows_to_try_for_leaving() {
-    unsigned s = this->m_m;
-    if (this->m_m > 300) {
+    unsigned s = this->m_m();
+    if (this->m_m() > 300) {
         s = (unsigned)((s / 100.0) * this->m_settings.percent_of_entering_to_check);
     }
     return my_random() % s + 1;
@@ -738,7 +738,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::update_d_and_x
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::calculate_beta_r_precisely() {
     T t = numeric_traits<T>::zero();
-    unsigned i = this->m_m;
+    unsigned i = this->m_m();
     while (i--) {
         T b = this->m_pivot_row_of_B_1[i];
         t += b * b;
@@ -749,7 +749,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::calculate_beta
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::update_xb_after_bound_flips() {
     this->m_factorization->solve_By(m_a_wave);
-    unsigned i = this->m_m;
+    unsigned i = this->m_m();
     while (i--) {
         this->m_x[this->m_basis[i]] -= m_a_wave[i];
     }
@@ -757,9 +757,9 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::update_xb_afte
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::one_iteration() {
     unsigned number_of_rows_to_try = get_number_of_rows_to_try_for_leaving();
-    unsigned offset_in_rows = my_random() % this->m_m;
+    unsigned offset_in_rows = my_random() % this->m_m();
     if (this->m_status == TENTATIVE_DUAL_UNBOUNDED) {
-        number_of_rows_to_try = this->m_m;
+        number_of_rows_to_try = this->m_m();
     } else {
         this->m_status = FEASIBLE;
     }

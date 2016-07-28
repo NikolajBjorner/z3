@@ -16,7 +16,7 @@ void random_updater::fill_set_of_values_and_set_of_vars(std::vector<unsigned> & 
         add_column_to_sets(j);
 }
 
-random_updater::random_updater(lar_core_solver<mpq, numeric_pair<mpq>> & lar_core_solver,  std::vector<unsigned> & column_indices) : m_core_solver(lar_core_solver), m_column_j(m_core_solver.m_m)  {
+random_updater::random_updater(lar_core_solver<mpq, numeric_pair<mpq>> & lar_core_solver,  std::vector<unsigned> & column_indices) : m_core_solver(lar_core_solver), m_column_j(m_core_solver.m_m())  {
     fill_set_of_values_and_set_of_vars(column_indices);
 }
 

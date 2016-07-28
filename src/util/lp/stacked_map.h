@@ -21,6 +21,7 @@ template <typename A, typename B,
     struct delta {
         std::unordered_set<A, Hash, KeyEqual> m_new;
         std::unordered_map<A,B, Hash, KeyEqual, Allocator> m_original_changed;
+        std::unordered_map<A,B, Hash, KeyEqual, Allocator > m_deb_copy;
     };
     std::unordered_map<A,B,Hash, KeyEqual, Allocator> m_map;
     std::stack<delta> m_stack;
@@ -44,17 +45,21 @@ public:
 private:
     void emplace_replace(const A & a, const B & b)  {
         if (!m_stack.empty()) {
+            delta & d = m_stack.top();
             auto it = m_map.find(a);
             if (it == m_map.end()) {
-                m_stack.top().m_new.insert(a);
+                d.m_new.insert(a);
                 m_map.emplace(a, b);
             } else if (it->second != b) {
-                auto & orig_changed= m_stack.top().m_original_changed;
-                auto itt = orig_changed.find(a);
-                if (itt == orig_changed.end()) {
-                    orig_changed.emplace(a, it->second);
-                } else if (itt->second == b) {
-                    orig_changed.erase(itt);
+                auto nit = d.m_new.find(a);
+                if (nit == d.m_new.end()) { // we have an old key
+                    auto & orig_changed= d.m_original_changed;
+                    auto itt = orig_changed.find(a);
+                    if (itt == orig_changed.end()) {
+                        orig_changed.emplace(a, it->second);
+                    } else if (itt->second == b) {
+                        orig_changed.erase(itt);
+                    }
                 }
                 it->second = b;
             }            
@@ -107,6 +112,7 @@ public:
     
     void push() {
         delta d;
+        d.m_deb_copy = m_map;
         m_stack.push(d);
     }
     
@@ -124,10 +130,27 @@ public:
             for (auto & t: d.m_original_changed) {
                 m_map[t.first] = t.second;
             }
+            lean_assert(d.m_deb_copy == m_map);
             m_stack.pop();
         }
     }
 
+    void clear() {
+        if (m_stack.empty()) {
+            m_map.clear();
+            return;
+        }
+
+        delta & d = m_stack.top();
+        auto & oc = d.m_original_changed;
+        for (auto & p : m_map) {
+            const auto & it = oc.find(p.first);
+            if (it == oc.end() && d.m_new.find(p.first) == d.m_new.end())
+                oc.emplace(p.first, p.second);
+        }
+        m_map.clear();
+    }
+    
     const std::unordered_map<A, B,Hash, KeyEqual, Allocator>& operator()() const { return m_map;}
 };
 }

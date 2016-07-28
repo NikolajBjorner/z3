@@ -15,13 +15,11 @@
 #include "util/lp/lu.h"
 #include "util/lp/permutation_matrix.h"
 namespace lean {
-    void init_basic_part_of_basis_heading(std::vector<unsigned> & basis, unsigned m, std::vector<int> & basis_heading);
+    void init_basic_part_of_basis_heading(std::vector<unsigned> & basis, std::vector<int> & basis_heading);
 
     void init_non_basic_part_of_basis_heading(std::vector<int> & basis_heading, std::vector<unsigned> & non_basic_columns, unsigned n);
 void init_basis_heading_and_non_basic_columns_vector(std::vector<unsigned> & basis,
-                                                     unsigned m,
                                                      std::vector<int> & basis_heading,
-                                                     unsigned n,
                                                      std::vector<unsigned> & non_basic_columns);
 
 template <typename T, typename X> // X represents the type of the x variable and the bounds
@@ -29,8 +27,6 @@ class lp_core_solver_base {
     unsigned m_total_iterations = 0;
     unsigned inc_total_iterations() { ++m_settings.st().m_total_iterations; return m_total_iterations++; }
 public:
-    unsigned m_m; // it is the length of basis. The matrix m_A has m_m rows and the dimension of the matrix A is m_m
-    unsigned m_n; // the number of columns in the matrix m_A
     std::vector<T> m_pivot_row_of_B_1;  // the pivot row of the reverse of B
     std::vector<T> m_pivot_row; // this is the real pivot row of the simplex tableu
     std::vector<unsigned> m_pivot_row_index;
@@ -58,6 +54,8 @@ public:
     std::vector<X> m_copy_of_xB;
     unsigned m_sort_counter = 0;
     std::vector<T> m_steepest_edge_coefficients;
+    unsigned m_m() const { return m_A.row_count(); } // it is the length of basis. The matrix m_A has m_m rows and the dimension of the matrix A is m_m
+    unsigned m_n() const { return m_A.column_count(); } // the number of columns in the matrix m_A
 
     lp_core_solver_base(static_matrix<T, X> & A,
                         std::vector<X> & b, // the right side vector
@@ -109,7 +107,7 @@ public:
     void restore_state(T * w_buffer, T * d_buffer);
 
     X get_cost() {
-        return dot_product(m_costs, m_x, m_n);
+        return dot_product(m_costs, m_x);
     }
 
     void copy_m_w(T * buffer);

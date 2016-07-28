@@ -1266,7 +1266,7 @@ namespace smt {
             TRACE("arith", display(tout););
             stopwatch sw;
             sw.start();
-            lean::lp_status status = m_solver->check();
+            lean::lp_status status = m_solver->solve();
             sw.stop();
             std::cout << status << " " << sw.get_seconds() << "\n";
             m_stats.m_num_iterations += m_solver->settings().st().m_total_iterations;

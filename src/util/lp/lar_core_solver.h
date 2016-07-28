@@ -21,7 +21,6 @@ class lar_core_solver : public lp_core_solver_base<T, X> {
     // to grow and is set to -1  otherwise
     int m_sign_of_entering_delta;
     X m_infeasibility;
-    std::vector<unsigned> m_tight_basic_columns;
     std::vector<breakpoint<X>> m_breakpoints;
     binary_heap_priority_queue<X> m_breakpoint_indices_queue;
     std::vector<std::pair<mpq, unsigned>> m_infeasible_row;
@@ -36,7 +35,7 @@ public:
                     std::vector<unsigned> & basis,
                     static_matrix<T, X> & A,
                     lp_settings & settings,
-                    std::unordered_map<unsigned, std::string> & column_names);
+                    const std::unordered_map<unsigned, std::string> & column_names);
 
     int get_infeasible_row_sign() const { return m_infeasible_row_sign;   }
 
@@ -106,9 +105,9 @@ public:
 
     void change_slope_on_breakpoint(unsigned entering, breakpoint<X> * b, T & slope_at_entering);
 
-    bool row_is_infeasible(unsigned row, int & inf_sign);
+    bool row_is_infeasible(unsigned row);
 
-    bool row_is_evidence(unsigned row, int & inf_sign);
+    bool row_is_evidence(unsigned row);
 
     bool find_evidence_row();
 
@@ -121,9 +120,9 @@ public:
 
     void prefix();
 
-    bool is_tiny() const { return this->m_m < 10 && this->m_n < 20; }
+    bool is_tiny() const { return this->m_m() < 10 && this->m_n() < 20; }
 
-    bool is_empty() const { return this->m_m == 0 || this->m_n == 0; }
+    bool is_empty() const { return this->m_m() == 0 || this->m_n() == 0; }
 
     void feasibility_loop();
 
@@ -132,7 +131,7 @@ public:
 
     void row_feasibility_loop();
 
-    int find_infeasible_row(int & inf_sign);
+    int find_infeasible_row();
 
     int get_infeasibility_sign(unsigned j) const;
 
@@ -144,9 +143,9 @@ public:
 
     bool improves_pivot_row_inf(unsigned j, int inf_sign);
 
-    int choose_entering_column_for_row_inf_strategy(int inf_sign);
+    int choose_entering_column_for_row_inf_strategy();
 
-    void fill_evidence(unsigned row, int inf_sign);
+    void fill_evidence(unsigned row);
 
 
     void update_delta_of_entering_and_leaving_candidates(X del, X & delta,
@@ -162,12 +161,12 @@ public:
     }
 
     X find_initial_delta_and_its_sign(unsigned row, unsigned entering,
-                                      int inf_sign, int & entering_delta_sign,
+                                      int & entering_delta_sign,
                                       std::vector<unsigned> & leaving_candidates);
 
-    void advance_on_infeasible_row_and_entering(unsigned inf_row, unsigned entering, int inf_sign);
+    void advance_on_infeasible_row_and_entering(unsigned inf_row, unsigned entering);
 
-    void advance_on_infeasible_row(unsigned i, int inf_sign);
+    void advance_on_infeasible_row(unsigned i);
 
     void solve();
 
