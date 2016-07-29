@@ -876,6 +876,7 @@ void lar_solver::pop(unsigned k) {
         delete m_mpq_lar_core_solver.m_factorization;
         m_mpq_lar_core_solver.m_factorization = nullptr;
     }
+    m_mpq_lar_core_solver.zero_pivot_row();
 }
 }
 

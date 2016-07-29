@@ -656,8 +656,8 @@ void lu<T, X>::create_initial_factorization(){
     m_dense_LU->conjugate_by_permutation(m_Q);
     push_matrix_to_tail(m_dense_LU);
     m_refactor_counter = 0;
-    lean_assert(is_correct());
-    lean_assert(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
+    // lean_assert(is_correct());
+    // lean_assert(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
 }
 
 template <typename T, typename X>
