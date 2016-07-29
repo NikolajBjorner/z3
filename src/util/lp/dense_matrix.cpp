@@ -8,10 +8,7 @@
 #include <vector>
 #include "util/lp/dense_matrix.h"
 namespace lean {
-template <typename T, typename X> dense_matrix<T, X>::dense_matrix(unsigned m, unsigned n) : m_m(m), m_n(n) {
-    m_values = new T[m * n];
-    for (unsigned i = 0; i < m * n; i ++)
-        m_values[i] = numeric_traits<T>::zero();
+template <typename T, typename X> dense_matrix<T, X>::dense_matrix(unsigned m, unsigned n) : m_m(m), m_n(n), m_values(m * n, numeric_traits<T>::zero()) {
 }
 
 template <typename T, typename X> dense_matrix<T, X> dense_matrix<T, X>::operator*=(matrix<T, X> const & a) {
@@ -46,8 +43,7 @@ dense_matrix<T, X>::operator=(dense_matrix const & other){
         return *this;
     m_m = other.m_m;
     m_n = other.m_n;
-    delete [] m_values;
-    m_values = new T[m_m * m_n];
+    m_values.resize(m_m * m_n);
     for (unsigned i = 0; i < m_m; i ++)
         for (unsigned j = 0; j < m_n; j++)
             m_values[i * m_n + j] = other.get_elem(i, j);
@@ -57,7 +53,7 @@ dense_matrix<T, X>::operator=(dense_matrix const & other){
 template <typename T, typename X> dense_matrix<T, X>::dense_matrix(matrix<T, X> const * other) :
     m_m(other->row_count()),
     m_n(other->column_count()) {
-    m_values = new T[m_m * m_n];
+	m_values.resize(m_m*m_n);
     for (unsigned i = 0; i < m_m; i++)
         for (unsigned j = 0; j < m_n; j++)
             m_values[i * m_n + j] = other->get_elem(i, j);

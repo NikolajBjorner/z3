@@ -29,7 +29,7 @@ public:
     }
     unsigned m_m; // number of rows
     unsigned m_n; // number of const
-    T* m_values;//
+    std::vector<T> m_values;
     dense_matrix(unsigned m, unsigned n);
 
     dense_matrix operator*=(matrix<T, X> const & a);
@@ -73,7 +73,6 @@ public:
 
     void multiply_row_by_constant(unsigned row, T & t);
 
-    ~dense_matrix() {  delete [] m_values; }
 };
 template <typename T, typename X>
 dense_matrix<T, X> operator* (matrix<T, X> & a, matrix<T, X> & b);
