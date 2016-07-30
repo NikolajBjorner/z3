@@ -159,12 +159,14 @@ public:
     constraint_index add_constraint(const buffer<std::pair<mpq, var_index>>& left_side, lconstraint_kind kind_par, mpq right_side_par);
 
     bool get_constraint(constraint_index ci, lar_constraint& ci_constr) {
-        if (ci < m_normalized_constraints().size())
+        if (ci < m_normalized_constraints().size()) {
+            ci_constr =  m_normalized_constraints()[ci].m_origin_constraint;
+            return true;
+        }
+        else {
             return false;
-        ci_constr =  m_normalized_constraints()[ci].m_origin_constraint;
-        return true;
+        }
     }
-
     
     bool all_constraints_hold() const;
 
