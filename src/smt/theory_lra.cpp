@@ -978,7 +978,7 @@ namespace smt {
 
         bool assume_eqs() {        
             svector<lean::var_index> vars;
-            theory_var sz = static_cast<theory_var>(m_theory_var2var_index.size())
+            theory_var sz = static_cast<theory_var>(th.get_num_vars());
 ;
             for (theory_var v = 0; v < sz; ++v) {
                 if (th.is_relevant_and_shared(get_enode(v))) { 
