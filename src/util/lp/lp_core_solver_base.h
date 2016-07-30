@@ -262,5 +262,6 @@ public:
     void init_lu();
     int pivots_in_column_and_row_are_different(int entering, int leaving) const;
     void pivot_fixed_vars_from_basis();
+    void print_linear_combination_of_column_indices(const std::vector<std::pair<T, unsigned>> & coeffs, std::ostream & out);
 };
 }

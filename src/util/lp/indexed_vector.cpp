@@ -80,6 +80,12 @@ bool indexed_vector<T>::is_OK() const {
         if (lp_settings::is_eps_small_general(m_data[i], drop_eps) != (std::find(m_index.begin(), m_index.end(), i) == m_index.end()))
                 return false;
     }
+
+    for (unsigned i : m_index) {
+        if (i >= m_data.size())
+            return false;
+    }
+
     return true;
 }
 template <typename T>
