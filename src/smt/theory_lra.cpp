@@ -967,7 +967,7 @@ namespace smt {
         }
 
         void init_variable_values() {
-            if (m_variable_values.size() == 0 && m_solver.get()) {
+            if (m_variable_values.size() == 0 && m_solver.get() && th.get_num_vars() > 0) {
                 m_solver->get_model(m_variable_values);
             }
         }
@@ -1046,9 +1046,6 @@ namespace smt {
         }
 
         final_check_status final_check_eh() {
-            if (!has_delayed_constraints()) {
-                return FC_DONE;
-            }
             //profile_solver();
             if (m_delay_constraints) {
                 init_solver();
