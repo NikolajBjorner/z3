@@ -572,7 +572,10 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::print_column
 // returns the number of iterations
 template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() {
     init_run();
-    lean_assert(!this->A_mult_x_is_off());
+    if ((!numeric_traits<T>::precise()) && this->A_mult_x_is_off()) {
+        this->m_status = FLOATING_POINT_ERROR;
+        return 0;
+    }
     do {
         char const* str = (m_using_inf_costs? "stage 1 " : "stage 2 ");
         if (this->print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over(str)) {
