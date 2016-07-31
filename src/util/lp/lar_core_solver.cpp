@@ -557,10 +557,10 @@ template <typename T, typename X>    unsigned lar_core_solver<T, X>::get_number_
 }
 
 
-template <typename T, typename X>    void lar_core_solver<T, X>::row_feasibility_loop() {   
+template <typename T, typename X>    void lar_core_solver<T, X>::row_feasibility_loop() {
     while (true) {
         if (this->print_statistics_with_iterations_and_check_that_the_time_is_over()){
-            return; 
+            return;
         }
         int i = find_infeasible_row();
         if (i == -1) {
@@ -666,7 +666,9 @@ template <typename T, typename X>    void lar_core_solver<T, X>::fill_evidence(u
 }
 
 
-template <typename T, typename X>    void lar_core_solver<T, X>::update_delta_of_entering_and_leaving_candidates(X del, X & delta,
+template <typename T, typename X>    void lar_core_solver<T, X>::update_delta_of_entering_and_leaving_candidates(
+                                                                                                                 X del,
+                                                                                                                 X & delta,
                                                                                                                  std::vector<unsigned> & leaving_candidates,
                                                                                                                  unsigned bj) {
     if (del < delta) {
@@ -732,7 +734,7 @@ template <typename T, typename X> X lar_core_solver<T, X>::find_initial_delta_an
     return delta;
 }
 
-template <typename T, typename X>    void lar_core_solver<T, X>::advance_on_infeasible_row_and_entering(unsigned inf_row, unsigned entering) {
+template <typename T, typename X> void lar_core_solver<T, X>::advance_on_infeasible_row_and_entering(unsigned inf_row, unsigned entering) {
     this->solve_Bd(entering); // puts the tableau column of entering into this->m_ed
     int entering_delta_sign;
     std::vector<unsigned> leaving_candidates;
@@ -794,5 +796,6 @@ template <typename T, typename X> void lar_core_solver<T, X>::print_column_info(
         lean_assert(false);
     }
 }
+
 }
 

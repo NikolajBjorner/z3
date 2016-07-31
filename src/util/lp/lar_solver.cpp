@@ -31,7 +31,7 @@ double conversion_helper <double>::get_upper_bound(const column_info<mpq> & ci) 
     return ci.get_upper_bound().get_double() - eps;
 }
 
-canonic_left_side lar_solver::create_or_fetch_existing_left_side(const buffer<std::pair<mpq, var_index>>& left_side_par) { 
+canonic_left_side lar_solver::create_or_fetch_existing_left_side(const buffer<std::pair<mpq, var_index>>& left_side_par) {
     auto left_side = canonic_left_side(left_side_par);
     lean_assert(left_side.size() > 0);
     if (!m_map_of_canonic_left_sides.contains(left_side)) {
@@ -120,7 +120,7 @@ void lar_solver::set_upper_bound_for_column_info(constraint_index i, const lar_n
     ul_pair ul = m_map_of_canonic_left_sides[ls];
     var_index additional_var_index = ul.m_additional_var_index;
     lean_assert(is_valid(additional_var_index));
-    column_info_with_cls ci_cls = m_map_from_var_index_to_column_info_with_cls[additional_var_index];    
+    column_info_with_cls ci_cls = m_map_from_var_index_to_column_info_with_cls[additional_var_index];
     column_info<mpq> & ci = ci_cls.m_column_info;
     lean_assert(norm_constr.m_kind == LE || norm_constr.m_kind == LT || norm_constr.m_kind == EQ);
     bool strict = norm_constr.m_kind == LT;
@@ -143,7 +143,7 @@ void lar_solver::set_upper_bound_for_column_info(constraint_index i, const lar_n
         m_infeasible_canonic_left_side = ls;
         return;
     }
-    
+
     try_to_set_fixed(ci);
 }
 
@@ -363,7 +363,7 @@ bool lar_solver::the_relations_are_of_same_type(const buffer<std::pair<mpq, unsi
     bool strict = false;
     for (auto & it : evidence) {
         mpq coeff = it.first;
-        constraint_index con_ind = it.second;        
+        constraint_index con_ind = it.second;
         const lar_normalized_constraint & norm_constr = m_normalized_constraints()[con_ind];
         const lar_constraint & constr = norm_constr.m_origin_constraint;
         lconstraint_kind kind = coeff.is_pos() ? constr.m_kind : flip_kind(constr.m_kind);
@@ -484,10 +484,8 @@ void lar_solver::map_var_indices_to_columns_of_A() {
 
 void lar_solver::prepare_independently_of_numeric_type() {
     update_column_info_of_normalized_constraints();
-    //    map_var_indices_to_columns_of_A();
     if (m_status == INFEASIBLE)
         return;
-    //    map_left_sides_to_A_of_core_solver();
     fill_column_names();
     fill_column_types();
 }
@@ -516,7 +514,7 @@ void lar_solver::prepare_core_solver_fields_with_signature(static_matrix<U, V> &
     if (m_status == INFEASIBLE) {
         lean_assert(false); // not implemented
     }
-    
+
     resize_and_init_x_with_signature(x, low_bound, upper_bound, signature);
     lean_assert(A.column_count() == x.size());
 }
@@ -710,23 +708,7 @@ void lar_solver::print_constraints(std::ostream& out) {
 }
 
 void lar_solver::print_canonic_left_side(const canonic_left_side & c, std::ostream & out) {
-    bool first = true;
-    for (auto & it : c.m_coeffs) {
-        auto val = it.first;
-        if (first) {
-            first = false;
-        } else {
-            if (val.is_pos()) {
-                out << " + ";
-            } else {
-                out << " - ";
-                val = -val;
-            }
-        }
-        if (val != numeric_traits<mpq>::one())
-            out << T_to_string(val);
-        out << get_variable_name(it.second);
-    }
+    m_mpq_lar_core_solver.print_linear_combination_of_column_indices(c.m_coeffs, out);
 }
 
 void lar_solver::print_left_side_of_constraint(const lar_base_constraint * c, std::ostream & out) {
@@ -859,6 +841,7 @@ void lar_solver::push() {
     m_map_from_var_index_to_column_info_with_cls.push();
     m_lar_core_solver_params.push();
     m_var_names_to_var_index.push();
+    m_infeasible_canonic_left_side.push();
 }
 
 void lar_solver::pop() {
@@ -872,11 +855,13 @@ void lar_solver::pop(unsigned k) {
     m_map_from_var_index_to_column_info_with_cls.pop(k);
     m_lar_core_solver_params.pop(k);
     m_var_names_to_var_index.pop(k);
+    m_infeasible_canonic_left_side.pop(k);
     if (m_mpq_lar_core_solver.m_factorization != nullptr) {
         delete m_mpq_lar_core_solver.m_factorization;
         m_mpq_lar_core_solver.m_factorization = nullptr;
     }
     m_mpq_lar_core_solver.zero_pivot_row();
+
 }
 }
 

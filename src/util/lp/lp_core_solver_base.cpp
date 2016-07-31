@@ -198,11 +198,11 @@ A_mult_x_is_off() {
         for (unsigned i = 0; i < m_m(); i++) {
             X delta = m_b[i] - m_A.dot_product_with_row(i, m_x);
             if (delta != numeric_traits<X>::zero()) {
-                // std::cout << "x is off (";
-                // std::cout << "m_b[" << i  << "] = " << m_b[i] << " ";
-                // std::cout << "left side = " << m_A.dot_product_with_row(i, m_x) << ' ';
-                // std::cout << "delta = " << delta << ' ';
-                // std::cout << "iters = " << total_iterations() << ")" << std::endl;
+                std::cout << "x is off (";
+                std::cout << "m_b[" << i  << "] = " << m_b[i] << " ";
+                std::cout << "left side = " << m_A.dot_product_with_row(i, m_x) << ' ';
+                std::cout << "delta = " << delta << ' ';
+                std::cout << "iters = " << total_iterations() << ")" << std::endl;
                 return true;
             }
         }
@@ -284,14 +284,14 @@ update_x(unsigned entering, X delta) {
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 print_statistics(char const* str, X cost) {
-    LP_OUT(m_settings, str << "iterations = " << (total_iterations() - 1) << ", cost = " << T_to_string(cost) 
+    LP_OUT(m_settings, str << "iterations = " << (total_iterations() - 1) << ", cost = " << T_to_string(cost)
                            << ", nonzeros = " << m_factorization->get_number_of_nonzeroes() << std::endl);
 }
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 print_statistics_with_iterations_and_check_that_the_time_is_over() {
     unsigned total_iterations = inc_total_iterations();
-    if (m_settings.print_statistics && (total_iterations % m_settings.report_frequency == 0)) {            
+    if (m_settings.print_statistics && (total_iterations % m_settings.report_frequency == 0)) {
         print_statistics("", X());
     }
     return time_is_over();
@@ -300,7 +300,7 @@ print_statistics_with_iterations_and_check_that_the_time_is_over() {
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over(char const* str) {
     unsigned total_iterations = inc_total_iterations();
-    if (m_settings.print_statistics && (total_iterations % m_settings.report_frequency == 0)) {            
+    if (m_settings.print_statistics && (total_iterations % m_settings.report_frequency == 0)) {
         print_statistics(str, get_cost());
     }
     return time_is_over();
@@ -309,8 +309,8 @@ print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 print_statistics_with_cost_and_check_that_the_time_is_over(X cost) {
     unsigned total_iterations = inc_total_iterations();
-    if (m_settings.print_statistics && (total_iterations % m_settings.report_frequency == 0)) {            
-        print_statistics("", cost);        
+    if (m_settings.print_statistics && (total_iterations % m_settings.report_frequency == 0)) {
+        print_statistics("", cost);
     }
     return time_is_over();
 }
@@ -566,7 +566,7 @@ basis_heading_is_correct() {
         return false;
     }
 
-    
+
     return true;
 }
 
@@ -821,4 +821,26 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_v
         lean_assert(m_factorization->get_status()== LU_status::OK)
     }
 }
+template <typename T, typename X> void lp_core_solver_base<T, X>::
+print_linear_combination_of_column_indices(const std::vector<std::pair<T, unsigned>> & coeffs, std::ostream & out) {
+    bool first = true;
+    for (const auto & it : coeffs) {
+        auto val = it.first;
+        if (first) {
+            first = false;
+        } else {
+            if (val.is_pos()) {
+                out << " + ";
+            } else {
+                out << " - ";
+                val = -val;
+            }
+        }
+        if (val != numeric_traits<mpq>::one())
+            out << T_to_string(val);
+        out << column_name(it.second);
+    }
+    std::cout<< std::endl;
+}
+
 }
