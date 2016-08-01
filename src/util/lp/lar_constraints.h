@@ -34,7 +34,7 @@ class lar_base_constraint {
 public:
     lconstraint_kind m_kind;
     mpq m_right_side;
-    virtual buffer<std::pair<mpq, var_index>> get_left_side_coefficients() const = 0;
+    virtual std::vector<std::pair<mpq, var_index>> get_left_side_coefficients() const = 0;
     lar_base_constraint() {}
     lar_base_constraint(lconstraint_kind kind, mpq right_side) :m_kind(kind), m_right_side(right_side) {}
 
@@ -55,7 +55,7 @@ public:
         return static_cast<unsigned>(m_left_side_map_from_index_to_coefficient.size());
     }
 
-    buffer<std::pair<mpq, var_index>> get_left_side_coefficients() const;
+    std::vector<std::pair<mpq, var_index>> get_left_side_coefficients() const;
 };
 
 class lar_normalized_constraint : public lar_base_constraint {
@@ -72,7 +72,7 @@ public:
 
     lar_normalized_constraint() {}
     
-    buffer<std::pair<mpq, var_index>> get_left_side_coefficients() const;
+    std::vector<std::pair<mpq, var_index>> get_left_side_coefficients() const;
     unsigned size() const {
         return m_canonic_left_side.size();
     }

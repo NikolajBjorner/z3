@@ -44,7 +44,7 @@ canonic_left_side lar_solver::create_or_fetch_existing_left_side(const buffer<st
         ci_cls.m_column_info.set_column_index(j);
         m_map_from_var_index_to_column_info_with_cls[j] = ci_cls;
         add_row_to_A(left_side);
-        lean_assert(A().is_correct());
+        // lean_assert(A().is_correct());
         // j will be a basis column, so we put it into the basis as well
         m_lar_core_solver_params.m_basis().push_back(j);
     }
@@ -711,26 +711,8 @@ void lar_solver::print_canonic_left_side(const canonic_left_side & c, std::ostre
     m_mpq_lar_core_solver.print_linear_combination_of_column_indices(c.m_coeffs, out);
 }
 
-void lar_solver::print_left_side_of_constraint(const lar_base_constraint * c, std::ostream & out) {
-    bool first = true;
-    for (auto & it : c->get_left_side_coefficients()) {
-        auto val = it.first;
-        if (numeric_traits<mpq>::is_zero(val)) continue;
-        if (first) {
-            first = false;
-        } else {
-            if (val.is_pos()) {
-                out << " + ";
-            } else {
-                out << " - ";
-                val = -val;
-            }
-        }
-
-        if (val != numeric_traits<mpq>::one())
-            out << val << " ";
-        out << get_variable_name(it.second);
-    }
+void lar_solver::print_left_side_of_constraint(const lar_base_constraint * c, std::ostream & out) {	
+	m_mpq_lar_core_solver.print_linear_combination_of_column_indices(c->get_left_side_coefficients(), out);
 }
 
 // void lar_solver::print_info_on_column(unsigned j, std::ostream & out) {

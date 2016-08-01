@@ -501,7 +501,7 @@ update_basis_and_x(int entering, int leaving, X const & tt) {
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 init_basis_heading() {
     init_basis_heading_and_non_basic_columns_vector(m_basis, m_basis_heading, m_non_basic_columns);
-    lean_assert(basis_heading_is_correct());
+//    lean_assert(basis_heading_is_correct());
 }
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
