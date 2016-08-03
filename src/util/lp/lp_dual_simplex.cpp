@@ -343,7 +343,6 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::find_maximal_solut
     this->scale();
     augment_matrix_A_and_fill_x_and_allocate_some_fields();
     fill_first_stage_solver_fields();
-    this->fill_column_names_for_core_solver();
     copy_m_b_aside_and_set_it_to_zeros();
     stage1();
     if (this->m_status == FEASIBLE) {

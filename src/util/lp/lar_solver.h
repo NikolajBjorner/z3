@@ -116,8 +116,6 @@ class lar_solver : public column_namer {
 
 	std::string get_column_name(unsigned j) const override;
 
-    void fill_column_names();
-
     void fill_column_types();
 
     template <typename V>

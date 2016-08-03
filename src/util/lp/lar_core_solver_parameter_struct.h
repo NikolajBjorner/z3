@@ -20,7 +20,6 @@ struct lar_core_solver_parameter_struct {
     stacked_value<std::vector<unsigned>> m_basis;
     static_matrix<T, X> m_A;
     lp_settings m_settings;
-    stacked_map<unsigned, std::string> m_column_names;
     void push() {
         m_x.push();
         m_column_types.push();
@@ -28,7 +27,6 @@ struct lar_core_solver_parameter_struct {
         m_upper_bounds.push();
         m_basis.push();
         m_A.push();
-        m_column_names.push();
     }
     void pop() {
         pop(1);
@@ -40,7 +38,6 @@ struct lar_core_solver_parameter_struct {
         m_upper_bounds.pop(k);
         m_basis.pop(k);
         m_A.pop(k);
-        m_column_names.pop(k);
     }
 };
 }

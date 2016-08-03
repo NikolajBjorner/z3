@@ -224,19 +224,6 @@ std::string lar_solver::get_column_name(unsigned j) const
 	return it->second.m_column_info.get_name();
 }
 
-void lar_solver::fill_column_names() {
-    m_lar_core_solver_params.m_column_names.clear();
-    for (auto & t : m_map_from_var_index_to_column_info_with_cls()) {
-        const column_info<mpq> & ci = t.second.m_column_info;
-        unsigned j = ci.get_column_index();
-        lean_assert(is_valid(j));
-        std::string name = ci.get_name();
-        if (name.size() == 0)
-            name = std::string("_s") + T_to_string(j);
-        m_lar_core_solver_params.m_column_names[j] = name;
-    }
-}
-
 void lar_solver::fill_column_types() {
     m_lar_core_solver_params.m_column_types().clear();
     m_lar_core_solver_params.m_column_types().resize(m_map_from_var_index_to_column_info_with_cls.size(), free_column);
@@ -494,7 +481,6 @@ void lar_solver::prepare_independently_of_numeric_type() {
     update_column_info_of_normalized_constraints();
     if (m_status == INFEASIBLE)
         return;
-    fill_column_names();
     fill_column_types();
 }
 

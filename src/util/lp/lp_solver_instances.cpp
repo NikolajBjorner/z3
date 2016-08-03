@@ -9,7 +9,6 @@
 template void lean::lp_solver<double, double>::add_constraint(lean::lp_relation, double, unsigned int);
 template void lean::lp_solver<double, double>::cleanup();
 template void lean::lp_solver<double, double>::count_slacks_and_artificials();
-template void lean::lp_solver<double, double>::fill_column_names_for_core_solver();
 template void lean::lp_solver<double, double>::fill_m_b();
 template void lean::lp_solver<double, double>::fill_matrix_A_and_init_right_side();
 template void lean::lp_solver<double, double>::flip_costs();
@@ -26,7 +25,6 @@ template lean::lp_solver<double, double>::~lp_solver();
 template void lean::lp_solver<lean::mpq, lean::mpq>::add_constraint(lean::lp_relation, lean::mpq, unsigned int);
 template void lean::lp_solver<lean::mpq, lean::mpq>::cleanup();
 template void lean::lp_solver<lean::mpq, lean::mpq>::count_slacks_and_artificials();
-template void lean::lp_solver<lean::mpq, lean::mpq>::fill_column_names_for_core_solver();
 template void lean::lp_solver<lean::mpq, lean::mpq>::fill_m_b();
 template void lean::lp_solver<lean::mpq, lean::mpq>::fill_matrix_A_and_init_right_side();
 template void lean::lp_solver<lean::mpq, lean::mpq>::flip_costs();

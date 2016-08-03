@@ -425,15 +425,6 @@ template <typename T, typename X> void lp_solver<T, X>::map_external_columns_to_
     }
 }
 
-template <typename T, typename X> void lp_solver<T, X>::fill_column_names_for_core_solver() {
-    for (auto it : this->m_map_from_var_index_to_column_info) {
-        unsigned j = it.second->get_column_index();
-        if (is_valid(j))
-            this->m_name_map[j] = it.second->get_name();
-    }
-}
-
-
 template <typename T, typename X> void lp_solver<T, X>::unscale() {
     delete m_A;
     m_A = nullptr;

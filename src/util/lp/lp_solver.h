@@ -195,12 +195,9 @@ protected:
 
     void map_external_columns_to_core_solver_columns();
 
-    void fill_column_names_for_core_solver();
-
     unsigned number_of_core_structurals() {
         return static_cast<unsigned>(m_core_solver_columns_to_external_columns.size());
     }
-
 
     void restore_column_scales_to_one() {
         for (unsigned i = 0; i < m_column_scale.size(); i++) m_column_scale[i] = numeric_traits<T>::one();
