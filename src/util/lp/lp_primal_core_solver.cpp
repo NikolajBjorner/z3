@@ -576,7 +576,6 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
         this->m_status = FLOATING_POINT_ERROR;
         return 0;
     }
-    this->pretty_print(std::cout);
     do {
         char const* str = (m_using_inf_costs? "stage 1 " : "stage 2 ");
         if (this->print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over(str)) {
