@@ -9,7 +9,7 @@
 #include "util/lp/lar_constraints.h"
 namespace lean {
 
-lar_constraint::lar_constraint(const buffer<std::pair<mpq, var_index>> & left_side, lconstraint_kind kind, mpq right_side) :  lar_base_constraint(kind, right_side) {
+lar_constraint::lar_constraint(const std::vector<std::pair<mpq, var_index>> & left_side, lconstraint_kind kind, mpq right_side) :  lar_base_constraint(kind, right_side) {
     for (auto & it : left_side) {
         auto r = m_left_side_map_from_index_to_coefficient.find(it.second);
         if (r == m_left_side_map_from_index_to_coefficient.end()) {

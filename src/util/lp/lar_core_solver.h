@@ -35,7 +35,7 @@ public:
                     std::vector<unsigned> & basis,
                     static_matrix<T, X> & A,
                     lp_settings & settings,
-                    const std::unordered_map<unsigned, std::string> & column_names);
+                    const column_namer & column_names);
 
     int get_infeasible_row_sign() const { return m_infeasible_row_sign;   }
 

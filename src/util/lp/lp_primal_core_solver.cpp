@@ -251,7 +251,7 @@ template <typename T, typename X> lp_primal_core_solver<T, X>::lp_primal_core_so
                                                                                      std::vector<X> & low_bound_values,
                                                                                      std::vector<X> & upper_bound_values,
                                                                                      lp_settings & settings,
-                                                                                     std::unordered_map<unsigned, std::string> const & column_names):
+                                                                                     const column_namer& column_names):
 lp_core_solver_base<T, X>(A, b,
                               basis,
                               x,
@@ -281,7 +281,7 @@ lp_primal_core_solver(static_matrix<T, X> & A,
                       std::vector<column_type> & column_type_array,
                       std::vector<X> & upper_bound_values,
                       lp_settings & settings,
-                      std::unordered_map<unsigned, std::string> const & column_names):
+                      const column_namer& column_names):
     lp_core_solver_base<T, X>(A, b,
                               basis,
                               x,
@@ -576,6 +576,7 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
         this->m_status = FLOATING_POINT_ERROR;
         return 0;
     }
+    this->pretty_print(std::cout);
     do {
         char const* str = (m_using_inf_costs? "stage 1 " : "stage 2 ");
         if (this->print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over(str)) {

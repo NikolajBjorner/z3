@@ -20,7 +20,7 @@ lar_core_solver<T, X>::lar_core_solver(std::vector<X> & x, std::vector<column_ty
                                        std::vector<unsigned> & basis,
                                        static_matrix<T, X> & A,
                                        lp_settings & settings,
-                                       const std::unordered_map<unsigned, std::string> & column_names):
+                                       const column_namer & column_names):
     lp_core_solver_base<T, X>(A,
                               m_right_sides_dummy,
                               basis,

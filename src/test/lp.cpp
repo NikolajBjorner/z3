@@ -32,13 +32,13 @@ Author: Lev Nachmanson
 #include "util/lp/stacked_unordered_set.h"
 namespace lean {
 unsigned seed = 1;
-std::unordered_map<unsigned, std::string> default_column_names(unsigned n) {
-    std::unordered_map<unsigned, std::string> ret;
-    for (unsigned i = 0; i < n; i++) {
-        ret[i] = std::string("x") + T_to_string(i);
-    }
-    return ret;
-}
+
+struct simple_column_namer:public column_namer
+{
+	std::string get_column_name(unsigned j) const override {
+		return std::string("x") + T_to_string(j); 
+	}
+};
 
 template <typename T, typename X>
 void test_matrix(sparse_matrix<T, X> & a) {
@@ -468,11 +468,11 @@ void test_lp_0() {
     costs[4] = 0;
     costs[5] = 0;
     costs[6] = 0;
-
+	
     std::vector<column_type> column_types(7, low_bound);
     std::vector<double>  upper_bound_values;
     lp_settings settings;
-    auto cn = default_column_names(m_.column_count());
+	simple_column_namer cn;
     lp_primal_core_solver<double, double> lpsolver(m_, b, x_star, basis, costs, column_types, upper_bound_values, settings, cn);
 
     lpsolver.solve();
@@ -517,7 +517,7 @@ void test_lp_1() {
 
     std::cout << "calling lp\n";
     lp_settings settings;
-    auto cn = default_column_names(m.column_count());
+	simple_column_namer cn;
 
     lp_primal_core_solver<double, double> lpsolver(m, b,
                                     x_star,
@@ -2325,7 +2325,7 @@ void run_lar_solver(argument_parser & args_parser, lar_solver * solver, mps_read
     lp_status status = solver->solve();
     std::cout << "status is " <<  lp_status_to_string(status) << ", processed for " << get_millisecond_span(begin) / 1000.0 <<" seconds, and " << solver->get_total_iterations() << " iterations" << std::endl;
     if (solver->get_status() == INFEASIBLE) {
-        buffer<std::pair<lean::mpq, constraint_index>> evidence;
+        std::vector<std::pair<lean::mpq, constraint_index>> evidence;
         solver->get_infeasibility_evidence(evidence);
     }
     if (args_parser.option_is_used("--randomize_lar")) {

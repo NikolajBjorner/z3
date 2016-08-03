@@ -21,7 +21,7 @@ lp_dual_core_solver<T, X>::lp_dual_core_solver(static_matrix<T, X> & A,
                                                std::vector<X> & low_bound_values,
                                                std::vector<X> & upper_bound_values,
                                                lp_settings & settings,
-                                               std::unordered_map<unsigned, std::string> const & column_names):
+                                               const column_namer & column_names):
     lp_core_solver_base<T, X>(A,
                               b,
                               basis,

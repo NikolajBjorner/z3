@@ -31,7 +31,7 @@ double conversion_helper <double>::get_upper_bound(const column_info<mpq> & ci) 
     return ci.get_upper_bound().get_double() - eps;
 }
 
-canonic_left_side lar_solver::create_or_fetch_existing_left_side(const buffer<std::pair<mpq, var_index>>& left_side_par) {
+canonic_left_side lar_solver::create_or_fetch_existing_left_side(const std::vector<std::pair<mpq, var_index>>& left_side_par) {
     auto left_side = canonic_left_side(left_side_par);
     lean_assert(left_side.size() > 0);
     if (!m_map_of_canonic_left_sides.contains(left_side)) {
@@ -216,6 +216,14 @@ column_type lar_solver::get_column_type(const column_info<mpq> & ci) {
     return ret;
 }
 
+std::string lar_solver::get_column_name(unsigned j) const 
+{
+	auto it = m_map_from_var_index_to_column_info_with_cls().find(j);
+	if (it == m_map_from_var_index_to_column_info_with_cls().end())
+		return std::string("_s") + T_to_string(j);
+	return it->second.m_column_info.get_name();
+}
+
 void lar_solver::fill_column_names() {
     m_lar_core_solver_params.m_column_names.clear();
     for (auto & t : m_map_from_var_index_to_column_info_with_cls()) {
@@ -301,7 +309,7 @@ var_index lar_solver::add_var(std::string s) {
     return i;
 }
 
-bool lar_solver::all_constrained_variables_are_registered(const buffer<std::pair<mpq, var_index>>& left_side) {
+bool lar_solver::all_constrained_variables_are_registered(const std::vector<std::pair<mpq, var_index>>& left_side) {
     for (auto it : left_side) {
         var_index vj = it.second;
         if (!m_map_from_var_index_to_column_info_with_cls.contains(vj)) {
@@ -312,7 +320,7 @@ bool lar_solver::all_constrained_variables_are_registered(const buffer<std::pair
     return true;
 }
 
-constraint_index lar_solver::add_constraint(const buffer<std::pair<mpq, var_index>>& left_side, lconstraint_kind kind_par, mpq right_side_par) {
+constraint_index lar_solver::add_constraint(const std::vector<std::pair<mpq, var_index>>& left_side, lconstraint_kind kind_par, mpq right_side_par) {
     lean_assert(left_side.size() > 0);
     lean_assert(all_constrained_variables_are_registered(left_side));
     lar_constraint original_constr(left_side, kind_par, right_side_par);
@@ -321,7 +329,7 @@ constraint_index lar_solver::add_constraint(const buffer<std::pair<mpq, var_inde
     auto kind = ratio.is_neg() ? flip_kind(kind_par) : kind_par;
     mpq right_side = right_side_par / ratio;
     lar_normalized_constraint normalized_constraint(ls, ratio, kind, right_side, original_constr);
-    m_normalized_constraints().push_back(normalized_constraint);
+    m_normalized_constraints.push_back(normalized_constraint);
     return m_normalized_constraints().size() - 1 ;
 }
 
@@ -358,7 +366,7 @@ void lar_solver::solve_with_core_solver() {
 #endif
 }
 
-bool lar_solver::the_relations_are_of_same_type(const buffer<std::pair<mpq, unsigned>> & evidence, lconstraint_kind & the_kind_of_sum) {
+bool lar_solver::the_relations_are_of_same_type(const std::vector<std::pair<mpq, unsigned>> & evidence, lconstraint_kind & the_kind_of_sum) {
     unsigned n_of_G = 0, n_of_L = 0;
     bool strict = false;
     for (auto & it : evidence) {
@@ -387,7 +395,7 @@ void lar_solver::register_in_map(std::unordered_map<var_index, mpq> & coeffs, co
         else p->second += it.second * a;
     }
 }
-bool lar_solver::the_left_sides_sum_to_zero(const buffer<std::pair<mpq, unsigned>> & evidence) {
+bool lar_solver::the_left_sides_sum_to_zero(const std::vector<std::pair<mpq, unsigned>> & evidence) {
     std::unordered_map<var_index, mpq> coeff_map;
     for (auto & it : evidence) {
         mpq coeff = it.first;
@@ -402,7 +410,7 @@ bool lar_solver::the_left_sides_sum_to_zero(const buffer<std::pair<mpq, unsigned
     return true;
 }
 
-bool lar_solver::the_right_sides_do_not_sum_to_zero(const buffer<std::pair<mpq, unsigned>> & evidence) {
+bool lar_solver::the_right_sides_do_not_sum_to_zero(const std::vector<std::pair<mpq, unsigned>> & evidence) {
     mpq ret = numeric_traits<mpq>::zero();
     for (auto & it : evidence) {
         mpq coeff = it.first;
@@ -416,7 +424,7 @@ bool lar_solver::the_right_sides_do_not_sum_to_zero(const buffer<std::pair<mpq, 
 
 #ifdef LEAN_DEBUG
 bool lar_solver::the_evidence_is_correct() {
-    buffer<std::pair<mpq, unsigned>> evidence;
+    std::vector<std::pair<mpq, unsigned>> evidence;
     get_infeasibility_evidence(evidence);
     lconstraint_kind kind;
     lean_assert(the_relations_are_of_same_type(evidence, kind));
@@ -449,7 +457,7 @@ void lar_solver::update_column_info_of_normalized_constraints() {
     }
 }
 
-mpq lar_solver::sum_of_right_sides_of_evidence(const buffer<std::pair<mpq, unsigned>> & evidence) {
+mpq lar_solver::sum_of_right_sides_of_evidence(const std::vector<std::pair<mpq, unsigned>> & evidence) {
     mpq ret = numeric_traits<mpq>::zero();
     for (auto & it : evidence) {
         mpq coeff = it.first;
@@ -549,7 +557,7 @@ void lar_solver::find_solution_signature_with_doubles(lar_solution_signature & s
                                                              low_bounds,
                                                              upper_bounds,
                                                              m_lar_core_solver_params.m_settings,
-                                                             m_lar_core_solver_params.m_column_names());
+                                                             *this);
     core_solver.find_feasible_solution();
     extract_signature_from_lp_core_solver(core_solver, signature);
 }
@@ -581,7 +589,7 @@ lp_status lar_solver::solve() {
     return m_status;
 }
 
-void lar_solver::fill_evidence_from_canonic_left_side(buffer<std::pair<mpq, constraint_index>> & evidence) {
+void lar_solver::fill_evidence_from_canonic_left_side(std::vector<std::pair<mpq, constraint_index>> & evidence) {
     // this is the case when the lower bound is in conflict with the upper one
     const ul_pair & ul =  m_map_of_canonic_left_sides[m_infeasible_canonic_left_side];
     const lar_normalized_constraint & bound_constr_u = m_normalized_constraints()[ul.m_upper_bound_witness];
@@ -590,7 +598,7 @@ void lar_solver::fill_evidence_from_canonic_left_side(buffer<std::pair<mpq, cons
     evidence.push_back(std::make_pair(-numeric_traits<mpq>::one() / bound_constr_l.m_ratio_to_original, ul.m_low_bound_witness));
 }
 
-void lar_solver::get_infeasibility_evidence(buffer<std::pair<mpq, constraint_index>> & evidence) {
+void lar_solver::get_infeasibility_evidence(std::vector<std::pair<mpq, constraint_index>> & evidence) {
     if (m_infeasible_canonic_left_side().size() > 0) {
         fill_evidence_from_canonic_left_side(evidence);
         return;
@@ -605,7 +613,7 @@ void lar_solver::get_infeasibility_evidence(buffer<std::pair<mpq, constraint_ind
     get_infeasibility_evidence_for_inf_sign(evidence, inf_row, inf_sign);
 }
 
-void lar_solver::get_infeasibility_evidence_for_inf_sign(buffer<std::pair<mpq, constraint_index>> & evidence,
+void lar_solver::get_infeasibility_evidence_for_inf_sign(std::vector<std::pair<mpq, constraint_index>> & evidence,
     const std::vector<std::pair<mpq, unsigned>> & inf_row,
     int inf_sign) {
     for (auto & it : inf_row) {

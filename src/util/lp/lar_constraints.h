@@ -46,7 +46,7 @@ class lar_constraint : public lar_base_constraint {
 public:
     std::unordered_map<var_index, mpq> m_left_side_map_from_index_to_coefficient;
     lar_constraint() {} 
-    lar_constraint(const buffer<std::pair<mpq, var_index>> & left_side, lconstraint_kind kind, mpq right_side);
+    lar_constraint(const std::vector<std::pair<mpq, var_index>> & left_side, lconstraint_kind kind, mpq right_side);
 
     
     lar_constraint(const lar_base_constraint & c);

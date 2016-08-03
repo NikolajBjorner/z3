@@ -129,14 +129,6 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::fill_costs_and_x
 
 
 
-template <typename T, typename X>    std::string lp_primal_simplex<T, X>::name_of_core_solver_column(unsigned j) { // j here is the core solver index
-    unsigned external_j = this->m_core_solver_columns_to_external_columns[j];
-    auto t = this->m_map_from_var_index_to_column_info.find(external_j);
-    if (t == this->m_map_from_var_index_to_column_info.end()) {
-        return std::string("name_not_found");
-    }
-    return t->m_name;
-}
 
 
 template <typename T, typename X> void lp_primal_simplex<T, X>::set_core_solver_bounds() {
@@ -253,7 +245,7 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::solve_with_total
                                                     this->m_column_types,
                                                     m_low_bounds,
                                                     this->m_upper_bounds,
-                                                    this->m_settings, this->m_name_map);
+                                                    this->m_settings, *this);
     m_core_solver->solve();
     this->m_status = m_core_solver->m_status;
     this->m_total_iterations = m_core_solver->total_iterations();

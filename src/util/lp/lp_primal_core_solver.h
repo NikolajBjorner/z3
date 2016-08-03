@@ -118,7 +118,7 @@ public:
                           std::vector<X> & low_bound_values,
                           std::vector<X> & upper_bound_values,
                           lp_settings & settings,
-                          std::unordered_map<unsigned, std::string> const & column_names);  // constructor
+                          const column_namer& column_names);  // constructor
     lp_primal_core_solver(static_matrix<T, X> & A,
                           std::vector<X> & b, // the right side vector
                           std::vector<X> & x, // the number of elements in x needs to be at least as large as the number of columns in A
@@ -127,7 +127,7 @@ public:
                           std::vector<column_type> & column_type_array,
                           std::vector<X> & upper_bound_values,
                           lp_settings & settings,
-                          std::unordered_map<unsigned, std::string> const & column_names);
+                          const column_namer& column_names);
     bool initial_x_is_correct();
 #ifdef LEAN_DEBUG
     void check_Ax_equal_b();

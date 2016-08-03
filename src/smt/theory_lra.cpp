@@ -185,7 +185,7 @@ namespace smt {
             }
         };
        
-        typedef buffer<std::pair<rational, lean::var_index>> var_coeffs;
+        typedef std::vector<std::pair<rational, lean::var_index>> var_coeffs;
         struct delayed_def {
             vector<rational>    m_coeffs;
             svector<theory_var> m_vars;
@@ -476,7 +476,7 @@ namespace smt {
                     m_columns[var] += coeff;
                 }                
             }
-            m_left_side.reset();
+			m_left_side.clear();
             // reset the coefficients after they have been used.
             for (unsigned i = 0; i < vars.size(); ++i) {
                 theory_var var = vars[i];
@@ -1286,14 +1286,14 @@ namespace smt {
             }
         }
 
-        buffer<std::pair<rational, lean::constraint_index>> m_evidence;
+        std::vector<std::pair<rational, lean::constraint_index>> m_evidence;
         literal_vector      m_core;
         svector<enode_pair> m_eqs;
 
         void set_conflict() {
             m_eqs.reset();
             m_core.reset();
-            m_evidence.reset();
+            m_evidence.clear();
             m_solver->get_infeasibility_evidence(m_evidence);
             TRACE("arith", display_evidence(tout, m_evidence); );
             for (auto const& ev : m_evidence) {
@@ -1387,7 +1387,7 @@ namespace smt {
             }
         }
 
-        void display_evidence(std::ostream& out, buffer<std::pair<rational, lean::constraint_index>> const& evidence) {
+        void display_evidence(std::ostream& out, std::vector<std::pair<rational, lean::constraint_index>> const& evidence) {
             for (auto const& ev : evidence) {
                 expr_ref e(m);
                 SASSERT(!ev.first.is_zero()); 
