@@ -26,6 +26,8 @@ public:
         }
     }
 
+
+
     void decide_on_status_after_stage1();
 
     void fix_logical_for_stage2(unsigned j);

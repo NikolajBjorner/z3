@@ -25,6 +25,7 @@
 #include <stack>
 #include "util/lp/stacked_map.h"
 #include "util/lp/stacked_value.h"
+#include "util/lp/stacked_vector.h"
 namespace lean {
 template <typename V>
 struct conversion_helper {
@@ -59,11 +60,11 @@ struct conversion_helper <double> {
     static double get_upper_bound(const column_info<mpq> & ci);
 };
 
-class lar_solver {
+class lar_solver : public column_namer {
     stacked_value<lp_status> m_status = UNKNOWN;
     stacked_map<std::string, var_index> m_var_names_to_var_index;
     stacked_map<canonic_left_side, ul_pair, hash_and_equal_of_canonic_left_side_struct, hash_and_equal_of_canonic_left_side_struct> m_map_of_canonic_left_sides;
-    stacked_value<std::vector<lar_normalized_constraint>> m_normalized_constraints;
+    stacked_vector<lar_normalized_constraint> m_normalized_constraints;
     stacked_map<var_index, column_info_with_cls> m_map_from_var_index_to_column_info_with_cls;
     lar_core_solver_parameter_struct<mpq, numeric_pair<mpq>> m_lar_core_solver_params;
     lar_core_solver<mpq, numeric_pair<mpq>> m_mpq_lar_core_solver;
@@ -71,7 +72,7 @@ class lar_solver {
     stacked_value<canonic_left_side> m_infeasible_canonic_left_side; // such can be found at the initialization step
 
     static_matrix<mpq, numeric_pair<mpq>> & A() { return m_lar_core_solver_params.m_A;}
-    canonic_left_side create_or_fetch_existing_left_side(const buffer<std::pair<mpq, var_index>>& left_side_par);
+    canonic_left_side create_or_fetch_existing_left_side(const std::vector<std::pair<mpq, var_index>>& left_side_par);
     mpq find_ratio_of_original_constraint_to_normalized(const canonic_left_side & ls, const lar_constraint & constraint);
 
     void add_canonic_left_side_for_var(var_index i, std::string var_name);
@@ -113,7 +114,7 @@ class lar_solver {
 
     column_type get_column_type(const column_info<mpq> & ci);
 
-    void fill_column_names();
+	std::string get_column_name(unsigned j) const override;
 
     void fill_column_types();
 
@@ -149,14 +150,14 @@ public:
                                      m_lar_core_solver_params.m_basis,
                                      m_lar_core_solver_params.m_A,
                                      m_lar_core_solver_params.m_settings,
-                                         m_lar_core_solver_params.m_column_names()) {
+                                         *this) {
     }
 
-    bool all_constrained_variables_are_registered(const buffer<std::pair<mpq, var_index>>& left_side);
+    bool all_constrained_variables_are_registered(const std::vector<std::pair<mpq, var_index>>& left_side);
 
     var_index add_var(std::string s);
 
-    constraint_index add_constraint(const buffer<std::pair<mpq, var_index>>& left_side, lconstraint_kind kind_par, mpq right_side_par);
+    constraint_index add_constraint(const std::vector<std::pair<mpq, var_index>>& left_side, lconstraint_kind kind_par, mpq right_side_par);
 
     bool get_constraint(constraint_index ci, lar_constraint& ci_constr) {
         if (ci < m_normalized_constraints().size()) {
@@ -176,17 +177,17 @@ public:
 
     void solve_with_core_solver();
 
-    bool the_relations_are_of_same_type(const buffer<std::pair<mpq, unsigned>> & evidence, lconstraint_kind & the_kind_of_sum);
+    bool the_relations_are_of_same_type(const std::vector<std::pair<mpq, unsigned>> & evidence, lconstraint_kind & the_kind_of_sum);
 
-    bool the_left_sides_sum_to_zero(const buffer<std::pair<mpq, unsigned>> & evidence);
+    bool the_left_sides_sum_to_zero(const std::vector<std::pair<mpq, unsigned>> & evidence);
 
-    bool the_right_sides_do_not_sum_to_zero(const buffer<std::pair<mpq, unsigned>> & evidence);
+    bool the_right_sides_do_not_sum_to_zero(const std::vector<std::pair<mpq, unsigned>> & evidence);
 
     bool the_evidence_is_correct();
 
     void update_column_info_of_normalized_constraints();
 
-    mpq sum_of_right_sides_of_evidence(const buffer<std::pair<mpq, unsigned>> & evidence);
+    mpq sum_of_right_sides_of_evidence(const std::vector<std::pair<mpq, unsigned>> & evidence);
     void prepare_independently_of_numeric_type();
 
     template <typename U, typename V>
@@ -208,10 +209,10 @@ public:
 
     lp_status solve();
 
-    void get_infeasibility_evidence(buffer<std::pair<mpq, constraint_index>> & evidence);
-    void fill_evidence_from_canonic_left_side(buffer<std::pair<mpq, constraint_index>> & evidence);
+    void get_infeasibility_evidence(std::vector<std::pair<mpq, constraint_index>> & evidence);
+    void fill_evidence_from_canonic_left_side(std::vector<std::pair<mpq, constraint_index>> & evidence);
 
-    void get_infeasibility_evidence_for_inf_sign(buffer<std::pair<mpq, constraint_index>> & evidence,
+    void get_infeasibility_evidence_for_inf_sign(std::vector<std::pair<mpq, constraint_index>> & evidence,
                                                  const std::vector<std::pair<mpq, unsigned>> & inf_row,
                                                  int inf_sign);
 
@@ -232,8 +233,6 @@ public:
     void print_canonic_left_side(const canonic_left_side & c, std::ostream & out);
 
     void print_left_side_of_constraint(const lar_base_constraint * c, std::ostream & out);
-
-    //    void print_info_on_column(unsigned j, std::ostream & out);
 
     mpq get_infeasibility_of_solution(std::unordered_map<std::string, mpq> & solution);
 
@@ -274,5 +273,13 @@ public:
         return ret;
     }
     void add_row_to_A(const canonic_left_side & ls);
+    void fill_basis_from_canonic_left_sides() {
+        auto & b = m_lar_core_solver_params.m_basis;
+        b.clear();
+        for (auto & t : m_map_of_canonic_left_sides()) {
+            b.push_back(t.second.m_additional_var_index);
+        }
+    }
+    virtual ~lar_solver(){}
 };
 }

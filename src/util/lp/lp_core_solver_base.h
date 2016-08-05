@@ -14,10 +14,11 @@
 #include "util/lp/static_matrix.h"
 #include "util/lp/lu.h"
 #include "util/lp/permutation_matrix.h"
+#include "util/lp/column_namer.h"
 namespace lean {
-    void init_basic_part_of_basis_heading(std::vector<unsigned> & basis, std::vector<int> & basis_heading);
+void init_basic_part_of_basis_heading(std::vector<unsigned> & basis, std::vector<int> & basis_heading);
 
-    void init_non_basic_part_of_basis_heading(std::vector<int> & basis_heading, std::vector<unsigned> & non_basic_columns, unsigned n);
+void init_non_basic_part_of_basis_heading(std::vector<int> & basis_heading, std::vector<unsigned> & non_basic_columns, unsigned n);
 void init_basis_heading_and_non_basic_columns_vector(std::vector<unsigned> & basis,
                                                      std::vector<int> & basis_heading,
                                                      std::vector<unsigned> & non_basic_columns);
@@ -41,7 +42,7 @@ public:
     lp_status m_status;
     // a device that is able to solve Bx=c, xB=d, and change the basis
     lu<T, X> * m_factorization;
-    const std::unordered_map<unsigned, std::string> & m_column_names;
+    const column_namer & m_column_names;
     indexed_vector<T> m_w; // the vector featuring in 24.3 of the Chvatal book
     std::vector<T> m_d; // the vector of reduced costs
     indexed_vector<T> m_ed; // the solution of B*m_ed = a
@@ -63,7 +64,7 @@ public:
                         std::vector<X> & x,
                         std::vector<T> & costs,
                         lp_settings & settings,
-                        const std::unordered_map<unsigned, std::string> & column_names,
+                        const column_namer& column_names,
                         std::vector<column_type> & column_types,
                         std::vector<X> & low_bound_values,
                         std::vector<X> & upper_bound_values);

@@ -9,7 +9,7 @@
 #include "util/lp/lar_constraints.h"
 namespace lean {
 
-lar_constraint::lar_constraint(const buffer<std::pair<mpq, var_index>> & left_side, lconstraint_kind kind, mpq right_side) :  lar_base_constraint(kind, right_side) {
+lar_constraint::lar_constraint(const std::vector<std::pair<mpq, var_index>> & left_side, lconstraint_kind kind, mpq right_side) :  lar_base_constraint(kind, right_side) {
     for (auto & it : left_side) {
         auto r = m_left_side_map_from_index_to_coefficient.find(it.second);
         if (r == m_left_side_map_from_index_to_coefficient.end()) {
@@ -26,16 +26,16 @@ lar_constraint::lar_constraint(const lar_base_constraint & c): lar_base_constrai
 }
 
 
-buffer<std::pair<mpq, var_index>> lar_constraint::get_left_side_coefficients() const {
-    buffer<std::pair<mpq, var_index>> ret;
+std::vector<std::pair<mpq, var_index>> lar_constraint::get_left_side_coefficients() const {
+    std::vector<std::pair<mpq, var_index>> ret;
     for (auto it : m_left_side_map_from_index_to_coefficient) {
         ret.push_back(std::make_pair(it.second, it.first));
     }
     return ret;
 }
 
-buffer<std::pair<mpq, var_index>> lar_normalized_constraint::get_left_side_coefficients() const {
-    buffer<std::pair<mpq, var_index>> ret;
+std::vector<std::pair<mpq, var_index>> lar_normalized_constraint::get_left_side_coefficients() const {
+    std::vector<std::pair<mpq, var_index>> ret;
     for (auto t : m_canonic_left_side.m_coeffs) ret.push_back(t);
     return ret;
 }

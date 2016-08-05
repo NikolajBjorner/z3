@@ -54,9 +54,7 @@ public:
 
 
 
-    std::string name_of_core_solver_column(unsigned j);
-
-
+    
     void set_core_solver_bounds();
 
     void update_time_limit_from_starting_time(int start_time) {

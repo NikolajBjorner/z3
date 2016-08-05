@@ -20,7 +20,7 @@ lar_core_solver<T, X>::lar_core_solver(std::vector<X> & x, std::vector<column_ty
                                        std::vector<unsigned> & basis,
                                        static_matrix<T, X> & A,
                                        lp_settings & settings,
-                                       const std::unordered_map<unsigned, std::string> & column_names):
+                                       const column_namer & column_names):
     lp_core_solver_base<T, X>(A,
                               m_right_sides_dummy,
                               basis,
@@ -521,8 +521,28 @@ template <typename T, typename X>    void lar_core_solver<T, X>::move_as_many_as
 
 template <typename T, typename X> bool lar_core_solver<T, X>::non_basis_columns_are_set_correctly() {
     for (unsigned j : this->m_non_basic_columns) {
+        if (j >= this->m_n())
+            return false;
+        switch (this->m_column_type[j]) {
+        case fixed:
+        case boxed:
         if (!this->x_is_at_bound(j))
             return false;
+        break;
+        case low_bound:
+            if (!this->x_is_at_low_bound(j))
+                return false;
+            break;
+        case upper_bound:
+            if (!this->x_is_at_upper_bound(j))
+                return false;
+            break;
+        case free_column:
+            break;
+        default:
+            lean_assert(false);
+            break;
+        }
     }
     return true;
 }

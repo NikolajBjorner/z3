@@ -251,7 +251,7 @@ template <typename T, typename X> lp_primal_core_solver<T, X>::lp_primal_core_so
                                                                                      std::vector<X> & low_bound_values,
                                                                                      std::vector<X> & upper_bound_values,
                                                                                      lp_settings & settings,
-                                                                                     std::unordered_map<unsigned, std::string> const & column_names):
+                                                                                     const column_namer& column_names):
 lp_core_solver_base<T, X>(A, b,
                               basis,
                               x,
@@ -281,7 +281,7 @@ lp_primal_core_solver(static_matrix<T, X> & A,
                       std::vector<column_type> & column_type_array,
                       std::vector<X> & upper_bound_values,
                       lp_settings & settings,
-                      std::unordered_map<unsigned, std::string> const & column_names):
+                      const column_namer& column_names):
     lp_core_solver_base<T, X>(A, b,
                               basis,
                               x,

@@ -43,7 +43,7 @@ public:
                         std::vector<X> & low_bound_values,
                         std::vector<X> & upper_bound_values,
                         lp_settings & settings,
-                        std::unordered_map<unsigned, std::string> const & column_names);
+                        const column_namer& column_names);
 
     void init_a_wave_by_zeros();
 

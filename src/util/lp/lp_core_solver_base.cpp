@@ -42,7 +42,7 @@ lp_core_solver_base(static_matrix<T, X> & A,
                     std::vector<X> & x,
                     std::vector<T> & costs,
                     lp_settings & settings,
-                    const std::unordered_map<unsigned, std::string> & column_names,
+                    const column_namer& column_names,
                     std::vector<column_type> & column_types,
                     std::vector<X> & low_bound_values,
                     std::vector<X> & upper_bound_values):
@@ -501,7 +501,7 @@ update_basis_and_x(int entering, int leaving, X const & tt) {
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 init_basis_heading() {
     init_basis_heading_and_non_basic_columns_vector(m_basis, m_basis_heading, m_non_basic_columns);
-    lean_assert(basis_heading_is_correct());
+//    lean_assert(basis_heading_is_correct());
 }
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
@@ -629,12 +629,7 @@ copy_rs_to_xB(std::vector<X> & rs) {
 
 template <typename T, typename X> std::string lp_core_solver_base<T, X>::
 column_name(unsigned column) const {
-    auto it = m_column_names.find(column);
-    if (it == m_column_names.end()) {
-        std::string name = T_to_string(column);
-        return std::string(std::string("u") + name);
-    }
-    return it->second;
+	return m_column_names.get_column_name(column);
 }
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::

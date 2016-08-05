@@ -359,7 +359,7 @@ namespace lean {
         }
 */
         void add_constraint_to_solver(lar_solver * solver, formula_constraint & fc) {
-            buffer<pair<mpq, var_index>> ls;
+            std::vector<pair<mpq, var_index>> ls;
             for (auto & it : fc.m_coeffs) {
                 ls.push_back(make_pair(it.first, solver->add_var(it.second)));
             }

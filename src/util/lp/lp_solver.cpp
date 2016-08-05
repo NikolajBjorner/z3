@@ -14,6 +14,18 @@ template <typename T, typename X> column_info<T> * lp_solver<T, X>::get_or_creat
     return (it == m_map_from_var_index_to_column_info.end())? (m_map_from_var_index_to_column_info[column] = new column_info<T>(static_cast<unsigned>(-1))) : it->second;
 }
 
+template <typename T, typename X>
+std::string lp_solver<T, X>::get_column_name(unsigned j) const { // j here is the core solver index
+	auto it = this->m_core_solver_columns_to_external_columns.find(j);
+	if (it == this->m_core_solver_columns_to_external_columns.end())
+		return std::string("name_not_found");
+	unsigned external_j = it->second;
+	auto t = this->m_map_from_var_index_to_column_info.find(external_j);
+	if (t == this->m_map_from_var_index_to_column_info.end()) {
+		return std::string("name_not_found");
+	}
+	return t->second->get_name();
+}
 
 template <typename T, typename X> T lp_solver<T, X>::get_column_cost_value(unsigned j, column_info<T> * ci) const {
     if (ci->is_fixed()) {
@@ -412,15 +424,6 @@ template <typename T, typename X> void lp_solver<T, X>::map_external_columns_to_
         }
     }
 }
-
-template <typename T, typename X> void lp_solver<T, X>::fill_column_names_for_core_solver() {
-    for (auto it : this->m_map_from_var_index_to_column_info) {
-        unsigned j = it.second->get_column_index();
-        if (is_valid(j))
-            this->m_name_map[j] = it.second->get_name();
-    }
-}
-
 
 template <typename T, typename X> void lp_solver<T, X>::unscale() {
     delete m_A;

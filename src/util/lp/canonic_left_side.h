@@ -51,7 +51,7 @@ public:
     canonic_left_side(const canonic_left_side & ls): m_coeffs(ls.m_coeffs) {
     }
 
-    canonic_left_side(buffer<std::pair<mpq, var_index>> buffer) {
+    canonic_left_side(std::vector<std::pair<mpq, var_index>> buffer) {
         for (auto it : buffer) {
             if (numeric_traits<mpq>::is_zero(it.first)) continue;
             m_coeffs.push_back(it);

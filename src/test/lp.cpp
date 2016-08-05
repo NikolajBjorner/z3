@@ -32,13 +32,13 @@ Author: Lev Nachmanson
 #include "util/lp/stacked_unordered_set.h"
 namespace lean {
 unsigned seed = 1;
-std::unordered_map<unsigned, std::string> default_column_names(unsigned n) {
-    std::unordered_map<unsigned, std::string> ret;
-    for (unsigned i = 0; i < n; i++) {
-        ret[i] = std::string("x") + T_to_string(i);
-    }
-    return ret;
-}
+
+struct simple_column_namer:public column_namer
+{
+	std::string get_column_name(unsigned j) const override {
+		return std::string("x") + T_to_string(j); 
+	}
+};
 
 template <typename T, typename X>
 void test_matrix(sparse_matrix<T, X> & a) {
@@ -468,11 +468,11 @@ void test_lp_0() {
     costs[4] = 0;
     costs[5] = 0;
     costs[6] = 0;
-
+	
     std::vector<column_type> column_types(7, low_bound);
     std::vector<double>  upper_bound_values;
     lp_settings settings;
-    auto cn = default_column_names(m_.column_count());
+	simple_column_namer cn;
     lp_primal_core_solver<double, double> lpsolver(m_, b, x_star, basis, costs, column_types, upper_bound_values, settings, cn);
 
     lpsolver.solve();
@@ -517,7 +517,7 @@ void test_lp_1() {
 
     std::cout << "calling lp\n";
     lp_settings settings;
-    auto cn = default_column_names(m.column_count());
+	simple_column_namer cn;
 
     lp_primal_core_solver<double, double> lpsolver(m, b,
                                     x_star,
@@ -1818,37 +1818,28 @@ void test_stacked_map_itself() {
     int k = foo[r].a;
     std::cout << k << std::endl;
     
-    stacked_map<mpq, double> m;
-    m[mpq(0)] = 3;
-    m[mpq(1)] = 4;
+    stacked_map<int, double> m;
+    m[0] = 3;
+    m[1] = 4;
     m.push();
-    m[mpq(1)] = 5;
-    m[mpq(2)] = 2;
+    m[1] = 5;
+    m[2] = 2;
     m.pop();
-    {
-        lean_assert(m.size() == 2);
-        double val;
-        bool r = m.try_get_value(mpq(1), val);
-        lean_assert(r);
-        if (r) lean_assert(val == 4);
-        lean_assert(m.contains(mpq(2))==false);
-    }
+    m.erase(2);
+    m[2] = 3;
+    m.erase(1);
     m.push();
-    m[mpq(3)] = 100;
-    m[mpq(4)] = 200;
+    m[3] = 100;
+    m[4] = 200;
+    m.erase(1);
     m.push();
-    m[mpq(5)] = 300;
-    m[mpq(6)] = 400;
-    m[mpq(3)] = 122;
+    m[5] = 300;
+    m[6] = 400;
+    m[5] = 301;
+    m.erase(5);
+    m[3] = 122;
+
     m.pop(2);
-    {
-        lean_assert(m.size() == 2);
-        double val;
-        bool r = m.try_get_value(mpq(1), val);
-        lean_assert(r);
-        if (r) lean_assert(val == 4);
-        lean_assert(m.contains(mpq(2))==false);
-    }
     m.pop();
 }
 
@@ -2325,7 +2316,7 @@ void run_lar_solver(argument_parser & args_parser, lar_solver * solver, mps_read
     lp_status status = solver->solve();
     std::cout << "status is " <<  lp_status_to_string(status) << ", processed for " << get_millisecond_span(begin) / 1000.0 <<" seconds, and " << solver->get_total_iterations() << " iterations" << std::endl;
     if (solver->get_status() == INFEASIBLE) {
-        buffer<std::pair<lean::mpq, constraint_index>> evidence;
+        std::vector<std::pair<lean::mpq, constraint_index>> evidence;
         solver->get_infeasibility_evidence(evidence);
     }
     if (args_parser.option_is_used("--randomize_lar")) {

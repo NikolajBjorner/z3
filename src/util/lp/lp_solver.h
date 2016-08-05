@@ -31,7 +31,7 @@ struct lp_constraint {
 };
 
 template <typename T, typename X>
-class lp_solver {
+class lp_solver : public column_namer {
     column_info<T> * get_or_create_column_info(unsigned column);
 
 protected:
@@ -71,6 +71,7 @@ public:
     void set_cost_for_column(unsigned column, T  column_cost) {
         get_or_create_column_info(column)->set_cost(column_cost);
     }
+	std::string get_column_name(unsigned j) const override;
 
     void set_row_column_coefficient(unsigned row, unsigned column, T const & val) {
         m_A_values[row][column] = val;
@@ -194,12 +195,9 @@ protected:
 
     void map_external_columns_to_core_solver_columns();
 
-    void fill_column_names_for_core_solver();
-
     unsigned number_of_core_structurals() {
         return static_cast<unsigned>(m_core_solver_columns_to_external_columns.size());
     }
-
 
     void restore_column_scales_to_one() {
         for (unsigned i = 0; i < m_column_scale.size(); i++) m_column_scale[i] = numeric_traits<T>::one();

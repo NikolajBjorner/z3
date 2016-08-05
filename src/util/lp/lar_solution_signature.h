@@ -11,8 +11,5 @@
 #include "util/lp/lp_settings.h"
 #include <unordered_map>
 namespace lean {
-struct lar_solution_signature {
-    std::unordered_map<unsigned, non_basic_column_value_position> non_basic_column_value_positions;
-    lp_status status;
-};
+typedef std::unordered_map<unsigned, non_basic_column_value_position> lar_solution_signature;
 }
