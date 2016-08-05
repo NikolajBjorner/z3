@@ -835,7 +835,6 @@ print_linear_combination_of_column_indices(const std::vector<std::pair<T, unsign
             out << T_to_string(val);
         out << column_name(it.second);
     }
-    std::cout<< std::endl;
 }
 
 }

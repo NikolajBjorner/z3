@@ -1009,9 +1009,9 @@ namespace smt {
                 }
                 enode* n2 = get_enode(other);
                 if (n1->get_root() != n2->get_root()) {
-                    TRACE("arith", tout << mk_pp(n1->get_owner(), m) << " = " << mk_pp(n2->get_owner(), m) << "\n";);
-                    std::cout << mk_pp(n1->get_owner(), m) << " = " << mk_pp(n2->get_owner(), m) << "\n";
-                    std::cout << m_theory_var2var_index[v] << " = " << m_theory_var2var_index[other] << "\n";
+                    TRACE("arith", tout << mk_pp(n1->get_owner(), m) << " = " << mk_pp(n2->get_owner(), m) << "\n";
+                          tout << mk_pp(n1->get_owner(), m) << " = " << mk_pp(n2->get_owner(), m) << "\n";
+                          tout << m_theory_var2var_index[v] << " = " << m_theory_var2var_index[other] << "\n";);
                     th.assume_eq(n1, n2);
                     return true;
                 }
@@ -1265,8 +1265,8 @@ namespace smt {
             sw.start();
             lean::lp_status status = m_solver->solve();
             sw.stop();
-            std::cout << status << " " << sw.get_seconds() << "\n";
-            m_stats.m_num_iterations += m_solver->settings().st().m_total_iterations;
+            m_stats.m_num_iterations = m_solver->settings().st().m_total_iterations;
+            std::cout << status << " " << sw.get_seconds() << " " << m_stats.m_num_iterations << "\n";
             //m_stats.m_num_iterations_with_no_progress += m_solver->settings().st().m_iters_with_no_cost_growing;
 
             switch (status) {
