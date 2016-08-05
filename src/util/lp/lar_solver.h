@@ -234,8 +234,6 @@ public:
 
     void print_left_side_of_constraint(const lar_base_constraint * c, std::ostream & out);
 
-    //    void print_info_on_column(unsigned j, std::ostream & out);
-
     mpq get_infeasibility_of_solution(std::unordered_map<std::string, mpq> & solution);
 
     mpq get_infeasibility_of_constraint(const lar_normalized_constraint & norm_constr, std::unordered_map<std::string, mpq> & solution);
@@ -275,6 +273,13 @@ public:
         return ret;
     }
     void add_row_to_A(const canonic_left_side & ls);
+    void fill_basis_from_canonic_left_sides() {
+        auto & b = m_lar_core_solver_params.m_basis;
+        b.clear();
+        for (auto & t : m_map_of_canonic_left_sides()) {
+            b.push_back(t.second.m_additional_var_index);
+        }
+    }
     virtual ~lar_solver(){}
 };
 }

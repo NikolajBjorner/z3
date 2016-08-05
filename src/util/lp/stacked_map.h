@@ -20,7 +20,7 @@ template <typename A, typename B,
           > class stacked_map {
     struct delta {
         std::unordered_set<A, Hash, KeyEqual> m_new;
-        std::unordered_map<A,B, Hash, KeyEqual, Allocator> m_original_changed;
+        std::unordered_map<A, B, Hash, KeyEqual, Allocator> m_original_changed;
         //        std::unordered_map<A,B, Hash, KeyEqual, Allocator > m_deb_copy;
     };
     std::unordered_map<A,B,Hash, KeyEqual, Allocator> m_map;
@@ -135,6 +135,32 @@ public:
         }
     }
 
+    void erase(const A & key) {
+        if (m_stack.empty()) {
+            m_map.erase(key);
+            return;
+        }
+        
+        delta & d = m_stack.top();
+        auto it = m_map.find(key);
+        if (it == m_map.end()) {
+            lean_assert(d.m_new.find(key) == d.m_new.end());
+            return;
+        }
+        auto &orig_changed = d.m_original_changed;
+        auto nit = d.m_new.find(key);
+        if (nit == d.m_new.end()) { // key is old
+            if (orig_changed.find(key) == orig_changed.end())
+                orig_changed.emplace(it->first, it->second); // need to restore
+        } else { // k is new
+            lean_assert(orig_changed.find(key) == orig_changed.end());
+            d.m_new.erase(nit);
+        }
+
+        m_map.erase(it);
+            
+    }
+    
     void clear() {
         if (m_stack.empty()) {
             m_map.clear();
@@ -150,7 +176,7 @@ public:
         }
         m_map.clear();
     }
-    
+
     const std::unordered_map<A, B,Hash, KeyEqual, Allocator>& operator()() const { return m_map;}
 };
 }
