@@ -92,12 +92,13 @@ void lar_solver::fill_row_of_A(static_matrix<U, V> & A, const canonic_left_side 
 
 template <typename U, typename V>
 void lar_solver::create_matrix_A(static_matrix<U, V> & matr) {
-    unsigned m = m_map_of_canonic_left_sides.size();
+	unsigned m = number_or_nontrivial_left_sides();
     unsigned n = m_map_from_var_index_to_column_info_with_cls.size();
-    if (matr.row_count() == m && matr.column_count() == n)
+	if (matr.row_count() == m && matr.column_count() == n)
         return;
     matr.init_empty_matrix(m, n);
     copy_from_mpq_matrix(matr);
+
 }
 
 template <typename U, typename V>
@@ -298,7 +299,9 @@ var_index lar_solver::add_var(std::string s) {
     auto ci_with_cls = column_info_with_cls();
     ci_with_cls.m_column_info.set_name(s);
     ci_with_cls.m_column_info.set_column_index(i);
+	ci_with_cls.m_canonic_left_side.m_coeffs.emplace_back(1, i); 
     m_map_from_var_index_to_column_info_with_cls[i] = ci_with_cls;
+	m_map_of_canonic_left_sides[ci_with_cls.m_canonic_left_side] = ul_pair(i); // we will not create a row in the matrix for this canonic left side
     m_var_names_to_var_index[s] = i;
     return i;
 }
@@ -314,11 +317,13 @@ bool lar_solver::all_constrained_variables_are_registered(const std::vector<std:
     return true;
 }
 
+
+
 constraint_index lar_solver::add_constraint(const std::vector<std::pair<mpq, var_index>>& left_side, lconstraint_kind kind_par, mpq right_side_par) {
-    lean_assert(left_side.size() > 0);
-    lean_assert(all_constrained_variables_are_registered(left_side));
-    lar_constraint original_constr(left_side, kind_par, right_side_par);
-    canonic_left_side ls = create_or_fetch_existing_left_side(left_side);
+	lean_assert(left_side.size() > 0);
+	lean_assert(all_constrained_variables_are_registered(left_side));
+	lar_constraint original_constr(left_side, kind_par, right_side_par);
+	canonic_left_side ls = create_or_fetch_existing_left_side(left_side);
     mpq ratio = find_ratio_of_original_constraint_to_normalized(ls, original_constr);
     auto kind = ratio.is_neg() ? flip_kind(kind_par) : kind_par;
     mpq right_side = right_side_par / ratio;
