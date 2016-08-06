@@ -48,9 +48,10 @@ struct column_info_with_cls { // column_info_with canonic_left_side
     bool operator==(const column_info_with_cls & c) const {
         return m_canonic_left_side==c.m_canonic_left_side && m_column_info == c.m_column_info;
     }
+    // constructor
+    column_info_with_cls(): m_column_info(static_cast<unsigned>(-1)) {}
 
-    column_info_with_cls():
-        m_column_info(static_cast<unsigned>(-1)) {}
+    // constructor
     column_info_with_cls(const canonic_left_side & cls) : m_canonic_left_side(cls), m_column_info(static_cast<unsigned>(-1)) {}
 };
 
@@ -58,6 +59,16 @@ template<>
 struct conversion_helper <double> {
     static double get_low_bound(const column_info<mpq> & ci);
     static double get_upper_bound(const column_info<mpq> & ci);
+};
+
+struct lar_term {
+    // the term evaluates to sum of m_coeffs + m_v
+    std::vector<std::pair<mpq, var_index>> m_coeffs;
+    mpq m_v;
+    lar_term() {}
+    lar_term(const std::vector<std::pair<mpq, var_index>> coeffs,
+             const mpq & v) : m_coeffs(coeffs), m_v(v) {
+    }
 };
 
 class lar_solver : public column_namer {
@@ -69,9 +80,10 @@ class lar_solver : public column_namer {
     stacked_map<var_index, column_info_with_cls> m_map_from_var_index_to_column_info_with_cls;
     lar_core_solver_parameter_struct<mpq, numeric_pair<mpq>> m_lar_core_solver_params;
     lar_core_solver<mpq, numeric_pair<mpq>> m_mpq_lar_core_solver;
-
     stacked_value<canonic_left_side> m_infeasible_canonic_left_side; // such can be found at the initialization step
-
+    stacked_vector<lar_term> m_terms;
+    const var_index unsigned m_terms_start_index = 1000000;
+    
 	////////////////// methods ////////////////////////////////
     static_matrix<mpq, numeric_pair<mpq>> & A() { return m_lar_core_solver_params.m_A;}
     canonic_left_side create_or_fetch_existing_left_side(const std::vector<std::pair<mpq, var_index>>& left_side_par);
@@ -299,5 +311,15 @@ public:
         }
     }
     virtual ~lar_solver(){}
+    unsigned add_term(const std::vector<std::pair<mpq, var_index>> & m_coeffs,
+                       const mpq &m_v) {
+        m_terms.push_back(lar_term(m_coeffs, m_v));
+        return m_terms_start_index + m_terms.size() - 1;
+    }
+
+    const lar_term &  get_term(unsigned j) const {
+        lean_assert(j >= m_terms_start_index);
+        return m_terms[j - m_terms_start_index];
+    }
 };
 }

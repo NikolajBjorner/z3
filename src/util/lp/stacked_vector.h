@@ -70,22 +70,10 @@ public:
 	// }
 
 	const B & operator[](unsigned a) const {
-		auto it = m_vector.find(a);
-		if (it == m_vector.end()) {
-			lean_assert(false);
-		}
-
-		return it->second;
+        lean_assert(a < m_vector.size());
+        return m_vector[a];
 	}
 
-	bool try_get_value(unsigned key, B& val) const {
-		auto it = m_vector.find(key);
-		if (it == m_vector.end())
-			return false;
-
-		val = it->second;
-		return true;
-	}
 	
 	unsigned size() const {
 		return m_vector.size();
