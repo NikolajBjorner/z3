@@ -481,8 +481,8 @@ void sparse_matrix<T, X>::add_delta_to_solution(const std::vector<L>& del, std::
 template <typename T, typename X>
 template <typename L>
 void sparse_matrix<T, X>::add_delta_to_solution(const indexed_vector<L>& del, indexed_vector<L> & y, const lp_settings & settings) {
-    lean_assert(del.is_OK());
-    lean_assert(y.is_OK());
+//    lean_assert(del.is_OK());
+ //   lean_assert(y.is_OK());
     for (auto i : del.m_index) {
         bool was_zero = is_zero(y[i]);
         y[i] += del[i];

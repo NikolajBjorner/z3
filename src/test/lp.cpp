@@ -1800,6 +1800,7 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_help_string("-tbq", "test binary queue");
     parser.add_option_with_help_string("--randomize_lar", "test randomize funclionality");
     parser.add_option_with_help_string("--smap", "test stacked_map");
+    parser.add_option_with_help_string("--term", "simple term test");
 }
 
 struct fff { int a; int b;};
@@ -2682,6 +2683,35 @@ void incremental_test(argument_parser& args_parser, lp_settings & settings) {
     ls.pop();*/
 }
 
+void test_term() {
+    lar_solver solver;
+    
+    var_index x = solver.add_var("x");
+    var_index y = solver.add_var("y");
+
+    std::vector<std::pair<mpq, var_index>> term_ls;
+    term_ls.push_back(std::pair<mpq, var_index>((int)1, x));
+    term_ls.push_back(std::pair<mpq, var_index>((int)1, y));
+    var_index z = solver.add_term(term_ls, mpq(3));
+
+    std::vector<std::pair<mpq, var_index>> ls;
+    ls.push_back(std::pair<mpq, var_index>((int)1, x));
+    ls.push_back(std::pair<mpq, var_index>((int)1, y));
+    ls.push_back(std::pair<mpq, var_index>((int)1, z));
+    
+    solver.add_constraint(ls, lconstraint_kind::EQ, mpq(0));
+    auto status = solver.solve();
+    std::cout << lp_status_to_string(status) << std::endl;
+    std::unordered_map<var_index, mpq> model;
+    solver.get_model(model);
+    
+    for (auto & t : model) {
+        std::cout << solver.get_variable_name(t.first) << " = " << t.second.get_double() << ",";
+    }
+    std::cout << std::endl;
+    
+}
+
 void test_lp_local(int argn, char**argv) {
     // initialize_util_module();
     // initialize_numerics_module();
@@ -2771,6 +2801,11 @@ void test_lp_local(int argn, char**argv) {
 
     if (args_parser.option_is_used("--smap")) {
         test_stacked();
+        ret = 0;
+        return finalize(ret);
+    }
+    if (args_parser.option_is_used("--term")) {
+        test_term();
         ret = 0;
         return finalize(ret);
     }

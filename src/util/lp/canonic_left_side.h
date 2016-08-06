@@ -51,10 +51,20 @@ public:
     canonic_left_side(const canonic_left_side & ls): m_coeffs(ls.m_coeffs) {
     }
 
-    canonic_left_side(std::vector<std::pair<mpq, var_index>> buffer) {
-        for (auto it : buffer) {
-            if (numeric_traits<mpq>::is_zero(it.first)) continue;
-            m_coeffs.push_back(it);
+    canonic_left_side(std::vector<std::pair<mpq, var_index>> coeffs) {
+        std::unordered_map<var_index, mpq> tmp_map;
+
+        for (auto & it : coeffs) {
+            auto r = tmp_map.find(it.second);
+            if (r == tmp_map.end()) {
+                tmp_map.emplace(it.second, it.first);
+            } else {
+                r->second += it.first;
+            }
+        }
+        
+        for (auto & it : tmp_map) {
+            m_coeffs.push_back(std::pair<mpq, var_index>(it.second, it.first));
         }
 
         std::sort(m_coeffs.begin(), m_coeffs.end(), compare);

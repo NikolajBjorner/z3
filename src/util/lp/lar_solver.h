@@ -48,9 +48,10 @@ struct column_info_with_cls { // column_info_with canonic_left_side
     bool operator==(const column_info_with_cls & c) const {
         return m_canonic_left_side==c.m_canonic_left_side && m_column_info == c.m_column_info;
     }
+    // constructor
+    column_info_with_cls(): m_column_info(static_cast<unsigned>(-1)) {}
 
-    column_info_with_cls():
-        m_column_info(static_cast<unsigned>(-1)) {}
+    // constructor
     column_info_with_cls(const canonic_left_side & cls) : m_canonic_left_side(cls), m_column_info(static_cast<unsigned>(-1)) {}
 };
 
@@ -60,7 +61,18 @@ struct conversion_helper <double> {
     static double get_upper_bound(const column_info<mpq> & ci);
 };
 
+struct lar_term {
+    // the term evaluates to sum of m_coeffs + m_v
+    std::vector<std::pair<mpq, var_index>> m_coeffs;
+    mpq m_v;
+    lar_term() {}
+    lar_term(const std::vector<std::pair<mpq, var_index>> coeffs,
+             const mpq & v) : m_coeffs(coeffs), m_v(v) {
+    }
+};
+
 class lar_solver : public column_namer {
+	//////////////////// fields //////////////////////////
     stacked_value<lp_status> m_status = UNKNOWN;
     stacked_map<std::string, var_index> m_var_names_to_var_index;
     stacked_map<canonic_left_side, ul_pair, hash_and_equal_of_canonic_left_side_struct, hash_and_equal_of_canonic_left_side_struct> m_map_of_canonic_left_sides;
@@ -68,12 +80,14 @@ class lar_solver : public column_namer {
     stacked_map<var_index, column_info_with_cls> m_map_from_var_index_to_column_info_with_cls;
     lar_core_solver_parameter_struct<mpq, numeric_pair<mpq>> m_lar_core_solver_params;
     lar_core_solver<mpq, numeric_pair<mpq>> m_mpq_lar_core_solver;
-
     stacked_value<canonic_left_side> m_infeasible_canonic_left_side; // such can be found at the initialization step
-
+    stacked_vector<lar_term> m_terms;
+    const var_index unsigned m_terms_start_index = 1000000;
+    
+	////////////////// methods ////////////////////////////////
     static_matrix<mpq, numeric_pair<mpq>> & A() { return m_lar_core_solver_params.m_A;}
     canonic_left_side create_or_fetch_existing_left_side(const std::vector<std::pair<mpq, var_index>>& left_side_par);
-    mpq find_ratio_of_original_constraint_to_normalized(const canonic_left_side & ls, const lar_constraint & constraint);
+    static mpq find_ratio_of_original_constraint_to_normalized(const canonic_left_side & ls, const lar_constraint & constraint);
 
     void add_canonic_left_side_for_var(var_index i, std::string var_name);
 
@@ -86,7 +100,17 @@ class lar_solver : public column_namer {
     template <typename U, typename V>
     void fill_row_of_A(static_matrix<U, V> & A, const canonic_left_side & ls);
 
-    template <typename U, typename V>
+	unsigned number_or_nontrivial_left_sides() const
+	{
+		unsigned ret = 0;
+		for (auto & p : m_map_of_canonic_left_sides())
+		{
+			if (p.first.size() > 1)
+				ret++;
+		}
+		return ret;
+	}
+	template <typename U, typename V>
     void create_matrix_A(static_matrix<U, V> & A);
     template <typename U, typename V>
     void copy_from_mpq_matrix(static_matrix<U,V> & matr);
@@ -156,20 +180,25 @@ public:
     bool all_constrained_variables_are_registered(const std::vector<std::pair<mpq, var_index>>& left_side);
 
     var_index add_var(std::string s);
+	constraint_index add_var_bound(var_index j, lconstraint_kind kind_par, mpq right_side_par)
+	{
+		std::vector<std::pair<mpq, var_index>> left_side;
+		left_side.emplace_back(1, j);
+		return add_constraint(left_side, kind_par, right_side_par);
+	}
 
     constraint_index add_constraint(const std::vector<std::pair<mpq, var_index>>& left_side, lconstraint_kind kind_par, mpq right_side_par);
 
-    bool get_constraint(constraint_index ci, lar_constraint& ci_constr) {
-        if (ci < m_normalized_constraints().size()) {
+    bool get_constraint(constraint_index ci, lar_constraint& ci_constr) const
+    {
+	    if (ci < m_normalized_constraints().size()) {
             ci_constr =  m_normalized_constraints()[ci].m_origin_constraint;
             return true;
         }
-        else {
-            return false;
-        }
+	    return false;
     }
-    
-    bool all_constraints_hold() const;
+
+	bool all_constraints_hold() const;
 
     bool constraint_holds(const lar_constraint & constr, std::unordered_map<var_index, mpq> & var_map) const;
 
@@ -277,9 +306,20 @@ public:
         auto & b = m_lar_core_solver_params.m_basis;
         b.clear();
         for (auto & t : m_map_of_canonic_left_sides()) {
-            b.push_back(t.second.m_additional_var_index);
+			if (t.first.size() > 1)
+				b.push_back(t.second.m_additional_var_index);
         }
     }
     virtual ~lar_solver(){}
+    unsigned add_term(const std::vector<std::pair<mpq, var_index>> & m_coeffs,
+                       const mpq &m_v) {
+        m_terms.push_back(lar_term(m_coeffs, m_v));
+        return m_terms_start_index + m_terms.size() - 1;
+    }
+
+    const lar_term &  get_term(unsigned j) const {
+        lean_assert(j >= m_terms_start_index);
+        return m_terms[j - m_terms_start_index];
+    }
 };
 }
