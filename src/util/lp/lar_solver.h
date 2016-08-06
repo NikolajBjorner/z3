@@ -72,7 +72,7 @@ struct lar_term {
 };
 
 class lar_solver : public column_namer {
-	//////////////////// fields //////////////////////////
+    //////////////////// fields //////////////////////////
     stacked_value<lp_status> m_status = UNKNOWN;
     stacked_map<std::string, var_index> m_var_names_to_var_index;
     stacked_map<canonic_left_side, ul_pair, hash_and_equal_of_canonic_left_side_struct, hash_and_equal_of_canonic_left_side_struct> m_map_of_canonic_left_sides;
@@ -82,9 +82,9 @@ class lar_solver : public column_namer {
     lar_core_solver<mpq, numeric_pair<mpq>> m_mpq_lar_core_solver;
     stacked_value<canonic_left_side> m_infeasible_canonic_left_side; // such can be found at the initialization step
     stacked_vector<lar_term> m_terms;
-    const var_index unsigned m_terms_start_index = 1000000;
+    const var_index m_terms_start_index = 1000000;
     
-	////////////////// methods ////////////////////////////////
+    ////////////////// methods ////////////////////////////////
     static_matrix<mpq, numeric_pair<mpq>> & A() { return m_lar_core_solver_params.m_A;}
     canonic_left_side create_or_fetch_existing_left_side(const std::vector<std::pair<mpq, var_index>>& left_side_par);
     static mpq find_ratio_of_original_constraint_to_normalized(const canonic_left_side & ls, const lar_constraint & constraint);
@@ -100,21 +100,20 @@ class lar_solver : public column_namer {
     template <typename U, typename V>
     void fill_row_of_A(static_matrix<U, V> & A, const canonic_left_side & ls);
 
-	unsigned number_or_nontrivial_left_sides() const
-	{
-		unsigned ret = 0;
-		for (auto & p : m_map_of_canonic_left_sides())
-		{
-			if (p.first.size() > 1)
-				ret++;
-		}
-		return ret;
-	}
-	template <typename U, typename V>
+    unsigned number_or_nontrivial_left_sides() const
+    {
+        unsigned ret = 0;
+        for (auto & p : m_map_of_canonic_left_sides()) {
+            if (p.first.size() > 1)
+                ret++;
+        }
+        return ret;
+    }
+    template <typename U, typename V>
     void create_matrix_A(static_matrix<U, V> & A);
     template <typename U, typename V>
     void copy_from_mpq_matrix(static_matrix<U,V> & matr);
-
+    
     // void fill_column_info_names() {
     //     for (unsigned j = 0; j < m_A.column_count(); j++) {
     //         column_info<mpq> t;
@@ -138,7 +137,7 @@ class lar_solver : public column_namer {
 
     column_type get_column_type(const column_info<mpq> & ci);
 
-	std::string get_column_name(unsigned j) const override;
+    std::string get_column_name(unsigned j) const override;
 
     void fill_column_types();
 
@@ -177,28 +176,29 @@ public:
                                          *this) {
     }
 
+    virtual ~lar_solver(){}
+
     bool all_constrained_variables_are_registered(const std::vector<std::pair<mpq, var_index>>& left_side);
 
     var_index add_var(std::string s);
-	constraint_index add_var_bound(var_index j, lconstraint_kind kind_par, mpq right_side_par)
-	{
-		std::vector<std::pair<mpq, var_index>> left_side;
-		left_side.emplace_back(1, j);
-		return add_constraint(left_side, kind_par, right_side_par);
-	}
+
+    constraint_index add_var_bound(var_index j, lconstraint_kind kind_par, mpq right_side_par)  {
+        std::vector<std::pair<mpq, var_index>> left_side;
+        left_side.emplace_back(1, j);
+        return add_constraint(left_side, kind_par, right_side_par);
+    }
 
     constraint_index add_constraint(const std::vector<std::pair<mpq, var_index>>& left_side, lconstraint_kind kind_par, mpq right_side_par);
 
-    bool get_constraint(constraint_index ci, lar_constraint& ci_constr) const
-    {
-	    if (ci < m_normalized_constraints().size()) {
+    bool get_constraint(constraint_index ci, lar_constraint& ci_constr) const  {
+        if (ci < m_normalized_constraints().size()) {
             ci_constr =  m_normalized_constraints()[ci].m_origin_constraint;
             return true;
         }
-	    return false;
+        return false;
     }
 
-	bool all_constraints_hold() const;
+    bool all_constraints_hold() const;
 
     bool constraint_holds(const lar_constraint & constr, std::unordered_map<var_index, mpq> & var_map) const;
 
@@ -306,13 +306,12 @@ public:
         auto & b = m_lar_core_solver_params.m_basis;
         b.clear();
         for (auto & t : m_map_of_canonic_left_sides()) {
-			if (t.first.size() > 1)
-				b.push_back(t.second.m_additional_var_index);
+            if (t.first.size() > 1)
+                b.push_back(t.second.m_additional_var_index);
         }
     }
-    virtual ~lar_solver(){}
-    unsigned add_term(const std::vector<std::pair<mpq, var_index>> & m_coeffs,
-                       const mpq &m_v) {
+    var_index add_term(const std::vector<std::pair<mpq, var_index>> & m_coeffs,
+                      const mpq &m_v) {
         m_terms.push_back(lar_term(m_coeffs, m_v));
         return m_terms_start_index + m_terms.size() - 1;
     }

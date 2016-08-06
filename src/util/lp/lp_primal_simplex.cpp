@@ -247,7 +247,7 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::solve_with_total
                                                     this->m_settings, *this);
     m_core_solver->solve();
     this->m_status = m_core_solver->m_status;
-    this->m_total_iterations = m_core_solver->total_iterations();
+    this->m_total_iterations = m_core_solver->total_iterations();   
 }
 
 

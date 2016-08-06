@@ -16,15 +16,15 @@ template <typename T, typename X> column_info<T> * lp_solver<T, X>::get_or_creat
 
 template <typename T, typename X>
 std::string lp_solver<T, X>::get_column_name(unsigned j) const { // j here is the core solver index
-	auto it = this->m_core_solver_columns_to_external_columns.find(j);
-	if (it == this->m_core_solver_columns_to_external_columns.end())
-		return std::string("name_not_found");
-	unsigned external_j = it->second;
-	auto t = this->m_map_from_var_index_to_column_info.find(external_j);
-	if (t == this->m_map_from_var_index_to_column_info.end()) {
-		return std::string("name_not_found");
-	}
-	return t->second->get_name();
+    auto it = this->m_core_solver_columns_to_external_columns.find(j);
+    if (it == this->m_core_solver_columns_to_external_columns.end())
+        return std::string("name_not_found");
+    unsigned external_j = it->second;
+    auto t = this->m_map_from_var_index_to_column_info.find(external_j);
+    if (t == this->m_map_from_var_index_to_column_info.end()) {
+        return std::string("name_not_found");
+    }
+    return t->second->get_name();
 }
 
 template <typename T, typename X> T lp_solver<T, X>::get_column_cost_value(unsigned j, column_info<T> * ci) const {

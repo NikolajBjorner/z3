@@ -216,10 +216,10 @@ column_type lar_solver::get_column_type(const column_info<mpq> & ci) {
 
 std::string lar_solver::get_column_name(unsigned j) const 
 {
-	auto it = m_map_from_var_index_to_column_info_with_cls().find(j);
-	if (it == m_map_from_var_index_to_column_info_with_cls().end())
-		return std::string("_s") + T_to_string(j);
-	return it->second.m_column_info.get_name();
+    auto it = m_map_from_var_index_to_column_info_with_cls().find(j);
+    if (it == m_map_from_var_index_to_column_info_with_cls().end())
+        return std::string("_s") + T_to_string(j);
+    return it->second.m_column_info.get_name();
 }
 
 void lar_solver::fill_column_types() {
@@ -728,8 +728,8 @@ void lar_solver::print_canonic_left_side(const canonic_left_side & c, std::ostre
     m_mpq_lar_core_solver.print_linear_combination_of_column_indices(c.m_coeffs, out);
 }
 
-void lar_solver::print_left_side_of_constraint(const lar_base_constraint * c, std::ostream & out) {	
-	m_mpq_lar_core_solver.print_linear_combination_of_column_indices(c->get_left_side_coefficients(), out);
+void lar_solver::print_left_side_of_constraint(const lar_base_constraint * c, std::ostream & out) {
+    m_mpq_lar_core_solver.print_linear_combination_of_column_indices(c->get_left_side_coefficients(), out);
 }
 
 // void lar_solver::print_info_on_column(unsigned j, std::ostream & out) {
