@@ -505,7 +505,7 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
 // void recalc_reduced_costs() {
 //     if (current_x_is_feasible())
 //         init_infeasibility_costs();
-//     this->init_reduced_costs_for_one_iteration();
+//     this->init_reduced_costs_for_one_iteration(;;
 // }
 
 template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_entering(int entering) {

@@ -525,8 +525,7 @@ namespace smt {
             add_def_constraint(m_solver->add_constraint(m_left_side, lean::EQ, -d.m_coeff), d.m_var);
         }
         
-        void internalize_eq(theory_var v1, theory_var v2) {
-                  
+        void internalize_eq(theory_var v1, theory_var v2) {                  
             enode* n1 = get_enode(v1);
             enode* n2 = get_enode(v2);
             scoped_internalize_state st(*this);
@@ -546,32 +545,6 @@ namespace smt {
             expr* n1, *n2;
             lean::lconstraint_kind k = lean::EQ;
 
-#if 0
-            theory_var v = null_theory_var;
-            scoped_internalize_state st(*this);
-            rational right_side;
-            if (a.is_le(atom, n1, n2) && is_numeral(n2, right_side) && is_app(n1)) {
-                v = internalize_def(to_app(n1), st);
-                k = is_true ? lean::LE : lean::GT;
-            }
-            else if (a.is_ge(atom, n1, n2) && is_numeral(n2, right_side) && is_app(n1)) {
-                v = internalize_def(to_app(n1), st);
-                k = is_true ? lean::GE : lean::LT;
-            }    
-            else {
-                TRACE("arith", tout << "Could not internalize " << mk_pp(atom, m) << "\n";);
-                found_not_handled(atom);
-                return;
-            }
-            TRACE("arith", tout << "Internalized " << mk_pp(atom, m) << "\n";);
-            if (!is_unit_var(st)) {
-                init_left_side(st);
-                add_def_constraint(m_solver->add_constraint(m_left_side, lean::EQ, -st.coeff()), v);
-            }
-            m_left_side.reset();
-            m_left_side.push_back(std::make_pair(rational::one(), get_var_index(v)));
-            add_ineq_constraint(m_solver->add_constraint(m_left_side, k, right_side), literal(bv, !is_true));
-#else
             if (a.is_le(atom, n1, n2)){
                 k = is_true ? lean::LE : lean::GT;
             }
@@ -599,7 +572,6 @@ namespace smt {
                 // if equality is false, then we have contradiction here.
                 TRACE("arith", tout << "Ignoring inequality\n";);                
             }
-#endif
         }
 
 
