@@ -176,11 +176,13 @@ public:
                                          *this) {
     }
 
+    virtual ~lar_solver(){}
+
     bool all_constrained_variables_are_registered(const std::vector<std::pair<mpq, var_index>>& left_side);
 
     var_index add_var(std::string s);
-    constraint_index add_var_bound(var_index j, lconstraint_kind kind_par, mpq right_side_par)
-    {
+
+    constraint_index add_var_bound(var_index j, lconstraint_kind kind_par, mpq right_side_par)  {
         std::vector<std::pair<mpq, var_index>> left_side;
         left_side.emplace_back(1, j);
         return add_constraint(left_side, kind_par, right_side_par);
@@ -188,8 +190,7 @@ public:
 
     constraint_index add_constraint(const std::vector<std::pair<mpq, var_index>>& left_side, lconstraint_kind kind_par, mpq right_side_par);
 
-    bool get_constraint(constraint_index ci, lar_constraint& ci_constr) const
-    {
+    bool get_constraint(constraint_index ci, lar_constraint& ci_constr) const  {
         if (ci < m_normalized_constraints().size()) {
             ci_constr =  m_normalized_constraints()[ci].m_origin_constraint;
             return true;
@@ -309,8 +310,7 @@ public:
                 b.push_back(t.second.m_additional_var_index);
         }
     }
-    virtual ~lar_solver(){}
-    unsigned add_term(const std::vector<std::pair<mpq, var_index>> & m_coeffs,
+    var_index add_term(const std::vector<std::pair<mpq, var_index>> & m_coeffs,
                       const mpq &m_v) {
         m_terms.push_back(lar_term(m_coeffs, m_v));
         return m_terms_start_index + m_terms.size() - 1;

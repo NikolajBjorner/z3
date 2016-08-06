@@ -608,14 +608,19 @@ namespace smt {
         // term - v = 0
         theory_var internalize_def(app* term) {
             scoped_internalize_state st(*this);
-            theory_var v = internalize_def(term, st);
+            linearize_term(term, st);
             if (is_unit_var(st)) {
                 return st.vars()[0];
             }
             else {
-                TRACE("arith", tout << "v" << v << " := " << mk_pp(term, m) << "\n";);
                 init_left_side(st);
-                add_def_constraint(m_solver->add_constraint(m_left_side, lean::EQ, -st.coeff()), v);
+                theory_var v = mk_var(term);
+                if (m_theory_var2var_index.size() <= static_cast<unsigned>(v)) {
+                    lean::var_index vi = m_solver->add_term(m_left_side, st.coeff());
+                    m_theory_var2var_index.setx(v, vi, UINT_MAX);
+                    m_var_trail.push_back(v);
+                    TRACE("arith", tout << "v" << v << " := " << mk_pp(term, m) << "\n";);
+                }
                 return v;
             }
         }
@@ -641,8 +646,45 @@ namespace smt {
         }
         
         bool internalize_atom(app * atom, bool gate_ctx) {
-            SASSERT(!ctx().b_internalized(atom));
+            if (m_delay_constraints) {
+                return internalize_atom_lazy(atom, gate_ctx);
+            }
+            else {
+                return internalize_atom_strict(atom, gate_ctx);
+            }
+        }
 
+        bool internalize_atom_strict(app * atom, bool gate_ctx) {
+            SASSERT(!ctx().b_internalized(atom));
+            bool_var bv = ctx().mk_bool_var(atom);
+            ctx().set_var_theory(bv, get_id());
+            expr* n1, *n2;
+            rational r;
+            lp::bound_kind k;
+            theory_var v = null_theory_var;
+            if (a.is_le(atom, n1, n2) && is_numeral(n2, r) && is_app(n1)) {
+                v = internalize_def(to_app(n1));
+                k = lp::upper_t;
+            }
+            else if (a.is_ge(atom, n1, n2) && is_numeral(n2, r) && is_app(n1)) {
+                v = internalize_def(to_app(n1));
+                k = lp::lower_t;
+            }    
+            else {
+                TRACE("arith", tout << "Could not internalize " << mk_pp(atom, m) << "\n";);
+                found_not_handled(atom);
+                return true;
+            }
+            lp::bound* b = alloc(lp::bound, bv, v, r, k);
+            m_bounds[v].push_back(b);
+            m_bounds_trail.push_back(v);
+            m_bool_var2bound.insert(bv, b);
+            TRACE("arith", tout << "Internalized " << mk_pp(atom, m) << "\n";);
+            return true;
+        }
+
+        bool internalize_atom_lazy(app * atom, bool gate_ctx) {
+            SASSERT(!ctx().b_internalized(atom));
             bool_var bv = ctx().mk_bool_var(atom);
             ctx().set_var_theory(bv, get_id());
             expr* n1, *n2;
@@ -669,13 +711,7 @@ namespace smt {
             m_bool_var2bound.insert(bv, b);
             TRACE("arith", tout << "Internalized " << mk_pp(atom, m) << "\n";);
             if (!is_unit_var(st) && m_bounds[v].size() == 1) {
-                if (m_delay_constraints) {
-                    m_delayed_defs.push_back(delayed_def(st.vars(), st.coeffs(), st.coeff(), v));                    
-                }
-                else {
-                    init_left_side(st);
-                    add_def_constraint(m_solver->add_constraint(m_left_side, lean::EQ, -st.coeff()), v);
-                }
+                m_delayed_defs.push_back(delayed_def(st.vars(), st.coeffs(), st.coeff(), v)); 
             }
             return true;
         }
@@ -1227,7 +1263,8 @@ namespace smt {
             else {
                 ++m_stats.m_assert_upper;
             }
-            add_ineq_constraint(m_solver->add_constraint(m_left_side, k, b.get_value()), literal(bv, !is_true));
+            add_ineq_constraint(m_solver->add_var_bound(get_var_index(b.get_var()), k, b.get_value()), literal(bv, !is_true));
+            // add_ineq_constraint(m_solver->add_constraint(m_left_side, k, b.get_value()), literal(bv, !is_true));
         }
 
         lbool make_feasible() {
