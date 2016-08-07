@@ -67,10 +67,8 @@ lp_core_solver_base(static_matrix<T, X> & A,
     m_column_norms(m_n(), T(1)),
     m_copy_of_xB(m_m()),
     m_steepest_edge_coefficients(A.column_count()) {
-    if (m_m()) {
         init();
         init_basis_heading();
-    }
     }
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::

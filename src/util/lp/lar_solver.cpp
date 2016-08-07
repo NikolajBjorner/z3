@@ -254,7 +254,7 @@ void lar_solver::fill_bounds_for_core_solver(std::vector<V> & lb, std::vector<V>
 template <typename V>
 void lar_solver::resize_and_init_x_with_zeros(std::vector<V> & x) {
     x.clear();
-    x.resize(A().column_count(), zero_of_type<V>()); // init with zeroes
+    x.resize(A().column_count(), zero_of_type<V>()); // init with zeroes, todo - is it necessery?
 }
 
 template <typename V>
@@ -524,7 +524,7 @@ void lar_solver::prepare_core_solver_fields(static_matrix<U, V> & A, std::vector
     else {
         resize_and_init_x_with_zeros(x);
         fill_basis_from_canonic_left_sides();
-        lean_assert(m_lar_core_solver_params.m_basis.size() == A.row_count());
+		lean_assert(m_lar_core_solver_params.m_basis.size() == A.row_count());
     }
 }
 template <typename U, typename V>
@@ -588,10 +588,10 @@ void lar_solver::solve_on_signature(const lar_solution_signature & signature) {
 }
 
 lp_status lar_solver::solve() {
-    prepare_independently_of_numeric_type();
+	prepare_independently_of_numeric_type();
     if (m_status == INFEASIBLE)
         return m_status;
-    if (m_lar_core_solver_params.m_settings.use_double_solver_for_lar) {
+    if (need_to_presolve_with_double_solver()) {
         lar_solution_signature solution_signature;
         find_solution_signature_with_doubles(solution_signature);
         // here the basis that is kept in m_basis is the same that was used in the double solver

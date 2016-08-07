@@ -8,7 +8,6 @@
 #include "util/lp/permutation_matrix.h"
 namespace lean {
     template <typename T, typename X> permutation_matrix<T, X>::permutation_matrix(unsigned length): m_permutation(length), m_rev(length), m_T_buffer(length), m_X_buffer(length)  {
-    lean_assert(length > 0);
     for (unsigned i = 0; i < length; i++) { // do not change the direction of the loop because of the vectorization bug in clang3.3
         m_permutation[i] = m_rev[i] = i;
     }

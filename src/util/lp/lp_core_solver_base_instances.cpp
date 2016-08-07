@@ -30,6 +30,7 @@ template bool lean::lp_core_solver_base<double, double>::print_statistics_with_i
 template void lean::lp_core_solver_base<double, double>::restore_x(unsigned int, double const&);
 template void lean::lp_core_solver_base<double, double>::set_non_basic_x_to_correct_bounds();
 template void lean::lp_core_solver_base<double, double>::snap_xN_to_bounds_and_free_columns_to_zeroes();
+template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::snap_xN_to_bounds_and_free_columns_to_zeroes();
 template void lean::lp_core_solver_base<double, double>::solve_Ax_eq_b();
 template void lean::lp_core_solver_base<double, double>::solve_Bd(unsigned int);
 template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq>>::solve_Bd(unsigned int, indexed_vector<lean::mpq>&);
