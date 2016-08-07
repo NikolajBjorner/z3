@@ -320,9 +320,10 @@ public:
         lean_assert(j >= m_terms_start_index);
         return m_terms[j - m_terms_start_index];
     }
-	bool need_to_presolve_with_double_solver() const {
-		return m_lar_core_solver_params.m_settings.use_double_solver_for_lar
-			&& m_lar_core_solver_params.m_A.row_count() > 0; // todo, add more conditions
-	}
+
+    bool need_to_presolve_with_double_solver() const {
+        return m_lar_core_solver_params.m_settings.use_double_solver_for_lar
+            && m_lar_core_solver_params.m_A.row_count() > 0; // todo, add more conditions
+    }
 };
 }
