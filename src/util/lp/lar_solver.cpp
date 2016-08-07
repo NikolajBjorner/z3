@@ -806,6 +806,7 @@ void lar_solver::print_constraint(const lar_base_constraint * c, std::ostream & 
 void lar_solver::fill_var_set_for_random_update(unsigned sz, var_index const * vars, std::vector<unsigned>& column_list) {
     for (unsigned i = 0; i < sz; i++) {
         var_index var = vars[i];
+        lean_assert(m_map_from_var_index_to_column_info_with_cls.contains(var));
         const column_info_with_cls& ci_cls = m_map_from_var_index_to_column_info_with_cls[var];
         unsigned var_column_index = ci_cls.m_column_info.get_column_index();
         column_list.push_back(var_column_index);

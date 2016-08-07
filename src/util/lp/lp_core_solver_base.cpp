@@ -78,9 +78,6 @@ allocate_basis_heading() { // the rest of initilization will be handled by the f
 }
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 init() {
-    lean_assert(m_costs.size() == m_n());
-    lean_assert(m_basis.size() == m_m());
-    lean_assert(m_b.size() == m_m());
     allocate_basis_heading();
     init_factorization(m_factorization, m_A, m_basis, m_basis_heading, m_settings, m_non_basic_columns);
     unsigned seed = 1;
