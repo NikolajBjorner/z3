@@ -578,6 +578,10 @@ template <typename T, typename X>    unsigned lar_core_solver<T, X>::get_number_
 
 
 template <typename T, typename X>    void lar_core_solver<T, X>::row_feasibility_loop() {
+	if (this->m_m() == 0) {
+		this->m_status = OPTIMAL;
+		return;
+	}
     while (true) {
         if (this->print_statistics_with_iterations_and_check_that_the_time_is_over()){
             return;
@@ -595,7 +599,7 @@ template <typename T, typename X>    void lar_core_solver<T, X>::row_feasibility
     }
 }
 
-template <typename T, typename X>    int lar_core_solver<T, X>::find_infeasible_row() {
+template <typename T, typename X>    int lar_core_solver<T, X>::find_infeasible_row() {	
     unsigned offset = my_random() % this->m_m();
     unsigned initial_offset_in_basis = offset;
     do {
@@ -789,6 +793,7 @@ template <typename T, typename X> void lar_core_solver<T, X>::solve() {
         this->m_status = OPTIMAL;
         return;
     }
+	this->snap_xN_to_bounds_and_free_columns_to_zeroes();
     this->solve_Ax_eq_b();
     lean_assert(this->A_mult_x_is_off() == false);
     lean_assert(non_basis_columns_are_set_correctly());

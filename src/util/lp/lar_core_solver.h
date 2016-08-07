@@ -122,7 +122,7 @@ public:
 
     bool is_tiny() const { return this->m_m() < 10 && this->m_n() < 20; }
 
-    bool is_empty() const { return this->m_m() == 0 || this->m_n() == 0; }
+    bool is_empty() const { return this->m_m() == 0 && this->m_n() == 0; }
 
     void feasibility_loop();
 
