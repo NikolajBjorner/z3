@@ -10,7 +10,7 @@
 #include <vector>
 #include "util/lp/lu.cpp"
 template double lean::dot_product<double, double>(std::vector<double, std::allocator<double> > const&, std::vector<double, std::allocator<double> > const&);
-template lean::lu<double, double>::lu(lean::static_matrix<double, double> const&, std::vector<unsigned int, std::allocator<unsigned int> >&, std::vector<int, std::allocator<int> >&, lean::lp_settings&);
+template lean::lu<double, double>::lu(lean::static_matrix<double, double> const&, std::vector<unsigned int, std::allocator<unsigned int> >&, lean::lp_settings&);
 template void lean::lu<double, double>::push_matrix_to_tail(lean::tail_matrix<double, double>*);
 template void lean::lu<double, double>::replace_column(unsigned int, double, lean::indexed_vector<double>&, unsigned);
 template void lean::lu<double, double>::solve_Bd(unsigned int, lean::indexed_vector<double>&, lean::indexed_vector<double>&);
@@ -22,9 +22,9 @@ template void lean::lu<lean::mpq, lean::numeric_pair<lean::mpq> >::push_matrix_t
 template void lean::lu<lean::mpq, lean::numeric_pair<lean::mpq> >::solve_Bd(unsigned int, lean::indexed_vector<lean::mpq>&, lean::indexed_vector<lean::mpq>&);
 template lean::lu<lean::mpq, lean::numeric_pair<lean::mpq> >::~lu();
 template lean::mpq lean::dot_product<lean::mpq, lean::mpq>(std::vector<lean::mpq, std::allocator<lean::mpq> > const&, std::vector<lean::mpq, std::allocator<lean::mpq> > const&);
-template void lean::init_factorization<double, double>(lean::lu<double, double>*&, lean::static_matrix<double, double>&, std::vector<unsigned int, std::allocator<unsigned int> >&, std::vector<int, std::allocator<int> >&, lean::lp_settings&);
-template void lean::init_factorization<lean::mpq, lean::mpq>(lean::lu<lean::mpq, lean::mpq>*&, lean::static_matrix<lean::mpq, lean::mpq>&, std::vector<unsigned int, std::allocator<unsigned int> >&, std::vector<int, std::allocator<int> >&, lean::lp_settings&);
-template void lean::init_factorization<lean::mpq, lean::numeric_pair<lean::mpq> >(lean::lu<lean::mpq, lean::numeric_pair<lean::mpq> >*&, lean::static_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >&, std::vector<unsigned int, std::allocator<unsigned int> >&, std::vector<int, std::allocator<int> >&, lean::lp_settings&);
+template void lean::init_factorization<double, double>(lean::lu<double, double>*&, lean::static_matrix<double, double>&, std::vector<unsigned int, std::allocator<unsigned int> >&, lean::lp_settings&);
+template void lean::init_factorization<lean::mpq, lean::mpq>(lean::lu<lean::mpq, lean::mpq>*&, lean::static_matrix<lean::mpq, lean::mpq>&, std::vector<unsigned int, std::allocator<unsigned int> >&, lean::lp_settings&);
+template void lean::init_factorization<lean::mpq, lean::numeric_pair<lean::mpq> >(lean::lu<lean::mpq, lean::numeric_pair<lean::mpq> >*&, lean::static_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >&, std::vector<unsigned int, std::allocator<unsigned int> >&, lean::lp_settings&);
 #ifdef LEAN_DEBUG
 template void lean::print_matrix<double, double>(lean::sparse_matrix<double, double>&, std::ostream & out);
 template void lean::print_matrix<double, double>(lean::static_matrix<double, double>&, std::ostream & out);

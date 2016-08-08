@@ -113,7 +113,6 @@ public:
     // they represent the set of m columns
     lu(static_matrix<T, X> const & A,
        std::vector<unsigned>& basis,
-       std::vector<int> & basis_heading,
        lp_settings & settings);
     void debug_test_of_basis(static_matrix<T, X> const & A, std::vector<unsigned> & basis);
     void solve_Bd_when_w_is_ready(std::vector<T> & d, indexed_vector<T>& w );
@@ -260,7 +259,7 @@ public:
 }; // end of lu
 
 template <typename T, typename X>
-void init_factorization(lu<T, X>* & factorization, static_matrix<T, X> & m_A, std::vector<unsigned> & m_basis, std::vector<int> & m_basis_heading, lp_settings &m_settings);
+void init_factorization(lu<T, X>* & factorization, static_matrix<T, X> & m_A, std::vector<unsigned> & m_basis, lp_settings &m_settings);
 
 #ifdef LEAN_DEBUG
 template <typename T, typename X>

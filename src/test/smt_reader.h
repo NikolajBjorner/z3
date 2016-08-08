@@ -37,7 +37,7 @@ namespace lean {
     class smt_reader {
     public:
         struct lisp_elem {
-			string m_head;
+            string m_head;
             std::vector<lisp_elem> m_elems;
             void print() {
                 if (m_elems.size()) {
@@ -71,8 +71,8 @@ namespace lean {
         string m_line;
         bool m_is_OK = true;
         unsigned m_line_number = 0;
-		smt_reader(string file_name): 
-			m_file_name(file_name), m_file_stream(file_name) {
+        smt_reader(string file_name): 
+            m_file_name(file_name), m_file_stream(file_name) {
         }
 
         void set_error() {
@@ -117,8 +117,8 @@ namespace lean {
             m_line = m_line.substr(lm.m_head.size());
             eat_blanks();
             while (m_line.size()) {
-				if (m_line[0] == '(') {
-					lisp_elem el;
+                if (m_line[0] == '(') {
+                    lisp_elem el;
                     fill_nested_elem(el);
                     lm.m_elems.push_back(el);
                 } else {
@@ -126,7 +126,7 @@ namespace lean {
                         m_line = m_line.substr(1);
                         break;
                     }
-					lisp_elem el;
+                    lisp_elem el;
                     fill_simple_elem(el);
                     lm.m_elems.push_back(el);
                 }

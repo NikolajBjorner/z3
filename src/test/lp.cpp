@@ -181,7 +181,7 @@ void test_small_lu(lp_settings & settings) {
     std::vector<int> heading = allocate_basis_heading(m.column_count());
     std::vector<unsigned> non_basic_columns;
     init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
-    lu<double, double> l(m, basis, heading, settings);
+    lu<double, double> l(m, basis, settings);
     lean_assert(l.is_correct(basis));
     indexed_vector<double> w(m.row_count());
     cout << "entering 2, leaving 0" << std::endl;
@@ -307,7 +307,7 @@ void test_larger_lu_exp(lp_settings & settings) {
     std::vector<int> heading = allocate_basis_heading(m.column_count());
     std::vector<unsigned> non_basic_columns;
     init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
-    lu<double, double> l(m, basis, heading, settings);
+    lu<double, double> l(m, basis, settings);
 
     dense_matrix<double, double> left_side = l.get_left_side(basis);
     dense_matrix<double, double> right_side = l.get_right_side();
@@ -351,7 +351,7 @@ void test_larger_lu_with_holes(lp_settings & settings) {
     std::vector<int> heading = allocate_basis_heading(m.column_count());
     std::vector<unsigned> non_basic_columns;
     init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
-    lu<double, double> l(m, basis, heading, settings);
+    lu<double, double> l(m, basis, settings);
     std::cout << "printing factorization" << std::endl;
     for (int i = l.tail_size() - 1; i >=0; i--) {
         auto lp = l.get_lp_matrix(i);
@@ -392,7 +392,7 @@ void test_larger_lu(lp_settings& settings) {
     std::vector<int> heading = allocate_basis_heading(m.column_count());
     std::vector<unsigned> non_basic_columns;
     init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
-    auto l = lu<double, double> (m, basis, heading, settings);
+    auto l = lu<double, double> (m, basis, settings);
     // std::cout << "printing factorization" << std::endl;
     // for (int i = lu.tail_size() - 1; i >=0; i--) {
     //     auto lp = lu.get_lp_matrix(i);
@@ -2524,7 +2524,7 @@ void check_lu_from_file(std::string lufile_name) {
     std::vector<int> basis_heading;
     lp_settings settings;
     std::vector<unsigned> non_basic_columns;
-    lu<double, double> lsuhl(A, basis, basis_heading, settings);
+    lu<double, double> lsuhl(A, basis, settings);
      indexed_vector<double>  d(A.row_count());
 #ifdef LEAN_DEBUG
     lp_settings::ddd = 1;

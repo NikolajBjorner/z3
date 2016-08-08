@@ -116,7 +116,6 @@ void one_elem_on_diag<T, X>::apply_from_left_to_T(indexed_vector<T> & w, lp_sett
 template <typename T, typename X>
 lu<T, X>::lu(static_matrix<T, X> const & A,
              std::vector<unsigned>& basis,
-             std::vector<int> & basis_heading,
              lp_settings & settings):
     m_dim(A.row_count()),
     m_A(A),
@@ -781,10 +780,10 @@ void lu<T, X>::calculate_Lwave_Pwave_for_last_row(unsigned lowest_row_of_the_bum
 }
 
 template <typename T, typename X>
-void init_factorization(lu<T, X>* & factorization, static_matrix<T, X> & m_A, std::vector<unsigned> & m_basis, std::vector<int> & m_basis_heading, lp_settings &m_settings) {
+void init_factorization(lu<T, X>* & factorization, static_matrix<T, X> & m_A, std::vector<unsigned> & m_basis, lp_settings &m_settings) {
     if (factorization != nullptr)
         delete factorization;
-    factorization = new lu<T, X>(m_A, m_basis, m_basis_heading, m_settings);
+    factorization = new lu<T, X>(m_A, m_basis, m_settings);
     if (factorization->get_status() != LU_status::OK) 
         LP_OUT(m_settings, "failing in init_factorization" << std::endl);
 }

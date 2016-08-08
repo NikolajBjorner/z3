@@ -79,7 +79,7 @@ allocate_basis_heading() { // the rest of initilization will be handled by the f
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 init() {
     allocate_basis_heading();
-    init_factorization(m_factorization, m_A, m_basis, m_basis_heading, m_settings);
+    init_factorization(m_factorization, m_A, m_basis, m_settings);
     unsigned seed = 1;
     my_random_init(&seed);
 }
@@ -452,11 +452,11 @@ update_basis_and_x(int entering, int leaving, X const & tt) {
     if (!is_zero(tt)) {
         update_x(entering, tt);
         if (A_mult_x_is_off() && !find_x_by_solving()) {
-            init_factorization(m_factorization, m_A, m_basis, m_basis_heading, m_settings);
+            init_factorization(m_factorization, m_A, m_basis, m_settings);
             if (!find_x_by_solving()) {
                 restore_x(entering, tt);
                 lean_assert(!A_mult_x_is_off());
-                init_factorization(m_factorization, m_A, m_basis, m_basis_heading, m_settings);
+                init_factorization(m_factorization, m_A, m_basis, m_settings);
                 m_iters_with_no_cost_growing++;
                 if (m_factorization->get_status() != LU_status::OK) {
                     std::stringstream s;
@@ -479,7 +479,7 @@ update_basis_and_x(int entering, int leaving, X const & tt) {
     }
     // need to refactor == true
     change_basis(entering, leaving, m_basis, m_non_basic_columns, m_basis_heading);
-    init_factorization(m_factorization, m_A, m_basis, m_basis_heading, m_settings);
+    init_factorization(m_factorization, m_A, m_basis, m_settings);
     if (m_factorization->get_status() != LU_status::OK || A_mult_x_is_off()) {
         LP_OUT(m_settings, "failing refactor for entering = " << entering << ", leaving = " << leaving << " total_iterations = " << total_iterations() << std::endl);
         restore_x_and_refactor(entering, leaving, tt);
@@ -569,7 +569,7 @@ template <typename T, typename X> void lp_core_solver_base<T, X>::
 restore_x_and_refactor(int entering, int leaving, X const & t) {
     restore_basis_change(entering, leaving, m_basis, m_non_basic_columns, m_basis_heading);
     restore_x(entering, t);
-    init_factorization(m_factorization, m_A, m_basis, m_basis_heading, m_settings);
+    init_factorization(m_factorization, m_A, m_basis, m_settings);
     if (m_factorization->get_status() == LU_status::Degenerated) {
         LP_OUT(m_settings,  "cannot refactor" << std::endl);
         m_status = lp_status::FLOATING_POINT_ERROR;
@@ -754,7 +754,7 @@ get_non_basic_column_value_position(unsigned j) {
 }
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::init_lu() {
-    init_factorization(this->m_factorization, this->m_A, this->m_basis, this->m_basis_heading, this->m_settings);
+    init_factorization(this->m_factorization, this->m_A, this->m_basis, this->m_settings);
 }
 
 template <typename T, typename X> int lp_core_solver_base<T, X>::pivots_in_column_and_row_are_different(int entering, int leaving) const {

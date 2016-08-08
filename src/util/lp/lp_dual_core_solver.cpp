@@ -507,7 +507,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::recover_leavin
 template <typename T, typename X> void lp_dual_core_solver<T, X>::revert_to_previous_basis() {
     //    std::cout << "recovering basis p = " << m_p << " q = " << m_q << std::endl;
     change_basis(m_p, m_q, this->m_basis, this->m_non_basic_columns, this->m_basis_heading);
-    init_factorization(this->m_factorization, this->m_A, this->m_basis, this->m_basis_heading, this->m_settings);
+    init_factorization(this->m_factorization, this->m_A, this->m_basis, this->m_settings);
     if (this->m_factorization->get_status() != LU_status::OK) {
         this->m_status = FLOATING_POINT_ERROR; // complete failure
         return;
