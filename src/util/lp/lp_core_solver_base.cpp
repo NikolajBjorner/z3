@@ -79,7 +79,7 @@ allocate_basis_heading() { // the rest of initilization will be handled by the f
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 init() {
     allocate_basis_heading();
-    init_factorization(m_factorization, m_A, m_basis, m_basis_heading, m_settings, m_non_basic_columns);
+    init_factorization(m_factorization, m_A, m_basis, m_basis_heading, m_settings);
     unsigned seed = 1;
     my_random_init(&seed);
 }
@@ -102,7 +102,7 @@ fill_cb(std::vector<T> & y){
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 solve_yB(std::vector<T> & y) {
     fill_cb(y); // now y = cB, that is the projection of costs to basis
-    m_factorization->solve_yB(y);
+    m_factorization->solve_yB(y, m_basis);
 }
 
 // template <typename T, typename X> void lp_core_solver_base<T, X>::
@@ -231,7 +231,7 @@ calculate_pivot_row_of_B_1(unsigned pivot_row) {
         m_pivot_row_of_B_1[i] = numeric_traits<T>::zero();
     }
     m_pivot_row_of_B_1[pivot_row] = numeric_traits<T>::one();
-    m_factorization->solve_yB(m_pivot_row_of_B_1);
+    m_factorization->solve_yB(m_pivot_row_of_B_1, m_basis);
 }
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
@@ -252,7 +252,7 @@ calculate_pivot_row_when_pivot_row_of_B1_is_ready() {
         }
         for (auto & c : m_A.m_rows[i]) {
             unsigned j = c.m_j;
-            if (m_factorization->m_basis_heading[j] < 0) {
+            if (m_basis_heading[j] < 0) {
                 m_pivot_row[j] += c.get_val() * pi_1;
             }
         }
@@ -452,11 +452,11 @@ update_basis_and_x(int entering, int leaving, X const & tt) {
     if (!is_zero(tt)) {
         update_x(entering, tt);
         if (A_mult_x_is_off() && !find_x_by_solving()) {
-            init_factorization(m_factorization, m_A, m_basis, m_basis_heading, m_settings, m_non_basic_columns);
+            init_factorization(m_factorization, m_A, m_basis, m_basis_heading, m_settings);
             if (!find_x_by_solving()) {
                 restore_x(entering, tt);
                 lean_assert(!A_mult_x_is_off());
-                init_factorization(m_factorization, m_A, m_basis, m_basis_heading, m_settings, m_non_basic_columns);
+                init_factorization(m_factorization, m_A, m_basis, m_basis_heading, m_settings);
                 m_iters_with_no_cost_growing++;
                 if (m_factorization->get_status() != LU_status::OK) {
                     std::stringstream s;
@@ -471,15 +471,15 @@ update_basis_and_x(int entering, int leaving, X const & tt) {
     bool refactor = m_factorization->need_to_refactor();
     if (!refactor) {
         const T &  pivot = this->m_pivot_row[entering]; // m_ed[m_factorization->basis_heading(leaving)] is the same but the one that we are using is more precise
-        m_factorization->replace_column(leaving, pivot, m_w);
+        m_factorization->replace_column(leaving, pivot, m_w, m_basis_heading[leaving]);
         if (m_factorization->get_status() == LU_status::OK) {
-            m_factorization->change_basis(entering, leaving);
+            change_basis(entering, leaving, m_basis, m_non_basic_columns, m_basis_heading);
             return true;
         }
     }
     // need to refactor == true
-    m_factorization->change_basis(entering, leaving);
-    init_factorization(m_factorization, m_A, m_basis, m_basis_heading, m_settings, m_non_basic_columns);
+    change_basis(entering, leaving, m_basis, m_non_basic_columns, m_basis_heading);
+    init_factorization(m_factorization, m_A, m_basis, m_basis_heading, m_settings);
     if (m_factorization->get_status() != LU_status::OK || A_mult_x_is_off()) {
         LP_OUT(m_settings, "failing refactor for entering = " << entering << ", leaving = " << leaving << " total_iterations = " << total_iterations() << std::endl);
         restore_x_and_refactor(entering, leaving, tt);
@@ -567,9 +567,9 @@ basis_heading_is_correct() {
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 restore_x_and_refactor(int entering, int leaving, X const & t) {
-    m_factorization->restore_basis_change(entering, leaving);
+    restore_basis_change(entering, leaving, m_basis, m_non_basic_columns, m_basis_heading);
     restore_x(entering, t);
-    init_factorization(m_factorization, m_A, m_basis, m_basis_heading, m_settings, m_non_basic_columns);
+    init_factorization(m_factorization, m_A, m_basis, m_basis_heading, m_settings);
     if (m_factorization->get_status() == LU_status::Degenerated) {
         LP_OUT(m_settings,  "cannot refactor" << std::endl);
         m_status = lp_status::FLOATING_POINT_ERROR;
@@ -595,7 +595,7 @@ template <typename T, typename X> void lp_core_solver_base<T, X>::
 fill_reduced_costs_from_m_y_by_rows() {
     unsigned j = m_n();
     while (j--) {
-        if (m_factorization->m_basis_heading[j] < 0)
+        if (m_basis_heading[j] < 0)
             m_d[j] = m_costs[j];
         else
             m_d[j] = numeric_traits<T>::zero();
@@ -607,7 +607,7 @@ fill_reduced_costs_from_m_y_by_rows() {
         if (is_zero(y)) continue;
         for (row_cell<T> & it : m_A.m_rows[i]) {
             j = it.m_j;
-            if (m_factorization->m_basis_heading[j] < 0) {
+            if (m_basis_heading[j] < 0) {
                 m_d[j] -= y * it.get_val();
             }
         }
@@ -624,7 +624,7 @@ copy_rs_to_xB(std::vector<X> & rs) {
 
 template <typename T, typename X> std::string lp_core_solver_base<T, X>::
 column_name(unsigned column) const {
-	return m_column_names.get_column_name(column);
+    return m_column_names.get_column_name(column);
 }
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
@@ -754,7 +754,7 @@ get_non_basic_column_value_position(unsigned j) {
 }
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::init_lu() {
-    init_factorization(this->m_factorization, this->m_A, this->m_basis, this->m_basis_heading, this->m_settings, this->m_non_basic_columns);
+    init_factorization(this->m_factorization, this->m_A, this->m_basis, this->m_basis_heading, this->m_settings);
 }
 
 template <typename T, typename X> int lp_core_solver_base<T, X>::pivots_in_column_and_row_are_different(int entering, int leaving) const {
@@ -794,15 +794,15 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_v
                 break;
             j++;
             if (m_factorization->need_to_refactor()) {
-                m_factorization->change_basis(jj, ii);
+                change_basis(jj, ii, m_basis, m_non_basic_columns, m_basis_heading);
                 init_lu();
             } else {
                 m_factorization->prepare_entering(jj, w); // to init vector w
-                m_factorization->replace_column(ii, zero_of_type<T>(), w);
-                m_factorization->change_basis(jj, ii);
+                m_factorization->replace_column(ii, zero_of_type<T>(), w, m_basis_heading[ii]);
+                change_basis(jj, ii, m_basis, m_non_basic_columns, m_basis_heading);
             }
             if (m_factorization->get_status() != LU_status::OK) {
-                m_factorization->change_basis(ii, jj);
+                change_basis(ii, jj, m_basis, m_non_basic_columns, m_basis_heading);
                 init_lu();
             } else {
                 break;
@@ -831,5 +831,22 @@ print_linear_combination_of_column_indices(const std::vector<std::pair<T, unsign
         out << column_name(it.second);
     }
 }
+
+void change_basis(unsigned entering, unsigned leaving, std::vector<unsigned>& basis, std::vector<unsigned>& nbasis, std::vector<int> & basis_heading) {
+    int place_in_basis =  basis_heading[leaving];
+    int place_in_non_basis = - basis_heading[entering] - 1;
+    basis_heading[entering] = place_in_basis;
+    basis_heading[leaving] = -place_in_non_basis - 1;
+    basis[place_in_basis] = entering;
+    nbasis[place_in_non_basis] = leaving;
+}
+
+void restore_basis_change(unsigned entering, unsigned leaving, std::vector<unsigned>& basis, std::vector<unsigned>& nbasis, std::vector<int> & basis_heading) {
+    if (basis_heading[entering] < 0) {
+        return; // the basis has not been changed
+    }
+    change_basis(leaving, entering, basis, nbasis, basis_heading);
+}
+
 
 }

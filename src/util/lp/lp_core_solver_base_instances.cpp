@@ -20,11 +20,11 @@ template bool lean::lp_core_solver_base<double, double>::find_x_by_solving();
 template lean::non_basic_column_value_position lean::lp_core_solver_base<double, double>::get_non_basic_column_value_position(unsigned int);
 template void lean::lp_core_solver_base<double, double>::init_reduced_costs_for_one_iteration();
 template lean::lp_core_solver_base<double, double>::lp_core_solver_base(
-	lean::static_matrix<double, double>&, std::vector<double, std::allocator<double> >&, 
-	std::vector<unsigned int, std::allocator<unsigned int> >&, 
-	std::vector<double, std::allocator<double> >&, 
-	std::vector<double, std::allocator<double> >&, 
-	lean::lp_settings&, const column_namer&, std::vector<lean::column_type, std::allocator<lean::column_type> >&, std::vector<double, std::allocator<double> >&, std::vector<double, std::allocator<double> >&);
+    lean::static_matrix<double, double>&, std::vector<double, std::allocator<double> >&, 
+    std::vector<unsigned int, std::allocator<unsigned int> >&, 
+    std::vector<double, std::allocator<double> >&, 
+    std::vector<double, std::allocator<double> >&, 
+    lean::lp_settings&, const column_namer&, std::vector<lean::column_type, std::allocator<lean::column_type> >&, std::vector<double, std::allocator<double> >&, std::vector<double, std::allocator<double> >&);
 
 template bool lean::lp_core_solver_base<double, double>::print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over(char const*);
 template void lean::lp_core_solver_base<double, double>::restore_x(unsigned int, double const&);

@@ -92,9 +92,9 @@ void lar_solver::fill_row_of_A(static_matrix<U, V> & A, const canonic_left_side 
 
 template <typename U, typename V>
 void lar_solver::create_matrix_A(static_matrix<U, V> & matr) {
-	unsigned m = number_or_nontrivial_left_sides();
+    unsigned m = number_or_nontrivial_left_sides();
     unsigned n = m_map_from_var_index_to_column_info_with_cls.size();
-	if (matr.row_count() == m && matr.column_count() == n)
+    if (matr.row_count() == m && matr.column_count() == n)
         return;
     matr.init_empty_matrix(m, n);
     copy_from_mpq_matrix(matr);
@@ -299,9 +299,9 @@ var_index lar_solver::add_var(std::string s) {
     auto ci_with_cls = column_info_with_cls();
     ci_with_cls.m_column_info.set_name(s);
     ci_with_cls.m_column_info.set_column_index(i);
-	ci_with_cls.m_canonic_left_side.m_coeffs.emplace_back(1, i); 
+    ci_with_cls.m_canonic_left_side.m_coeffs.emplace_back(1, i); 
     m_map_from_var_index_to_column_info_with_cls[i] = ci_with_cls;
-	m_map_of_canonic_left_sides[ci_with_cls.m_canonic_left_side] = ul_pair(i); // we will not create a row in the matrix for this canonic left side
+    m_map_of_canonic_left_sides[ci_with_cls.m_canonic_left_side] = ul_pair(i); // we will not create a row in the matrix for this canonic left side
     m_var_names_to_var_index[s] = i;
     return i;
 }
@@ -336,10 +336,10 @@ constraint_index lar_solver::add_constraint(const std::vector<std::pair<mpq, var
     }
 
     
-	lean_assert(left_side.size() > 0);
-	lean_assert(all_constrained_variables_are_registered(left_side));
-	lar_constraint original_constr(left_side, kind_par, right_side_par);
-	canonic_left_side ls = create_or_fetch_existing_left_side(left_side);
+    lean_assert(left_side.size() > 0);
+    lean_assert(all_constrained_variables_are_registered(left_side));
+    lar_constraint original_constr(left_side, kind_par, right_side_par);
+    canonic_left_side ls = create_or_fetch_existing_left_side(left_side);
     mpq ratio = find_ratio_of_original_constraint_to_normalized(ls, original_constr);
     auto kind = ratio.is_neg() ? flip_kind(kind_par) : kind_par;
     mpq right_side = right_side_par / ratio;
@@ -524,7 +524,7 @@ void lar_solver::prepare_core_solver_fields(static_matrix<U, V> & A, std::vector
     else {
         resize_and_init_x_with_zeros(x);
         fill_basis_from_canonic_left_sides();
-		lean_assert(m_lar_core_solver_params.m_basis.size() == A.row_count());
+        lean_assert(m_lar_core_solver_params.m_basis.size() == A.row_count());
     }
 }
 template <typename U, typename V>
@@ -588,7 +588,7 @@ void lar_solver::solve_on_signature(const lar_solution_signature & signature) {
 }
 
 lp_status lar_solver::solve() {
-	prepare_independently_of_numeric_type();
+    prepare_independently_of_numeric_type();
     if (m_status == INFEASIBLE)
         return m_status;
     if (need_to_presolve_with_double_solver()) {

@@ -57,8 +57,6 @@ public:
 
     void recalculate_d();
 
-    const std::vector<unsigned> & non_basis() const { return this->m_factorization->m_non_basic_columns; }
-
     void init_betas();
 
     void adjust_xb_for_changed_xn_and_init_betas();

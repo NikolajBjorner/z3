@@ -35,9 +35,9 @@ unsigned seed = 1;
 
 struct simple_column_namer:public column_namer
 {
-	std::string get_column_name(unsigned j) const override {
-		return std::string("x") + T_to_string(j); 
-	}
+    std::string get_column_name(unsigned j) const override {
+        return std::string("x") + T_to_string(j); 
+    }
 };
 
 template <typename T, typename X>
@@ -181,55 +181,55 @@ void test_small_lu(lp_settings & settings) {
     std::vector<int> heading = allocate_basis_heading(m.column_count());
     std::vector<unsigned> non_basic_columns;
     init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
-    lu<double, double> l(m, basis, heading, settings, non_basic_columns);
-    lean_assert(l.is_correct());
+    lu<double, double> l(m, basis, heading, settings);
+    lean_assert(l.is_correct(basis));
     indexed_vector<double> w(m.row_count());
     cout << "entering 2, leaving 0" << std::endl;
     l.prepare_entering(2, w); // to init vector w
-    l.replace_column(0, 0, w);
-    l.change_basis(2, 0);
+    l.replace_column(0, 0, w, heading[0]);
+    change_basis(2, 0, basis, non_basic_columns, heading);
     // #ifdef LEAN_DEBUG
     // cout << "we were factoring " << std::endl;
     // print_matrix(get_B(l));
     // #endif
-    lean_assert(l.is_correct());
+    lean_assert(l.is_correct(basis));
     cout << "entering 4, leaving 3" << std::endl;
     l.prepare_entering(4, w); // to init vector w
-    l.replace_column(3, 0, w);
-    l.change_basis(4, 3);
+    l.replace_column(3, 0, w, heading[3]);
+    change_basis(4, 3, basis, non_basic_columns, heading);
     cout << "we were factoring " << std::endl;
 #ifdef LEAN_DEBUG
     {
-        auto bl = get_B(l);
+        auto bl = get_B(l, basis);
         print_matrix(&bl, std::cout);
     }
 #endif
-    lean_assert(l.is_correct());
+    lean_assert(l.is_correct(basis));
 
     cout << "entering 5, leaving 1" << std::endl;
     l.prepare_entering(5, w); // to init vector w
-    l.replace_column(1, 0, w);
-    l.change_basis(5, 1);
+    l.replace_column(1, 0, w, heading[1]);
+    change_basis(5, 1, basis, non_basic_columns, heading);
     cout << "we were factoring " << std::endl;
 #ifdef LEAN_DEBUG
     {
-        auto bl = get_B(l);
+        auto bl = get_B(l, basis);
         print_matrix(&bl, std::cout);
     }
 #endif
-    lean_assert(l.is_correct());
+    lean_assert(l.is_correct(basis));
     cout << "entering 3, leaving 2" << std::endl;
     l.prepare_entering(3, w); // to init vector w
-    l.replace_column(2, 0, w);
-    l.change_basis(3, 2);
+    l.replace_column(2, 0, w, heading[2]);
+    change_basis(3, 2, basis, non_basic_columns, heading);
     cout << "we were factoring " << std::endl;
 #ifdef LEAN_DEBUG
     {
-        auto bl = get_B(l);
+        auto bl = get_B(l, basis);
         print_matrix(&bl, std::cout);
     }
 #endif
-    lean_assert(l.is_correct());
+    lean_assert(l.is_correct(basis));
 }
 
 #endif
@@ -307,9 +307,9 @@ void test_larger_lu_exp(lp_settings & settings) {
     std::vector<int> heading = allocate_basis_heading(m.column_count());
     std::vector<unsigned> non_basic_columns;
     init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
-    lu<double, double> l(m, basis, heading, settings, non_basic_columns);
+    lu<double, double> l(m, basis, heading, settings);
 
-    dense_matrix<double, double> left_side = l.get_left_side();
+    dense_matrix<double, double> left_side = l.get_left_side(basis);
     dense_matrix<double, double> right_side = l.get_right_side();
     lean_assert(left_side == right_side);
     int leaving = 3;
@@ -321,14 +321,14 @@ void test_larger_lu_exp(lp_settings & settings) {
     indexed_vector<double> w(m.row_count());
 
     l.prepare_entering(entering, w);
-    l.replace_column(leaving, 0, w);
-    l.change_basis(entering, leaving);
-    lean_assert(l.is_correct());
+    l.replace_column(leaving, 0, w, heading[leaving]);
+    change_basis(entering, leaving, basis, non_basic_columns, heading);
+    lean_assert(l.is_correct(basis));
 
     l.prepare_entering(11, w); // to init vector w
-    l.replace_column(0, 0, w);
-    l.change_basis(11, 0);
-    lean_assert(l.is_correct());
+    l.replace_column(0, 0, w, heading[0]);
+    change_basis(11, 0, basis, non_basic_columns, heading);
+    lean_assert(l.is_correct(basis));
 }
 
 void test_larger_lu_with_holes(lp_settings & settings) {
@@ -351,7 +351,7 @@ void test_larger_lu_with_holes(lp_settings & settings) {
     std::vector<int> heading = allocate_basis_heading(m.column_count());
     std::vector<unsigned> non_basic_columns;
     init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
-    lu<double, double> l(m, basis, heading, settings, non_basic_columns);
+    lu<double, double> l(m, basis, heading, settings);
     std::cout << "printing factorization" << std::endl;
     for (int i = l.tail_size() - 1; i >=0; i--) {
         auto lp = l.get_lp_matrix(i);
@@ -360,7 +360,7 @@ void test_larger_lu_with_holes(lp_settings & settings) {
         print_matrix( lp, std::cout);
     }
 
-    dense_matrix<double, double> left_side = l.get_left_side();
+    dense_matrix<double, double> left_side = l.get_left_side(basis);
     dense_matrix<double, double> right_side = l.get_right_side();
     if (!(left_side == right_side)) {
         std::cout << "different sides" << std::endl;
@@ -368,9 +368,9 @@ void test_larger_lu_with_holes(lp_settings & settings) {
 
     indexed_vector<double> w(m.row_count());
     l.prepare_entering(8, w); // to init vector w
-    l.replace_column(0, 0, w);
-    l.change_basis(8, 0);
-    lean_assert(l.is_correct());
+    l.replace_column(0, 0, w, heading[0]);
+    change_basis(8, 0, basis, non_basic_columns, heading);
+    lean_assert(l.is_correct(basis));
 }
 
 
@@ -392,7 +392,7 @@ void test_larger_lu(lp_settings& settings) {
     std::vector<int> heading = allocate_basis_heading(m.column_count());
     std::vector<unsigned> non_basic_columns;
     init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
-    auto l = lu<double, double> (m, basis, heading, settings, non_basic_columns);
+    auto l = lu<double, double> (m, basis, heading, settings);
     // std::cout << "printing factorization" << std::endl;
     // for (int i = lu.tail_size() - 1; i >=0; i--) {
     //     auto lp = lu.get_lp_matrix(i);
@@ -401,7 +401,7 @@ void test_larger_lu(lp_settings& settings) {
     //     print_matrix(* lp);
     // }
 
-    dense_matrix<double, double> left_side = l.get_left_side();
+    dense_matrix<double, double> left_side = l.get_left_side(basis);
     dense_matrix<double, double> right_side = l.get_right_side();
     if (!(left_side == right_side)) {
         cout << "left side" << std::endl;
@@ -415,9 +415,9 @@ void test_larger_lu(lp_settings& settings) {
     }
     indexed_vector<double> w(m.row_count());
     l.prepare_entering(9, w); // to init vector w
-    l.replace_column(0, 0, w);
-    l.change_basis(9, 0);
-    lean_assert(l.is_correct());
+    l.replace_column(0, 0, w, heading[0]);
+    change_basis(9, 0, basis, non_basic_columns, heading);
+    lean_assert(l.is_correct(basis));
 }
 
 
@@ -468,11 +468,11 @@ void test_lp_0() {
     costs[4] = 0;
     costs[5] = 0;
     costs[6] = 0;
-	
+    
     std::vector<column_type> column_types(7, low_bound);
     std::vector<double>  upper_bound_values;
     lp_settings settings;
-	simple_column_namer cn;
+    simple_column_namer cn;
     lp_primal_core_solver<double, double> lpsolver(m_, b, x_star, basis, costs, column_types, upper_bound_values, settings, cn);
 
     lpsolver.solve();
@@ -517,7 +517,7 @@ void test_lp_1() {
 
     std::cout << "calling lp\n";
     lp_settings settings;
-	simple_column_namer cn;
+    simple_column_namer cn;
 
     lp_primal_core_solver<double, double> lpsolver(m, b,
                                     x_star,
@@ -1768,7 +1768,7 @@ void test_replace_column() {
 
 void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_help_string("--incr", "test an incremental scenario");
-	parser.add_option_with_help_string("-xyz_sample", "run a small interactive scenario");
+    parser.add_option_with_help_string("-xyz_sample", "run a small interactive scenario");
     parser.add_option_with_after_string_with_help("--density", "the percentage of non-zeroes in the matrix below which it is not dense");
     parser.add_option_with_after_string_with_help("--harris_toler", "harris tolerance");
     parser.add_option_with_help_string("--test_swaps", "test row swaps with a permutation");
@@ -2524,7 +2524,7 @@ void check_lu_from_file(std::string lufile_name) {
     std::vector<int> basis_heading;
     lp_settings settings;
     std::vector<unsigned> non_basic_columns;
-    lu<double, double> lsuhl(A, basis, basis_heading, settings, non_basic_columns);
+    lu<double, double> lsuhl(A, basis, basis_heading, settings);
      indexed_vector<double>  d(A.row_count());
 #ifdef LEAN_DEBUG
     lp_settings::ddd = 1;
@@ -2532,7 +2532,7 @@ void check_lu_from_file(std::string lufile_name) {
     unsigned entering = 26;
     lsuhl.solve_Bd(entering, d, v);
 #ifdef LEAN_DEBUG
-    auto B = get_B(lsuhl);
+    auto B = get_B(lsuhl, basis);
     std::vector<double>  a(m);
     A.copy_column_to_vector(entering, a);
     indexed_vector<double> cd(d);

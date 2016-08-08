@@ -78,12 +78,13 @@ public:
      }
 
     std::vector<unsigned> & non_basis() {
-        if (m_factorization == nullptr) {
-            init_factorization(m_factorization, m_A, m_basis, m_basis_heading, m_settings, m_non_basic_columns);
-        }
-        return m_factorization->m_non_basic_columns;
+        return m_non_basic_columns;
     }
 
+    const std::vector<unsigned> & non_basis() const { return m_non_basic_columns; }
+
+
+    
     void set_status(lp_status status) {
         m_status = status;
     }
@@ -265,4 +266,7 @@ public:
     void pivot_fixed_vars_from_basis();
     void print_linear_combination_of_column_indices(const std::vector<std::pair<T, unsigned>> & coeffs, std::ostream & out);
 };
+   void change_basis(unsigned entering, unsigned leaving, std::vector<unsigned>& basis, std::vector<unsigned>& nbasis, std::vector<int> & basis_heading);
+void restore_basis_change(unsigned entering, unsigned leaving, std::vector<unsigned>& basis, std::vector<unsigned>& nbasis, std::vector<int> & basis_heading);
+
 }

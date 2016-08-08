@@ -117,17 +117,13 @@ template <typename T, typename X>
 lu<T, X>::lu(static_matrix<T, X> const & A,
              std::vector<unsigned>& basis,
              std::vector<int> & basis_heading,
-             lp_settings & settings,
-             std::vector<unsigned> & non_basic_columns):
+             lp_settings & settings):
     m_dim(A.row_count()),
     m_A(A),
-    m_basis(basis),
     m_Q(m_dim),
     m_R(m_dim),
     m_U(A, basis), // create the square matrix that eventually will be factorized
     m_settings(settings),
-    m_basis_heading(basis_heading),
-    m_non_basic_columns(non_basic_columns),
     m_row_eta_work_vector(A.row_count()){
 #ifdef LEAN_DEBUG
     debug_test_of_basis(A, basis);
@@ -268,7 +264,7 @@ void lu<T, X>::print_matrix_compact(std::ostream & f) {
     f << "matrix_end" << std::endl;
 }
 template <typename T, typename X>
-void lu<T, X>::print(indexed_vector<T> & w) {
+void lu<T, X>::print(indexed_vector<T> & w, const std::vector<unsigned>& basis) {
     std::string dump_file_name("/tmp/lu");
     remove(dump_file_name.c_str());
     std::ofstream f(dump_file_name);
@@ -278,7 +274,7 @@ void lu<T, X>::print(indexed_vector<T> & w) {
     }
     LP_OUT(m_settings, "writing lu dump to " << dump_file_name << std::endl);
     print_matrix_compact(f);
-    print_basis(f);
+    print_vector(basis, f);
     print_indexed_vector(w, f);
     f.close();
 }
@@ -323,7 +319,7 @@ void lu<T, X>::add_delta_to_solution(std::vector<T>& yc, std::vector<T>& y){
 }
 
 template <typename T, typename X>
-void lu<T, X>::find_error_of_yB(std::vector<T>& yc, const std::vector<T>& y) {
+void lu<T, X>::find_error_of_yB(std::vector<T>& yc, const std::vector<T>& y, const std::vector<unsigned>& m_basis) {
     unsigned i = m_dim;
     while (i--) {
         yc[i] -= m_A.dot_product_with_column(y, m_basis[i]);
@@ -333,14 +329,14 @@ void lu<T, X>::find_error_of_yB(std::vector<T>& yc, const std::vector<T>& y) {
 // solves y*B = y
 // y is the input
 template <typename T, typename X>
-void lu<T, X>::solve_yB(std::vector<T> & y) {
+void lu<T, X>::solve_yB(std::vector<T> & y, const std::vector<unsigned>& basis) {
     if (numeric_traits<T>::precise()) {
         solve_yB_internal(y);
         return;
     }
     std::vector<T> yc(y); // copy y aside
     solve_yB_internal(y);
-    find_error_of_yB(yc, y);
+    find_error_of_yB(yc, y, basis);
     solve_yB_internal(yc);
     add_delta_to_solution(yc, y);
 }
@@ -348,24 +344,6 @@ template <typename T, typename X>
 void lu<T, X>::apply_Q_R_to_U(permutation_matrix<T, X> & r_wave) {
     m_U.multiply_from_right(r_wave);
     m_U.multiply_from_left_with_reverse(r_wave);
-}
-template <typename T, typename X>
-void lu<T, X>::change_basis(unsigned entering, unsigned leaving) {
-    lean_assert(entering < m_A.column_count() && leaving < m_A.column_count());
-    int place_in_basis =  m_basis_heading[leaving];
-    int place_in_non_basis = - m_basis_heading[entering] - 1;
-    lean_assert(0 <= place_in_basis && static_cast<unsigned>(place_in_basis) < m_A.column_count());
-    m_basis_heading[entering] = place_in_basis;
-    m_basis_heading[leaving] = -place_in_non_basis - 1;
-    m_basis[place_in_basis] = entering;
-    m_non_basic_columns[place_in_non_basis] = leaving;
-}
-template <typename T, typename X>
-void lu<T, X>::restore_basis_change(unsigned entering, unsigned leaving) {
-    if (m_basis_heading[entering] < 0) {
-        return; // the basis has not been changed
-    }
-    change_basis(leaving, entering);
 }
 
 
@@ -457,27 +435,11 @@ eta_matrix<T, X> * lu<T, X>::get_eta_matrix_for_pivot(unsigned j, sparse_matrix<
     return ret;
 }
 
-template <typename T, typename X>
-void lu<T, X>::print_basis(std::ostream & out) {
-    out << "basis ";
-    for (unsigned i = 0; i < m_dim; i++) {
-        out << m_basis[i] << " ";
-    }
-    out << std::endl;
-}
-template <typename T, typename X>
-void lu<T, X>::print_basis_heading(std::ostream & out) {
-    print_basis(out);
-    for (unsigned i = 0; i < m_A.column_count(); i++) {
-        out << m_basis_heading[i] << ",";
-    }
-    out << std::endl;
-}
-
 // see page 407 of Chvatal
 template <typename T, typename X>
-unsigned lu<T, X>::transform_U_to_V_by_replacing_column(unsigned leaving, indexed_vector<T> & w) {
-    int leaving_column = m_basis_heading[leaving];
+unsigned lu<T, X>::transform_U_to_V_by_replacing_column(unsigned leaving, indexed_vector<T> & w,
+                                                        unsigned leaving_column) {
+    // int leaving_column = m_basis_heading[leaving];    
     unsigned column_to_replace = m_R.apply_reverse(leaving_column);
     m_U.replace_column(column_to_replace, w, m_settings);
     return column_to_replace;
@@ -530,12 +492,12 @@ void lu<T, X>::process_column(int j) {
     }
 }
 template <typename T, typename X>
-bool lu<T, X>::is_correct() {
+bool lu<T, X>::is_correct(const std::vector<unsigned>& basis) {
 #ifdef LEAN_DEBUG
     if (get_status() != LU_status::OK) {
         return false;
     }
-    dense_matrix<T, X> left_side = get_left_side();
+    dense_matrix<T, X> left_side = get_left_side(basis);
     dense_matrix<T, X> right_side = get_right_side();
     return left_side == right_side;
 #else
@@ -558,8 +520,8 @@ dense_matrix<T, X> lu<T, X>::tail_product() {
     return left_side;
 }
 template <typename T, typename X>
-dense_matrix<T, X> lu<T, X>::get_left_side() {
-    dense_matrix<T, X> left_side = get_B(*this);
+dense_matrix<T, X> lu<T, X>::get_left_side(const std::vector<unsigned>& basis) {
+    dense_matrix<T, X> left_side = get_B(*this, basis);
     for (unsigned i = 0; i < tail_size(); i++) {
         matrix<T, X>* lp =  get_lp_matrix(i);
         lp->set_number_of_rows(m_dim);
@@ -767,10 +729,9 @@ row_eta_matrix<T, X> *lu<T, X>::get_row_eta_matrix_and_set_row_vector(unsigned r
 
 // This method does not update the basis: is_correct() should not be called since it works with the basis.
 template <typename T, typename X>
-void lu<T, X>::replace_column(unsigned leaving, T pivot_elem_for_checking, indexed_vector<T> & w){
-    lean_assert(m_basis_heading[leaving] >= 0);
+void lu<T, X>::replace_column(unsigned leaving, T pivot_elem_for_checking, indexed_vector<T> & w, unsigned leaving_column_of_U){
     m_refactor_counter++;
-    unsigned replaced_column =  transform_U_to_V_by_replacing_column(leaving, w);
+    unsigned replaced_column =  transform_U_to_V_by_replacing_column(leaving, w, leaving_column_of_U);
     unsigned lowest_row_of_the_bump = m_U.lowest_row_in_column(replaced_column);
     permutation_matrix<T, X> r_wave(m_dim);
     calculate_r_wave_and_update_U(replaced_column, lowest_row_of_the_bump, r_wave);
@@ -820,21 +781,21 @@ void lu<T, X>::calculate_Lwave_Pwave_for_last_row(unsigned lowest_row_of_the_bum
 }
 
 template <typename T, typename X>
-void init_factorization(lu<T, X>* & factorization, static_matrix<T, X> & m_A, std::vector<unsigned> & m_basis, std::vector<int> & m_basis_heading, lp_settings &m_settings, std::vector<unsigned> & non_basic_columns) {
+void init_factorization(lu<T, X>* & factorization, static_matrix<T, X> & m_A, std::vector<unsigned> & m_basis, std::vector<int> & m_basis_heading, lp_settings &m_settings) {
     if (factorization != nullptr)
         delete factorization;
-    factorization = new lu<T, X>(m_A, m_basis, m_basis_heading, m_settings, non_basic_columns);
+    factorization = new lu<T, X>(m_A, m_basis, m_basis_heading, m_settings);
     if (factorization->get_status() != LU_status::OK) 
         LP_OUT(m_settings, "failing in init_factorization" << std::endl);
 }
 
 #ifdef LEAN_DEBUG
 template <typename T, typename X>
-dense_matrix<T, X>  get_B(lu<T, X>& f) {
+dense_matrix<T, X>  get_B(lu<T, X>& f, const std::vector<unsigned>& basis) {
     dense_matrix<T, X>  B(f.dimension(), f.dimension());
     for (unsigned i = 0; i < f.dimension(); i++)
         for (unsigned j = 0; j < f.dimension(); j++)
-            B.set_elem(i, j, f.B_(i, j));
+            B.set_elem(i, j, f.B_(i, j, basis));
 
     return B;
 }
