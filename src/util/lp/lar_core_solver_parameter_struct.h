@@ -17,7 +17,17 @@ struct lar_core_solver_parameter_struct {
     std::vector<column_type> m_column_types;
     std::vector<X> m_low_bounds;
     std::vector<X> m_upper_bounds;
-    std::vector<unsigned> m_basis;
+    std::vector<unsigned> &m_basis;
+    std::vector<unsigned> &m_nbasis;
+    std::vector<int> &m_heading;
+    lar_core_solver_parameter_struct(    std::vector<unsigned> &basis,
+                                         std::vector<unsigned> &nbasis,
+                                         std::vector<int> &heading) :
+        m_basis(basis),
+        m_nbasis(nbasis),
+        m_heading(heading) {}
+
+
     static_matrix<T, X> m_A;
     lp_settings m_settings;
     void push() {

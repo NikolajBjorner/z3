@@ -58,6 +58,9 @@ public:
     std::vector<T> m_x;
     std::vector<T> m_upper_bounds;
     std::vector<unsigned> m_basis;
+    std::vector<unsigned> m_nbasis;
+    std::vector<int> m_heading;
+
 
     lp_status m_status = lp_status::UNKNOWN;
 

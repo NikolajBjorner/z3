@@ -15,6 +15,8 @@ template lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::lar_c
                                                                                            std::vector<lean::numeric_pair<lean::mpq>, std::allocator<lean::numeric_pair<lean::mpq> > >&,
                                                                                            std::vector<lean::numeric_pair<lean::mpq>, std::allocator<lean::numeric_pair<lean::mpq> > >&,
                                                                                            std::vector<unsigned int, std::allocator<unsigned int> >&,
+                                                                                           std::vector<unsigned> &,
+                                                                                           std::vector<int> &,
                                                                                            lean::static_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >&,
                                                                                            lean::lp_settings&,
                                                                                            const column_namer&);

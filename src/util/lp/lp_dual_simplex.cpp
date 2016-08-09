@@ -140,6 +140,8 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::stage1() {
                                                   this->m_b, // the right side vector
                                                   this->m_x,
                                                   this->m_basis,
+                                                  this->m_nbasis,
+                                                  this->m_heading,
                                                   this->m_costs,
                                                   this->m_column_types_of_core_solver,
                                                   this->m_low_bounds,

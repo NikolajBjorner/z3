@@ -78,6 +78,10 @@ class lar_solver : public column_namer {
     stacked_map<canonic_left_side, ul_pair, hash_and_equal_of_canonic_left_side_struct, hash_and_equal_of_canonic_left_side_struct> m_map_of_canonic_left_sides;
     stacked_vector<lar_normalized_constraint> m_normalized_constraints;
     stacked_map<var_index, column_info_with_cls> m_map_from_var_index_to_column_info_with_cls;
+    std::vector<unsigned> m_basis;
+    std::vector<unsigned> m_nbasis;
+    std::vector<int> m_heading;
+
     lar_core_solver_parameter_struct<mpq, numeric_pair<mpq>> m_lar_core_solver_params;
     lar_core_solver<mpq, numeric_pair<mpq>> m_mpq_lar_core_solver;
     stacked_value<canonic_left_side> m_infeasible_canonic_left_side; // such can be found at the initialization step
@@ -166,11 +170,14 @@ public:
     void clear() {lean_assert(false); // not implemented
     }
 
-    lar_solver() : m_mpq_lar_core_solver(m_lar_core_solver_params.m_x,
-                                     m_lar_core_solver_params.m_column_types,
-                                     m_lar_core_solver_params.m_low_bounds,
-                                     m_lar_core_solver_params.m_upper_bounds,
-                                     m_lar_core_solver_params.m_basis,
+    lar_solver() : m_lar_core_solver_params(m_basis, m_nbasis, m_heading),
+                   m_mpq_lar_core_solver(m_lar_core_solver_params.m_x,
+                                         m_lar_core_solver_params.m_column_types,
+                                         m_lar_core_solver_params.m_low_bounds,
+                                         m_lar_core_solver_params.m_upper_bounds,
+                                         m_lar_core_solver_params.m_basis,
+                                         m_nbasis,
+                                         m_heading,
                                      m_lar_core_solver_params.m_A,
                                      m_lar_core_solver_params.m_settings,
                                          *this) {

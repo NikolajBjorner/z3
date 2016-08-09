@@ -34,7 +34,8 @@ public:
     static_matrix<T, X> & m_A; // the matrix A
     std::vector<X> & m_b; // the right side
     std::vector<unsigned> & m_basis;
-    std::vector<int> m_basis_heading;
+    std::vector<unsigned>& m_non_basic_columns;
+    std::vector<int>& m_basis_heading;
     std::vector<X> & m_x; // a feasible solution, the fist time set in the constructor
     std::vector<T> & m_costs;
     lp_settings & m_settings;
@@ -47,7 +48,6 @@ public:
     std::vector<T> m_d; // the vector of reduced costs
     indexed_vector<T> m_ed; // the solution of B*m_ed = a
     unsigned m_iters_with_no_cost_growing = 0;
-    std::vector<unsigned> m_non_basic_columns;
     std::vector<column_type> & m_column_type;
     std::vector<X> & m_low_bound_values;
     std::vector<X> & m_upper_bound_values;
@@ -61,6 +61,8 @@ public:
     lp_core_solver_base(static_matrix<T, X> & A,
                         std::vector<X> & b, // the right side vector
                         std::vector<unsigned> & basis,
+                        std::vector<unsigned> & nbasis,
+                        std::vector<int> & heading,
                         std::vector<X> & x,
                         std::vector<T> & costs,
                         lp_settings & settings,

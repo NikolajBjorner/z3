@@ -38,6 +38,8 @@ public:
                         std::vector<X> & b, // the right side std::vector
                         std::vector<X> & x, // the number of elements in x needs to be at least as large as the number of columns in A
                         std::vector<unsigned> & basis,
+                        std::vector<unsigned> & nbasis,
+                        std::vector<int> & heading,
                         std::vector<T> & costs,
                         std::vector<column_type> & column_type_array,
                         std::vector<X> & low_bound_values,

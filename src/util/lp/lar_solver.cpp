@@ -566,6 +566,8 @@ void lar_solver::find_solution_signature_with_doubles(lar_solution_signature & s
                                                              right_side_vector,
                                                              x,
                                                              m_lar_core_solver_params.m_basis,
+                                                             m_nbasis,
+                                                             m_heading,
                                                              costs,
                                                              m_lar_core_solver_params.m_column_types,
                                                              low_bounds,

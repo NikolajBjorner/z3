@@ -246,6 +246,8 @@ template <typename T, typename X> lp_primal_core_solver<T, X>::lp_primal_core_so
                                                                                      std::vector<X> & b, // the right side vector
                                                                                      std::vector<X> & x, // the number of elements in x needs to be at least as large as the number of columns in A
                                                                                      std::vector<unsigned> & basis,
+                                                                                     std::vector<unsigned> & nbasis,
+                                                                                     std::vector<int> & heading,
                                                                                      std::vector<T> & costs,
                                                                                      std::vector<column_type> & column_type_array,
                                                                                      std::vector<X> & low_bound_values,
@@ -253,14 +255,16 @@ template <typename T, typename X> lp_primal_core_solver<T, X>::lp_primal_core_so
                                                                                      lp_settings & settings,
                                                                                      const column_namer& column_names):
 lp_core_solver_base<T, X>(A, b,
-                              basis,
-                              x,
-                              costs,
-                              settings,
-                              column_names,
-                              column_type_array,
-                              low_bound_values,
-                              upper_bound_values),
+                          basis,
+                          nbasis,
+                          heading,
+                          x,
+                          costs,
+                          settings,
+                          column_names,
+                          column_type_array,
+                          low_bound_values,
+                          upper_bound_values),
     m_beta(A.row_count()) {
     if (!(numeric_traits<T>::precise())) {
         m_converted_harris_eps = convert_struct<T, double>::convert(this->m_settings.harris_feasibility_tolerance);
@@ -277,6 +281,8 @@ lp_primal_core_solver(static_matrix<T, X> & A,
                       std::vector<X> & b, // the right side vector
                       std::vector<X> & x, // the number of elements in x needs to be at least as large as the number of columns in A
                       std::vector<unsigned> & basis,
+                      std::vector<unsigned> & nbasis,
+                      std::vector<int> & heading,
                       std::vector<T> & costs,
                       std::vector<column_type> & column_type_array,
                       std::vector<X> & upper_bound_values,
@@ -284,6 +290,8 @@ lp_primal_core_solver(static_matrix<T, X> & A,
                       const column_namer& column_names):
     lp_core_solver_base<T, X>(A, b,
                               basis,
+                              nbasis,
+                              heading,
                               x,
                               costs,
                               settings,

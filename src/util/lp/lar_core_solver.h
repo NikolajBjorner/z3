@@ -33,6 +33,8 @@ public:
                     std::vector<X> & low_bounds,
                     std::vector<X> & upper_bounds,
                     std::vector<unsigned> & basis,
+                    std::vector<unsigned> & nbasis,
+                    std::vector<int> & heading,
                     static_matrix<T, X> & A,
                     lp_settings & settings,
                     const column_namer & column_names);

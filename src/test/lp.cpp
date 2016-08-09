@@ -473,7 +473,10 @@ void test_lp_0() {
     std::vector<double>  upper_bound_values;
     lp_settings settings;
     simple_column_namer cn;
-    lp_primal_core_solver<double, double> lpsolver(m_, b, x_star, basis, costs, column_types, upper_bound_values, settings, cn);
+    std::vector<unsigned> nbasis;
+    std::vector<int>  heading;
+
+        lp_primal_core_solver<double, double> lpsolver(m_, b, x_star, basis, nbasis, heading, costs, column_types, upper_bound_values, settings, cn);
 
     lpsolver.solve();
 }
@@ -519,12 +522,16 @@ void test_lp_1() {
     lp_settings settings;
     simple_column_namer cn;
 
-    lp_primal_core_solver<double, double> lpsolver(m, b,
-                                    x_star,
-                                    basis,
-                                    costs,
-                                    column_types, upper_bound_values, settings, cn);
+    std::vector<unsigned> nbasis;
+    std::vector<int>  heading;
 
+    lp_primal_core_solver<double, double> lpsolver(m, b,
+                                                   x_star,
+                                                   basis,
+                                                   nbasis, heading,
+                                                   costs,
+                                                   column_types, upper_bound_values, settings, cn);
+    
     lpsolver.solve();
 }
 
