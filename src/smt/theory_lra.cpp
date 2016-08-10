@@ -615,11 +615,12 @@ namespace smt {
             else {
                 init_left_side(st);
                 theory_var v = mk_var(term);
-                if (m_theory_var2var_index.size() <= static_cast<unsigned>(v)) {
-                    lean::var_index vi = m_solver->add_term(m_left_side, st.coeff());
+                lean::var_index vi = m_theory_var2var_index.get(v, UINT_MAX);
+                if (vi == UINT_MAX) {
+                    vi = m_solver->add_term(m_left_side, st.coeff());
                     m_theory_var2var_index.setx(v, vi, UINT_MAX);
                     m_var_trail.push_back(v);
-                    TRACE("arith", tout << "v" << v << " := " << mk_pp(term, m) << "\n";);
+                    TRACE("arith", tout << "v" << v << " := " << mk_pp(term, m) << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";);
                 }
                 return v;
             }
@@ -806,6 +807,7 @@ namespace smt {
             m_not_handled = m_scopes[old_size].m_not_handled;
             m_scopes.resize(old_size);            
             if (!m_delay_constraints) m_solver->pop(num_scopes);
+            TRACE("arith", tout << m_scopes.size() << "\n";);
         }
 
         void restart_eh() {
@@ -996,6 +998,14 @@ namespace smt {
             if (vars.empty()) {
                 return false;
             }
+            TRACE("arith", 
+                  for (theory_var v = 0; v < sz; ++v) {
+                      if (th.is_relevant_and_shared(get_enode(v))) { 
+                          tout << "v" << v << " " << m_theory_var2var_index[v] << " ";
+                      }
+                  }
+                  tout << "\n";
+                  );
             m_solver->random_update(vars.size(), vars.c_ptr());
             init_variable_values();
             m_model_eqs.reset();
