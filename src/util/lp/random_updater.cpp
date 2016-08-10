@@ -179,7 +179,6 @@ void random_updater::remove_value(numeric_pair<mpq>& v) {
         m_values.erase(it);
 }
 
-
 void random_updater::add_column_to_sets(unsigned j) {
     if (m_core_solver.m_basis_heading[j] < 0) {
         m_var_set.insert(j);
