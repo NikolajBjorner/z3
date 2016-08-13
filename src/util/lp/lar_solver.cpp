@@ -529,7 +529,7 @@ void lar_solver::prepare_core_solver_fields(static_matrix<U, V> & A, std::vector
 }
 template <typename U, typename V>
 void lar_solver::prepare_core_solver_fields_with_signature(static_matrix<U, V> & A, std::vector<V> & x,
-    std::vector<V> & low_bound,
+                                                           std::vector<V> & low_bound,
                                                            std::vector<V> & upper_bound, const lar_solution_signature & signature) {
     create_matrix_A(A);
     fill_bounds_for_core_solver(low_bound, upper_bound);
