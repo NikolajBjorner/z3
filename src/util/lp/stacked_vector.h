@@ -93,7 +93,7 @@ public:
                 m_vector[t.first] = t.second;
             }
             lean_assert(d.m_deb_copy.size() == m_vector.size());
-            for (int i = 0; i < m_vector.size();i++){
+            for (unsigned i = 0; i < m_vector.size();i++){
                 std::cout << "i = " << i << std::endl;
                 lean_assert(d.m_deb_copy[i] == m_vector[i]);
             }
