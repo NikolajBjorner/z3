@@ -211,9 +211,8 @@ public:
         }
         std::cout << "adding bound for a term" << std::endl;
         m_mpq_lar_core_solver.print_linear_combination_of_column_indices(m_terms()[adjust_term_index(j)].m_coeffs, std::cout);
-        std::cout << "\n";
         // it is a term!
-        add_constraint(m_terms()[adjust_term_index(j)].m_coeffs, kind, right_side);
+        return add_constraint(m_terms()[adjust_term_index(j)].m_coeffs, kind, right_side);
     }
 
     constraint_index add_constraint(const std::vector<std::pair<mpq, var_index>>& left_side, lconstraint_kind kind_par, mpq right_side_par);
