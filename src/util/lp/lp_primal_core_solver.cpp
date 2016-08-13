@@ -246,21 +246,25 @@ template <typename T, typename X> lp_primal_core_solver<T, X>::lp_primal_core_so
                                                                                      std::vector<X> & b, // the right side vector
                                                                                      std::vector<X> & x, // the number of elements in x needs to be at least as large as the number of columns in A
                                                                                      std::vector<unsigned> & basis,
+                                                                                     std::vector<unsigned> & nbasis,
+                                                                                     std::vector<int> & heading,
                                                                                      std::vector<T> & costs,
-                                                                                     std::vector<column_type> & column_type_array,
+                                                                                     const std::vector<column_type> & column_type_array,
                                                                                      std::vector<X> & low_bound_values,
                                                                                      std::vector<X> & upper_bound_values,
                                                                                      lp_settings & settings,
                                                                                      const column_namer& column_names):
 lp_core_solver_base<T, X>(A, b,
-                              basis,
-                              x,
-                              costs,
-                              settings,
-                              column_names,
-                              column_type_array,
-                              low_bound_values,
-                              upper_bound_values),
+                          basis,
+                          nbasis,
+                          heading,
+                          x,
+                          costs,
+                          settings,
+                          column_names,
+                          column_type_array,
+                          low_bound_values,
+                          upper_bound_values),
     m_beta(A.row_count()) {
     if (!(numeric_traits<T>::precise())) {
         m_converted_harris_eps = convert_struct<T, double>::convert(this->m_settings.harris_feasibility_tolerance);
@@ -277,13 +281,17 @@ lp_primal_core_solver(static_matrix<T, X> & A,
                       std::vector<X> & b, // the right side vector
                       std::vector<X> & x, // the number of elements in x needs to be at least as large as the number of columns in A
                       std::vector<unsigned> & basis,
+                      std::vector<unsigned> & nbasis,
+                      std::vector<int> & heading,
                       std::vector<T> & costs,
-                      std::vector<column_type> & column_type_array,
+                      const std::vector<column_type> & column_type_array,
                       std::vector<X> & upper_bound_values,
                       lp_settings & settings,
                       const column_namer& column_names):
     lp_core_solver_base<T, X>(A, b,
                               basis,
+                              nbasis,
+                              heading,
                               x,
                               costs,
                               settings,
@@ -363,7 +371,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::check_cor
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::update_reduced_costs_from_pivot_row(unsigned entering, unsigned leaving) {
     // the basis heading has changed already
 #ifdef LEAN_DEBUG
-    auto & basis_heading = this->m_factorization->m_basis_heading;
+    auto & basis_heading = this->m_basis_heading;
     lean_assert(basis_heading[entering] >= 0 && static_cast<unsigned>(basis_heading[entering]) < this->m_m());
     lean_assert(basis_heading[leaving] < 0);
 #endif
@@ -436,7 +444,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::calc_work
     unsigned i = this->m_m();
     while (i--)
         m_beta[i] = this->m_ed[i];
-    this->m_factorization->solve_yB(m_beta);
+    this->m_factorization->solve_yB(m_beta, this->m_basis);
 }
 
 template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_entering_and_leaving(int entering, int leaving, X & t) {
@@ -463,7 +471,7 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
         this->m_iters_with_no_cost_growing = 0;
         return;
     }
-    unsigned pivot_row = this->m_factorization->basis_heading(leaving);
+    unsigned pivot_row = this->m_basis_heading[leaving];
     this->calculate_pivot_row_of_B_1(pivot_row);
     this->calculate_pivot_row_when_pivot_row_of_B1_is_ready();
     int pivot_compare_result = this->pivots_in_column_and_row_are_different(entering, leaving);

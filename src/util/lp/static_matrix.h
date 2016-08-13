@@ -212,7 +212,8 @@ public:
             col.pop_back();
         }
     }
-        
+
+    
     
     void pop(unsigned k) {
 #ifdef LEAN_DEBUG

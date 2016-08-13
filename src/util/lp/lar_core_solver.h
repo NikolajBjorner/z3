@@ -29,10 +29,12 @@ class lar_core_solver : public lp_core_solver_base<T, X> {
     std::vector<T> m_costs_dummy;
 public:
     lar_core_solver(std::vector<X> & x,
-                    std::vector<column_type> & column_types,
+                    const std::vector<column_type> & column_types,
                     std::vector<X> & low_bounds,
                     std::vector<X> & upper_bounds,
                     std::vector<unsigned> & basis,
+                    std::vector<unsigned> & nbasis,
+                    std::vector<int> & heading,
                     static_matrix<T, X> & A,
                     lp_settings & settings,
                     const column_namer & column_names);

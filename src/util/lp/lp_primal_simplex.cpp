@@ -240,6 +240,8 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::solve_with_total
                                                     this->m_b,
                                                     this->m_x,
                                                     this->m_basis,
+                                                    this->m_nbasis,
+                                                    this->m_heading,
                                                     this->m_costs,
                                                     this->m_column_types,
                                                     m_low_bounds,

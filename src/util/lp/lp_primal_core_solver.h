@@ -113,18 +113,24 @@ public:
                           std::vector<X> & b, // the right side vector
                           std::vector<X> & x, // the number of elements in x needs to be at least as large as the number of columns in A
                           std::vector<unsigned> & basis,
+                          std::vector<unsigned> & nbasis,
+                          std::vector<int> & heading,
                           std::vector<T> & costs,
-                          std::vector<column_type> & column_type_array,
+                          const std::vector<column_type> & column_type_array,
                           std::vector<X> & low_bound_values,
                           std::vector<X> & upper_bound_values,
                           lp_settings & settings,
                           const column_namer& column_names);  // constructor
+
+
     lp_primal_core_solver(static_matrix<T, X> & A,
                           std::vector<X> & b, // the right side vector
                           std::vector<X> & x, // the number of elements in x needs to be at least as large as the number of columns in A
                           std::vector<unsigned> & basis,
+                          std::vector<unsigned> & nbasis,
+                          std::vector<int> & heading,
                           std::vector<T> & costs,
-                          std::vector<column_type> & column_type_array,
+                          const std::vector<column_type> & column_type_array,
                           std::vector<X> & upper_bound_values,
                           lp_settings & settings,
                           const column_namer& column_names);

@@ -69,41 +69,52 @@ struct lar_term {
     lar_term(const std::vector<std::pair<mpq, var_index>> coeffs,
              const mpq & v) : m_coeffs(coeffs), m_v(v) {
     }
+    bool operator==(const lar_term & a) const {  return m_coeffs == a.m_coeffs && m_v == a.m_v;}
+    bool operator!=(const lar_term & a) const {  return ! (*this == a);}
 };
 
 class lar_solver : public column_namer {
     //////////////////// fields //////////////////////////
+    // fields used in m_mpq_lar_core_solver
+    std::vector<numeric_pair<mpq>> m_x; // the solution
+    stacked_vector<column_type> m_column_types;
+    stacked_vector<numeric_pair<mpq>> m_low_bounds;
+    stacked_vector<numeric_pair<mpq>> m_upper_bounds;
+    std::vector<unsigned> m_basis;
+    std::vector<unsigned> m_nbasis;
+    std::vector<int> m_heading;
+    static_matrix<mpq, numeric_pair<mpq>> m_A;
+    lp_settings m_settings;
+    // end of fields used in m_mpq_lar_core_solver
+    
     stacked_value<lp_status> m_status = UNKNOWN;
     stacked_map<std::string, var_index> m_var_names_to_var_index;
-    stacked_map<canonic_left_side, ul_pair, hash_and_equal_of_canonic_left_side_struct, hash_and_equal_of_canonic_left_side_struct> m_map_of_canonic_left_sides;
+    std::vector<std::string> m_column_names;
+    stacked_map<canonic_left_side, ul_pair, hash_and_equal_of_canonic_left_side_struct, hash_and_equal_of_canonic_left_side_struct> m_map_of_canonic_left_sides_to_ul_pairs;
     stacked_vector<lar_normalized_constraint> m_normalized_constraints;
-    stacked_map<var_index, column_info_with_cls> m_map_from_var_index_to_column_info_with_cls;
-    lar_core_solver_parameter_struct<mpq, numeric_pair<mpq>> m_lar_core_solver_params;
+    stacked_vector<canonic_left_side> m_vec_of_canonic_left_sides;
+    
+    
     lar_core_solver<mpq, numeric_pair<mpq>> m_mpq_lar_core_solver;
     stacked_value<canonic_left_side> m_infeasible_canonic_left_side; // such can be found at the initialization step
     stacked_vector<lar_term> m_terms;
     const var_index m_terms_start_index = 1000000;
     
     ////////////////// methods ////////////////////////////////
-    static_matrix<mpq, numeric_pair<mpq>> & A() { return m_lar_core_solver_params.m_A;}
-    canonic_left_side create_or_fetch_existing_left_side(const std::vector<std::pair<mpq, var_index>>& left_side_par);
+    static_matrix<mpq, numeric_pair<mpq>> & A() { return m_A;}
+    canonic_left_side create_or_fetch_existing_left_side(const std::vector<std::pair<mpq, var_index>>& left_side_par, var_index & j);
     static mpq find_ratio_of_original_constraint_to_normalized(const canonic_left_side & ls, const lar_constraint & constraint);
 
     void add_canonic_left_side_for_var(var_index i, std::string var_name);
 
-    void map_left_side_to_A_of_core_solver(const canonic_left_side &  left_side, var_index vj);
-
     bool valid_index(unsigned j) { return static_cast<int>(j) >= 0;}
 
-
-    // this adds a row to A
-    template <typename U, typename V>
-    void fill_row_of_A(static_matrix<U, V> & A, const canonic_left_side & ls);
+    void fill_last_row_of_A(static_matrix<mpq, numeric_pair<mpq>> & A, const canonic_left_side & ls);
 
     unsigned number_or_nontrivial_left_sides() const
     {
         unsigned ret = 0;
-        for (auto & p : m_map_of_canonic_left_sides()) {
+        for (auto & p : m_map_of_canonic_left_sides_to_ul_pairs()) {
             if (p.first.size() > 1)
                 ret++;
         }
@@ -133,13 +144,9 @@ class lar_solver : public column_namer {
 
     void set_low_bound_for_column_info(constraint_index i, const lar_normalized_constraint & norm_constr);
 
-    void update_column_info_of_normalized_constraint(constraint_index i, const lar_normalized_constraint & norm_constr);
-
     column_type get_column_type(const column_info<mpq> & ci);
 
     std::string get_column_name(unsigned j) const override;
-
-    void fill_column_types();
 
     template <typename V>
     void fill_bounds_for_core_solver(std::vector<V> & lb, std::vector<V> & ub);
@@ -159,20 +166,25 @@ class lar_solver : public column_namer {
     const column_info<mpq> & get_column_info_from_var_index(var_index vi) const;
 
 public:
-    lp_settings & settings() { return m_lar_core_solver_params.m_settings;}
+    lp_settings & settings() { return m_settings;}
 
-    lp_settings const & settings() const { return m_lar_core_solver_params.m_settings;}
+    lp_settings const & settings() const { return m_settings;}
 
     void clear() {lean_assert(false); // not implemented
     }
 
-    lar_solver() : m_mpq_lar_core_solver(m_lar_core_solver_params.m_x,
-                                     m_lar_core_solver_params.m_column_types,
-                                     m_lar_core_solver_params.m_low_bounds,
-                                     m_lar_core_solver_params.m_upper_bounds,
-                                     m_lar_core_solver_params.m_basis,
-                                     m_lar_core_solver_params.m_A,
-                                     m_lar_core_solver_params.m_settings,
+
+    // the cast here is safe because the solver with rationals does not change the bounds, only the solver with doubles does
+    
+    lar_solver() : m_mpq_lar_core_solver(m_x,
+                                         m_column_types(),
+                                         const_cast<std::vector<numeric_pair<mpq>> &>(m_low_bounds()),
+                                         const_cast<std::vector<numeric_pair<mpq>> &>(m_upper_bounds()),
+                                         m_basis,
+                                         m_nbasis,
+                                         m_heading,
+                                     m_A,
+                                     m_settings,
                                          *this) {
     }
 
@@ -182,10 +194,26 @@ public:
 
     var_index add_var(std::string s);
 
-    constraint_index add_var_bound(var_index j, lconstraint_kind kind_par, mpq right_side_par)  {
-        std::vector<std::pair<mpq, var_index>> left_side;
-        left_side.emplace_back(1, j);
-        return add_constraint(left_side, kind_par, right_side_par);
+    bool is_term(unsigned j) const {
+        return j >= m_terms_start_index && j - m_terms_start_index < m_terms.size();
+    }
+
+    unsigned adjust_term_index(unsigned j) const {
+        lean_assert(is_term(j));
+        return j - m_terms_start_index;
+    }
+    
+    constraint_index add_var_bound(var_index j, lconstraint_kind kind, mpq right_side)  {
+        if (j < m_A.column_count()) { // j is a var
+            std::vector<std::pair<mpq, var_index>> left_side;
+            left_side.emplace_back(1, j);
+            return add_constraint(left_side, kind, right_side);
+        }
+        std::cout << "adding bound for a term" << std::endl;
+        m_mpq_lar_core_solver.print_linear_combination_of_column_indices(m_terms()[adjust_term_index(j)].m_coeffs, std::cout);
+        std::cout << "\n";
+        // it is a term!
+        add_constraint(m_terms()[adjust_term_index(j)].m_coeffs, kind, right_side);
     }
 
     constraint_index add_constraint(const std::vector<std::pair<mpq, var_index>>& left_side, lconstraint_kind kind_par, mpq right_side_par);
@@ -214,15 +242,12 @@ public:
 
     bool the_evidence_is_correct();
 
-    void update_column_info_of_normalized_constraints();
-
     mpq sum_of_right_sides_of_evidence(const std::vector<std::pair<mpq, unsigned>> & evidence);
-    void prepare_independently_of_numeric_type();
 
     template <typename U, typename V>
     void prepare_core_solver_fields(static_matrix<U, V> & A, std::vector<V> & x,
-                                    std::vector<V> & low_bound,
-                                    std::vector<V> & upper_bound);
+                                     std::vector<V> & low_bound,
+                                     std::vector<V> & upper_bound);
 
     template <typename U, typename V>
     void prepare_core_solver_fields_with_signature(static_matrix<U, V> & A, std::vector<V> & x,
@@ -255,13 +280,13 @@ public:
 
     std::string get_variable_name(var_index vi) const;
 
-    void print_constraints(std::ostream & out);
+    void print_constraints(std::ostream & out) const ;
 
-    void print_constraint(constraint_index ci, std::ostream & out);
+    void print_constraint(constraint_index ci, std::ostream & out) const ;
 
-    void print_canonic_left_side(const canonic_left_side & c, std::ostream & out);
+    void print_canonic_left_side(const canonic_left_side & c, std::ostream & out) const ;
 
-    void print_left_side_of_constraint(const lar_base_constraint * c, std::ostream & out);
+    void print_left_side_of_constraint(const lar_base_constraint * c, std::ostream & out) const ;
 
     mpq get_infeasibility_of_solution(std::unordered_map<std::string, mpq> & solution);
 
@@ -271,7 +296,7 @@ public:
 
     mpq get_left_side_val(const lar_constraint &  cns, const std::unordered_map<var_index, mpq> & var_map) const;
 
-    void print_constraint(const lar_base_constraint * c, std::ostream & out);
+    void print_constraint(const lar_base_constraint * c, std::ostream & out) const;
     unsigned get_total_iterations() const { return m_mpq_lar_core_solver.total_iterations(); }
 // see http://research.microsoft.com/projects/z3/smt07.pdf
 // This method searches for a feasible solution with as many different values of variables, reverenced in vars, as it can find
@@ -281,8 +306,8 @@ public:
     void fill_var_set_for_random_update(unsigned sz, var_index const * vars, std::vector<unsigned>& column_list);
     std::vector<unsigned> get_list_of_all_var_indices() const {
         std::vector<unsigned> ret;
-        for (auto t : m_map_from_var_index_to_column_info_with_cls())
-            ret.push_back(t.first);
+        for (unsigned j = 0; j < m_heading.size(); j++)
+            ret.push_back(j);
         return ret;
     }
     void push();
@@ -301,11 +326,11 @@ public:
             ret.push_back(it.first);
         return ret;
     }
-    void add_row_to_A(const canonic_left_side & ls);
+
     void fill_basis_from_canonic_left_sides() {
-        auto & b = m_lar_core_solver_params.m_basis;
+        auto & b = m_basis;
         b.clear();
-        for (auto & t : m_map_of_canonic_left_sides()) {
+        for (auto & t : m_map_of_canonic_left_sides_to_ul_pairs()) {
             if (t.first.size() > 1)
                 b.push_back(t.second.m_additional_var_index);
         }
@@ -320,10 +345,158 @@ public:
         lean_assert(j >= m_terms_start_index);
         return m_terms[j - m_terms_start_index];
     }
-
+ 
     bool need_to_presolve_with_double_solver() const {
-        return m_lar_core_solver_params.m_settings.use_double_solver_for_lar
-            && m_lar_core_solver_params.m_A.row_count() > 0; // todo, add more conditions
+        return m_settings.use_double_solver_for_lar
+            && m_A.row_count() > 0; // todo, add more conditions
     }
+
+    bool low_bound_is_set(unsigned j) const {
+        switch (m_column_types[j]) {
+        case free_column:
+        case upper_bound:
+            return false;
+        case low_bound:
+        case boxed:
+        case fixed:
+            return true;
+        default:
+            lean_assert(false);
+        }
+        return false;
+    }
+    bool upper_bound_is_set(unsigned j) const {
+        switch (m_column_types[j]) {
+        case free_column:
+        case low_bound:
+            return false;
+        case upper_bound:
+        case boxed:
+        case fixed:
+            return true;
+        default:
+            lean_assert(false);
+        }
+        return false;
+    }
+
+    void pop_core_solver_params() {
+        pop_core_solver_params(1);
+    }
+     void pop_core_solver_params(unsigned k) {
+        m_A.pop(k);
+     }
+
+    void add_new_var_to_core_fields(bool register_in_basis) {
+        std::cout << "add_new_var_to_core_fields(" << register_in_basis<<")\n";
+        unsigned i = m_A.column_count();
+        m_A.add_column();
+        lean_assert(m_x.size() == i);
+        lean_assert(m_column_types.size() == i);
+        m_column_types.push_back(free_column);
+        lean_assert(m_low_bounds.size() == i && m_upper_bounds.size() == i);
+        // we need to insert some value, does not matter which
+        m_low_bounds.push_back(zero_of_type<numeric_pair<mpq>>());
+        m_upper_bounds.push_back(zero_of_type<numeric_pair<mpq>>());
+        m_x.push_back(zero_of_type<numeric_pair<mpq>>());
+
+        lean_assert(m_heading.size() == i); // as m_A.column_count() on the entry to the method
+        lean_assert(m_nbasis.size() == i - m_A.row_count());
+        if (register_in_basis) {
+            m_A.add_row();
+            m_heading.push_back(m_basis.size());
+            m_basis.push_back(i);
+        }else {
+            m_heading.push_back(- static_cast<int>(m_nbasis.size()) - 1);
+            m_nbasis.push_back(i);
+        }
+    }
+
+    void register_new_var_name(std::string s) {
+        lean_assert(!m_var_names_to_var_index.contains(s));
+        unsigned j = m_var_names_to_var_index.size();
+        m_var_names_to_var_index[s] = j;
+        lean_assert(m_column_names.size() == j);
+        m_column_names.push_back(s);
+    }
+    
+    void update_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side) {
+        column_type type = m_column_types[j];
+        mpq y_of_bound(0);
+        if (j==15) {
+        std::cout << "column type " << column_type_to_string(type) << std::endl;
+        std::cout << "x[" << j << "] = " << T_to_string(m_x[j]) << std::endl;
+        std::cout << "kind = " << lconstraint_kind_string(kind) << std::endl;
+        std::cout << right_side << std::endl;
+        }
+        switch(type) {
+        case free_column:
+            {
+            switch (kind) {
+            case LT:
+                std::cout << "LT case" << std::endl;
+                y_of_bound = -1;
+            case LE:
+                m_column_types[j] = upper_bound;
+                lean_assert(m_column_types[j] == upper_bound);
+                lean_assert(m_upper_bounds.size() > j);
+                {
+                    auto up = numeric_pair<mpq>(right_side, y_of_bound);
+                    m_upper_bounds[j] = up;
+                    if (m_heading[j] < 0)
+                        m_x[j] = up;
+                }
+                break;
+            case GT:
+                y_of_bound = 1;
+                std::cout << "GT case" << std::endl;
+            case GE:
+                std::cout << "GE case " << std::endl;
+                m_column_types[j] = low_bound;
+                lean_assert(m_upper_bounds.size() > j);
+                {
+                    auto low = numeric_pair<mpq>(right_side, y_of_bound);
+                    m_low_bounds[j] = low;
+                    if (m_heading[j] < 0)
+                        m_x[j] = low;
+                }
+                break;
+            case EQ:
+                lean_assert(false);
+                break;
+
+            default:
+                lean_unreachable();
+                
+            }
+            std::cout << "type_was  free_column " << std::endl;
+            break;
+            case boxed:
+                lean_assert(false);
+            case low_bound:
+                lean_assert(false);
+            case upper_bound:
+                lean_assert(false);
+            case fixed:
+                lean_assert(false);
+                break;
+            }
+            lean_assert(false);
+        }
+    }
+
+    void substitute_terms(const mpq & mult, const std::vector<std::pair<mpq, var_index>>& left_side_with_terms,std::vector<std::pair<mpq, var_index>> &left_side, mpq & right_side) const {
+        for ( auto & t : left_side_with_terms ) {
+            if (t.second < m_terms_start_index) {
+                lean_assert(t.second < m_A.column_count());
+                left_side.push_back(std::pair<mpq, var_index>(mult * t.first, t.second));
+            } else {
+                const lar_term & term = m_terms[adjust_term_index(t.second)];
+                substitute_terms(mult * t.first, term.m_coeffs, left_side, right_side);
+                right_side -= mult * term.m_v;
+            }
+        }
+    }
+
 };
 }

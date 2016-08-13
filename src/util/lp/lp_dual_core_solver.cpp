@@ -16,6 +16,8 @@ lp_dual_core_solver<T, X>::lp_dual_core_solver(static_matrix<T, X> & A,
                                                std::vector<X> & b, // the right side std::vector
                                                std::vector<X> & x, // the number of elements in x needs to be at least as large as the number of columns in A
                                                std::vector<unsigned> & basis,
+                                               std::vector<unsigned> & nbasis,
+                                               std::vector<int> & heading,
                                                std::vector<T> & costs,
                                                std::vector<column_type> & column_type_array,
                                                std::vector<X> & low_bound_values,
@@ -25,6 +27,8 @@ lp_dual_core_solver<T, X>::lp_dual_core_solver(static_matrix<T, X> & A,
     lp_core_solver_base<T, X>(A,
                               b,
                               basis,
+                              nbasis,
+                              heading,
                               x,
                               costs,
                               settings,
@@ -49,7 +53,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::init_a_wave_by
 }
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::fill_non_basis_with_only_able_to_enter_columns() {
-    auto & nb = this->m_factorization->m_non_basic_columns;
+    auto & nb = this->m_non_basic_columns;
     nb.clear();
     unsigned j = this->m_n();
     while (j--) {
@@ -60,7 +64,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::fill_non_basis
 }
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::restore_non_basis() {
-    auto & nb = this->m_factorization->m_non_basic_columns;
+    auto & nb = this->m_non_basic_columns;
     nb.clear();
     unsigned j = this->m_n();
     while (j--) {
@@ -84,7 +88,7 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::update_basis(i
     }
     // need to refactor
     this->m_factorization->change_basis(entering, leaving);
-    init_factorization(this->m_factorization, this->m_A, this->m_basis, this->m_basis_heading, this->m_settings, this->m_non_basic_columns);
+    init_factorization(this->m_factorization, this->m_A, this->m_basis, this->m_basis_heading, this->m_settings);
     this->m_refactor_counter = 0;
     if (this->m_factorization->get_status() != LU_status::OK) {
         LP_OUT(this->m_settings, "failing refactor for entering = " << entering << ", leaving = " << leaving << " total_iterations = " << this->total_iterations() << std::endl);
@@ -315,7 +319,7 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::can_be_breakpo
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::fill_breakpoint_set() {
     m_breakpoint_set.clear();
-    for (unsigned j : non_basis()) {
+    for (unsigned j : this->non_basis()) {
         if (can_be_breakpoint(j)) {
             m_breakpoint_set.insert(j);
         }
@@ -357,14 +361,14 @@ template <typename T, typename X> T lp_dual_core_solver<T, X>::get_delta() {
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::restore_d() {
     this->m_d[m_p] = numeric_traits<T>::zero();
-    for (auto j : non_basis()) {
+    for (auto j : this->non_basis()) {
         this->m_d[j] += m_theta_D * this->m_pivot_row[j];
     }
 }
 
 template <typename T, typename X> bool lp_dual_core_solver<T, X>::d_is_correct() {
     this->solve_yB(this->m_y);
-    for  (auto j : non_basis()) {
+    for  (auto j : this->non_basis()) {
         T d = this->m_costs[j] -  this->m_A.dot_product_with_column(this->m_y, j);
         if (numeric_traits<T>::get_double(abs(d - this->m_d[j])) >= 0.001) {
             LP_OUT(this->m_settings, "total_iterations = " << this->total_iterations() << std::endl
@@ -441,7 +445,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::snap_xN_to_bou
 template <typename T, typename X> void lp_dual_core_solver<T, X>::init_beta_precisely(unsigned i) {
     std::vector<T> vec(this->m_m(), numeric_traits<T>::zero());
     vec[i] = numeric_traits<T>::one();
-    this->m_factorization->solve_yB(vec);
+    this->m_factorization->solve_yB(vec, this->m_basis);
     T beta = numeric_traits<T>::zero();
     for (T & v : vec) {
         beta += v * v;
@@ -506,8 +510,8 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::recover_leavin
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::revert_to_previous_basis() {
     //    std::cout << "recovering basis p = " << m_p << " q = " << m_q << std::endl;
-    this->m_factorization->change_basis(m_p, m_q);
-    init_factorization(this->m_factorization, this->m_A, this->m_basis, this->m_basis_heading, this->m_settings, this->m_non_basic_columns);
+    change_basis(m_p, m_q, this->m_basis, this->m_non_basic_columns, this->m_basis_heading);
+    init_factorization(this->m_factorization, this->m_A, this->m_basis, this->m_settings);
     if (this->m_factorization->get_status() != LU_status::OK) {
         this->m_status = FLOATING_POINT_ERROR; // complete failure
         return;
@@ -561,7 +565,7 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::snap_runaway_n
 
 
 template <typename T, typename X> bool lp_dual_core_solver<T, X>::problem_is_dual_feasible() const {
-    for (unsigned j : non_basis()){
+    for (unsigned j : this->non_basis()){
         if (!this->column_is_dual_feasible(j)) {
             // std::cout << "column " << j << " is not dual feasible" << std::endl;
             // std::cout << "m_d[" << j << "] = " << this->m_d[j] << std::endl;
@@ -726,7 +730,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::process_flippe
     }
 }
 template <typename T, typename X> void lp_dual_core_solver<T, X>::update_d_and_xB() {
-    for (auto j : non_basis()) {
+    for (auto j : this->non_basis()) {
         this->m_d[j] -= m_theta_D * this->m_pivot_row[j];
     }
     this->m_d[m_p] = - m_theta_D;

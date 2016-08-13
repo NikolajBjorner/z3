@@ -58,6 +58,9 @@ public:
     std::vector<T> m_x;
     std::vector<T> m_upper_bounds;
     std::vector<unsigned> m_basis;
+    std::vector<unsigned> m_nbasis;
+    std::vector<int> m_heading;
+
 
     lp_status m_status = lp_status::UNKNOWN;
 
@@ -71,7 +74,7 @@ public:
     void set_cost_for_column(unsigned column, T  column_cost) {
         get_or_create_column_info(column)->set_cost(column_cost);
     }
-	std::string get_column_name(unsigned j) const override;
+    std::string get_column_name(unsigned j) const override;
 
     void set_row_column_coefficient(unsigned row, unsigned column, T const & val) {
         m_A_values[row][column] = val;

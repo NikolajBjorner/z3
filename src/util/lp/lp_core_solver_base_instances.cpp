@@ -20,11 +20,12 @@ template bool lean::lp_core_solver_base<double, double>::find_x_by_solving();
 template lean::non_basic_column_value_position lean::lp_core_solver_base<double, double>::get_non_basic_column_value_position(unsigned int);
 template void lean::lp_core_solver_base<double, double>::init_reduced_costs_for_one_iteration();
 template lean::lp_core_solver_base<double, double>::lp_core_solver_base(
-	lean::static_matrix<double, double>&, std::vector<double, std::allocator<double> >&, 
-	std::vector<unsigned int, std::allocator<unsigned int> >&, 
-	std::vector<double, std::allocator<double> >&, 
-	std::vector<double, std::allocator<double> >&, 
-	lean::lp_settings&, const column_namer&, std::vector<lean::column_type, std::allocator<lean::column_type> >&, std::vector<double, std::allocator<double> >&, std::vector<double, std::allocator<double> >&);
+    lean::static_matrix<double, double>&, std::vector<double, std::allocator<double> >&, 
+    std::vector<unsigned int, std::allocator<unsigned int> >&,
+    std::vector<unsigned> &, std::vector<int> &,
+    std::vector<double, std::allocator<double> >&, 
+    std::vector<double, std::allocator<double> >&, 
+    lean::lp_settings&, const column_namer&, const std::vector<lean::column_type, std::allocator<lean::column_type> >&, std::vector<double, std::allocator<double> >&, std::vector<double, std::allocator<double> >&);
 
 template bool lean::lp_core_solver_base<double, double>::print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over(char const*);
 template void lean::lp_core_solver_base<double, double>::restore_x(unsigned int, double const&);
@@ -58,13 +59,24 @@ template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq>
 template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::init();
 template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::init_basis_heading();
 template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::init_reduced_costs_for_one_iteration();
-template lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::lp_core_solver_base(lean::static_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >&, std::vector<lean::numeric_pair<lean::mpq>, std::allocator<lean::numeric_pair<lean::mpq> > >&, std::vector<unsigned int, std::allocator<unsigned int> >&, std::vector<lean::numeric_pair<lean::mpq>, std::allocator<lean::numeric_pair<lean::mpq> > >&, std::vector<lean::mpq, std::allocator<lean::mpq> >&, lean::lp_settings&, const column_namer&, std::vector<lean::column_type, std::allocator<lean::column_type> >&, std::vector<lean::numeric_pair<lean::mpq>, std::allocator<lean::numeric_pair<lean::mpq> > >&, std::vector<lean::numeric_pair<lean::mpq>, std::allocator<lean::numeric_pair<lean::mpq> > >&);
+template lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::lp_core_solver_base(lean::static_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >&, std::vector<lean::numeric_pair<lean::mpq>, std::allocator<lean::numeric_pair<lean::mpq> > >&, std::vector<unsigned int, std::allocator<unsigned int> >&, std::vector<unsigned> &, std::vector<int> &, std::vector<lean::numeric_pair<lean::mpq>, std::allocator<lean::numeric_pair<lean::mpq> > >&, std::vector<lean::mpq, std::allocator<lean::mpq> >&, lean::lp_settings&, const column_namer&, const std::vector<lean::column_type, std::allocator<lean::column_type> >&, std::vector<lean::numeric_pair<lean::mpq>, std::allocator<lean::numeric_pair<lean::mpq> > >&, std::vector<lean::numeric_pair<lean::mpq>, std::allocator<lean::numeric_pair<lean::mpq> > >&);
 template bool lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::print_statistics_with_cost_and_check_that_the_time_is_over(lean::numeric_pair<lean::mpq>);
 template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::snap_xN_to_bounds_and_fill_xB();
 template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::solve_Bd(unsigned int);
 template bool lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::update_basis_and_x(int, int, lean::numeric_pair<lean::mpq> const&);
 template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::update_x(unsigned int, lean::numeric_pair<lean::mpq>);
-template lean::lp_core_solver_base<lean::mpq, lean::mpq>::lp_core_solver_base(lean::static_matrix<lean::mpq, lean::mpq>&, std::vector<lean::mpq, std::allocator<lean::mpq> >&, std::vector<unsigned int, std::allocator<unsigned int> >&, std::vector<lean::mpq, std::allocator<lean::mpq> >&, std::vector<lean::mpq, std::allocator<lean::mpq> >&, lean::lp_settings&, const column_namer&, std::vector<lean::column_type, std::allocator<lean::column_type> >&, std::vector<lean::mpq, std::allocator<lean::mpq> >&, std::vector<lean::mpq, std::allocator<lean::mpq> >&);
+template lean::lp_core_solver_base<lean::mpq, lean::mpq>::lp_core_solver_base(
+                                                                              lean::static_matrix<lean::mpq, lean::mpq>&,
+                                                                              std::vector<lean::mpq, std::allocator<lean::mpq> >&,
+                                                                              std::vector<unsigned int, std::allocator<unsigned int> >&,
+                                                                              std::vector<unsigned> &, std::vector<int> &,
+                                                                              std::vector<lean::mpq, std::allocator<lean::mpq> >&,
+                                                                              std::vector<lean::mpq, std::allocator<lean::mpq> >&,
+                                                                              lean::lp_settings&,
+                                                                              const column_namer&,
+                                                                              const std::vector<lean::column_type, std::allocator<lean::column_type> >&,
+                                                                              std::vector<lean::mpq, std::allocator<lean::mpq> >&,
+                                                                              std::vector<lean::mpq, std::allocator<lean::mpq> >&);
 template bool lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::print_statistics_with_iterations_and_check_that_the_time_is_over();
 template std::string lean::lp_core_solver_base<double, double>::column_name(unsigned int) const;
 template void lean::lp_core_solver_base<double, double>::pretty_print(std::ostream & out);
@@ -89,4 +101,4 @@ template bool lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq>
 template void  lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::pivot_fixed_vars_from_basis();
 template bool lean::lp_core_solver_base<double, double>::column_is_feasible(unsigned int) const;
 template bool lean::lp_core_solver_base<lean::mpq, lean::mpq>::column_is_feasible(unsigned int) const;
-template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::print_linear_combination_of_column_indices(std::vector<std::pair<lean::mpq, unsigned int>, std::allocator<std::pair<lean::mpq, unsigned int> > > const&, std::ostream&);
+template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::print_linear_combination_of_column_indices(std::vector<std::pair<lean::mpq, unsigned int>, std::allocator<std::pair<lean::mpq, unsigned int> > > const&, std::ostream&) const;

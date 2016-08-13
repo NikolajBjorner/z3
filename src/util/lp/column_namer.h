@@ -9,6 +9,6 @@
 namespace lean {
 class column_namer {
 public:
-	virtual std::string get_column_name(unsigned j) const = 0;
+    virtual std::string get_column_name(unsigned j) const = 0;
 };
 }

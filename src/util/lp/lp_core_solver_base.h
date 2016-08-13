@@ -34,7 +34,8 @@ public:
     static_matrix<T, X> & m_A; // the matrix A
     std::vector<X> & m_b; // the right side
     std::vector<unsigned> & m_basis;
-    std::vector<int> m_basis_heading;
+    std::vector<unsigned>& m_non_basic_columns;
+    std::vector<int>& m_basis_heading;
     std::vector<X> & m_x; // a feasible solution, the fist time set in the constructor
     std::vector<T> & m_costs;
     lp_settings & m_settings;
@@ -47,8 +48,7 @@ public:
     std::vector<T> m_d; // the vector of reduced costs
     indexed_vector<T> m_ed; // the solution of B*m_ed = a
     unsigned m_iters_with_no_cost_growing = 0;
-    std::vector<unsigned> m_non_basic_columns;
-    std::vector<column_type> & m_column_type;
+    const std::vector<column_type> & m_column_type;
     std::vector<X> & m_low_bound_values;
     std::vector<X> & m_upper_bound_values;
     std::vector<T> m_column_norms; // the approximate squares of column norms that help choosing a profitable column
@@ -61,11 +61,13 @@ public:
     lp_core_solver_base(static_matrix<T, X> & A,
                         std::vector<X> & b, // the right side vector
                         std::vector<unsigned> & basis,
+                        std::vector<unsigned> & nbasis,
+                        std::vector<int> & heading,
                         std::vector<X> & x,
                         std::vector<T> & costs,
                         lp_settings & settings,
                         const column_namer& column_names,
-                        std::vector<column_type> & column_types,
+                        const std::vector<column_type> & column_types,
                         std::vector<X> & low_bound_values,
                         std::vector<X> & upper_bound_values);
 
@@ -78,12 +80,13 @@ public:
      }
 
     std::vector<unsigned> & non_basis() {
-        if (m_factorization == nullptr) {
-            init_factorization(m_factorization, m_A, m_basis, m_basis_heading, m_settings, m_non_basic_columns);
-        }
-        return m_factorization->m_non_basic_columns;
+        return m_non_basic_columns;
     }
 
+    const std::vector<unsigned> & non_basis() const { return m_non_basic_columns; }
+
+
+    
     void set_status(lp_status status) {
         m_status = status;
     }
@@ -263,6 +266,9 @@ public:
     void init_lu();
     int pivots_in_column_and_row_are_different(int entering, int leaving) const;
     void pivot_fixed_vars_from_basis();
-    void print_linear_combination_of_column_indices(const std::vector<std::pair<T, unsigned>> & coeffs, std::ostream & out);
+    void print_linear_combination_of_column_indices(const std::vector<std::pair<T, unsigned>> & coeffs, std::ostream & out) const;
 };
+   void change_basis(unsigned entering, unsigned leaving, std::vector<unsigned>& basis, std::vector<unsigned>& nbasis, std::vector<int> & basis_heading);
+void restore_basis_change(unsigned entering, unsigned leaving, std::vector<unsigned>& basis, std::vector<unsigned>& nbasis, std::vector<int> & basis_heading);
+
 }

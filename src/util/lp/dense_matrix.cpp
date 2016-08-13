@@ -53,7 +53,7 @@ dense_matrix<T, X>::operator=(dense_matrix const & other){
 template <typename T, typename X> dense_matrix<T, X>::dense_matrix(matrix<T, X> const * other) :
     m_m(other->row_count()),
     m_n(other->column_count()) {
-	m_values.resize(m_m*m_n);
+    m_values.resize(m_m*m_n);
     for (unsigned i = 0; i < m_m; i++)
         for (unsigned j = 0; j < m_n; j++)
             m_values[i * m_n + j] = other->get_elem(i, j);

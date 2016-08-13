@@ -76,5 +76,13 @@ public:
     unsigned size() const {
         return m_canonic_left_side.size();
     }
+    bool operator==(const lar_normalized_constraint& c) const {
+        return m_canonic_left_side == c.m_canonic_left_side
+            && m_ratio_to_original == c.m_ratio_to_original
+            && m_origin_constraint.m_kind == c.m_origin_constraint.m_kind;
+    }
+    bool operator!=(const lar_normalized_constraint& c) const {
+        return ! (*this == c);
+    }
 };
 }

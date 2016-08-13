@@ -96,7 +96,6 @@ public:
     // the fields
     unsigned m_dim;
     static_matrix<T, X> const &m_A;
-    std::vector<unsigned>& m_basis;
     permutation_matrix<T, X> m_Q;
     permutation_matrix<T, X> m_R;
     sparse_matrix<T, X> m_U;
@@ -106,9 +105,7 @@ public:
     // one_off_diagonal_matrix, and transposition_matrix
     std::vector<tail_matrix<T, X> *> m_tail;
     lp_settings & m_settings;
-    std::vector<int> & m_basis_heading;
     bool m_failure = false;
-    std::vector<unsigned> & m_non_basic_columns;
     indexed_vector<T>  m_row_eta_work_vector;
     unsigned m_refactor_counter = 0;
     // constructor
@@ -116,13 +113,8 @@ public:
     // they represent the set of m columns
     lu(static_matrix<T, X> const & A,
        std::vector<unsigned>& basis,
-       std::vector<int> & basis_heading,
-       lp_settings & settings,
-       std::vector<unsigned> & non_basic_columns);
+       lp_settings & settings);
     void debug_test_of_basis(static_matrix<T, X> const & A, std::vector<unsigned> & basis);
-
-
-    unsigned non_basic_column_indexx_in_non_basic_columns(unsigned j) { return - m_basis_heading[j] - 1; }
     void solve_Bd_when_w_is_ready(std::vector<T> & d, indexed_vector<T>& w );
     void solve_By(indexed_vector<X> & y);
 
@@ -136,38 +128,30 @@ public:
     void solve_By_when_y_is_ready_for_T(std::vector<T> & y, std::vector<unsigned> & index);
     void print_indexed_vector(indexed_vector<T> & w, std::ofstream & f);
 
-    void print_basis(std::ostream & f);
     void print_matrix_compact(std::ostream & f);
 
-    void print(indexed_vector<T> & w);
+    void print(indexed_vector<T> & w, const std::vector<unsigned>& basis);
     void solve_Bd(unsigned a_column, std::vector<T> & d, indexed_vector<T> & w);
     void solve_Bd(unsigned a_column, indexed_vector<T> & d, indexed_vector<T> & w);
     void solve_Bd_faster(unsigned a_column, indexed_vector<T> & d); // d is the right side on the input and the solution at the exit
-
-
-    bool column_can_be_taken_to_basis(unsigned i) { return m_basis_heading[i] < 0; }
 
     void  solve_yB_internal(std::vector<T>& y);
 
     void add_delta_to_solution(std::vector<T>& yc, std::vector<T>& y);
 
-    void find_error_of_yB(std::vector<T>& yc, const std::vector<T>& y);
+    void find_error_of_yB(std::vector<T>& yc, const std::vector<T>& y,
+                          const std::vector<unsigned>& basis);
 
-    void solve_yB(std::vector<T> & y);
+    void solve_yB(std::vector<T> & y, const std::vector<unsigned>& basis);
 
     void apply_Q_R_to_U(permutation_matrix<T, X> & r_wave);
 
-    void change_basis(unsigned entering, unsigned leaving);
-
-    void restore_basis_change(unsigned entering, unsigned leaving);
 
     LU_status get_status() { return m_status; }
 
     void set_status(LU_status status) { m_status = status; }
 
     ~lu();
-
-    T B(unsigned i, unsigned j) { return m_A(i, m_basis[j]); }
 
     void init_vector_y(std::vector<X> & y);
 
@@ -191,10 +175,8 @@ public:
     // we're processing the column j now
     eta_matrix<T, X> * get_eta_matrix_for_pivot(unsigned j, sparse_matrix<T, X>& copy_of_U);
 
-    void print_basis_heading(std::ostream & out);
-
     // see page 407 of Chvatal
-    unsigned transform_U_to_V_by_replacing_column(unsigned leaving, indexed_vector<T> & w);
+    unsigned transform_U_to_V_by_replacing_column(unsigned leaving, indexed_vector<T> & w, unsigned leaving_column_of_U);
 
 #ifdef LEAN_DEBUG
     void check_vector_w(unsigned entering);
@@ -213,17 +195,14 @@ public:
         return m_tail[i];
     }
 
-    T B_(unsigned i, unsigned j) {
-        return m_A.get_elem(i, m_basis[j]);
+    T B_(unsigned i, unsigned j,  const std::vector<unsigned>& basis) {
+        return m_A.get_elem(i, basis[j]);
     }
 
     unsigned dimension() { return m_dim; }
 
 #endif
 
-    void mark_fixed_variable(unsigned column) {
-        m_basis_heading[column] = -2;
-    }
 
     unsigned get_number_of_nonzeroes() {
         return m_U.get_number_of_nonzeroes();
@@ -232,16 +211,12 @@ public:
 
     void process_column(int j);
 
-    bool is_correct();
+    bool is_correct(const std::vector<unsigned>& basis);
 
-    int basis_heading(unsigned j) {
-        lean_assert(j < m_A.column_count());
-        return m_basis_heading[j];
-    }
 
 #ifdef LEAN_DEBUG
     dense_matrix<T, X> tail_product();
-    dense_matrix<T, X>  get_left_side();
+    dense_matrix<T, X>  get_left_side(const std::vector<unsigned>& basis);
 
     dense_matrix<T, X>  get_right_side();
 #endif
@@ -271,7 +246,7 @@ public:
     row_eta_matrix<T, X> *get_row_eta_matrix_and_set_row_vector(unsigned replaced_column, unsigned lowest_row_of_the_bump, const T &  pivot_elem_for_checking);
 
     // This method does not update the basis: is_correct() should not be called since it works with the basis.
-    void replace_column(unsigned leaving, T pivot_elem, indexed_vector<T> & w);
+    void replace_column(unsigned leaving, T pivot_elem, indexed_vector<T> & w, unsigned leaving_column_of_U);
 
     void calculate_Lwave_Pwave_for_bump(unsigned replaced_column, unsigned lowest_row_of_the_bump);
 
@@ -284,10 +259,10 @@ public:
 }; // end of lu
 
 template <typename T, typename X>
-void init_factorization(lu<T, X>* & factorization, static_matrix<T, X> & m_A, std::vector<unsigned> & m_basis, std::vector<int> & m_basis_heading, lp_settings &m_settings, std::vector<unsigned> & non_basic_columns);
+void init_factorization(lu<T, X>* & factorization, static_matrix<T, X> & m_A, std::vector<unsigned> & m_basis, lp_settings &m_settings);
 
 #ifdef LEAN_DEBUG
 template <typename T, typename X>
-dense_matrix<T, X>  get_B(lu<T, X>& f);
+dense_matrix<T, X>  get_B(lu<T, X>& f, const std::vector<unsigned>& basis);
 #endif
 }

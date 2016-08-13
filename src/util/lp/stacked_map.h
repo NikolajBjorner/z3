@@ -158,7 +158,6 @@ public:
         }
 
         m_map.erase(it);
-            
     }
     
     void clear() {
