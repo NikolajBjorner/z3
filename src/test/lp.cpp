@@ -1881,20 +1881,19 @@ void test_stacked_value() {
 }
 
 void test_stacked_vector() {
-    stacked_value<std::vector<int>> v;
-          
-    v().push_back(0);
-    v().push_back(1);
+    std::cout << "test_stacked_vector" << std::endl;
+    stacked_vector<int> v;
     v.push();
-    v()[0] = 3;
+    v.push_back(0);
+    v.push_back(1);
     v.push();
-    v()[1] = 4;
-    v().clear();
-    v().push_back(10);
-    v.pop(2);
-    lean_assert(v().size() == 2);
-    lean_assert(v()[0] == 0);
-    lean_assert(v()[1] == 1);
+    v[0] = 3;
+    v[0] = 0;
+    v.pop();
+    lean_assert(v[0] == 0);
+    lean_assert(v[1] == 1);
+    v.pop();
+    lean_assert(v.size() == 0);
 }
 
 void test_stacked_set() {

@@ -48,7 +48,7 @@ public:
     std::vector<T> m_d; // the vector of reduced costs
     indexed_vector<T> m_ed; // the solution of B*m_ed = a
     unsigned m_iters_with_no_cost_growing = 0;
-    std::vector<column_type> & m_column_type;
+    const std::vector<column_type> & m_column_type;
     std::vector<X> & m_low_bound_values;
     std::vector<X> & m_upper_bound_values;
     std::vector<T> m_column_norms; // the approximate squares of column norms that help choosing a profitable column
@@ -67,7 +67,7 @@ public:
                         std::vector<T> & costs,
                         lp_settings & settings,
                         const column_namer& column_names,
-                        std::vector<column_type> & column_types,
+                        const std::vector<column_type> & column_types,
                         std::vector<X> & low_bound_values,
                         std::vector<X> & upper_bound_values);
 
@@ -266,7 +266,7 @@ public:
     void init_lu();
     int pivots_in_column_and_row_are_different(int entering, int leaving) const;
     void pivot_fixed_vars_from_basis();
-    void print_linear_combination_of_column_indices(const std::vector<std::pair<T, unsigned>> & coeffs, std::ostream & out);
+    void print_linear_combination_of_column_indices(const std::vector<std::pair<T, unsigned>> & coeffs, std::ostream & out) const;
 };
    void change_basis(unsigned entering, unsigned leaving, std::vector<unsigned>& basis, std::vector<unsigned>& nbasis, std::vector<int> & basis_heading);
 void restore_basis_change(unsigned entering, unsigned leaving, std::vector<unsigned>& basis, std::vector<unsigned>& nbasis, std::vector<int> & basis_heading);

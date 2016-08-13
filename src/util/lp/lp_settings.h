@@ -197,7 +197,7 @@ public:
     }
     // the method of lar solver to use
     bool row_feasibility = true;
-    bool use_double_solver_for_lar = true;
+    bool use_double_solver_for_lar = false;
     int report_frequency = 1000;
     bool print_statistics = false;
     unsigned column_norms_update_frequency = 1000;

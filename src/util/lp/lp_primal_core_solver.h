@@ -116,7 +116,7 @@ public:
                           std::vector<unsigned> & nbasis,
                           std::vector<int> & heading,
                           std::vector<T> & costs,
-                          std::vector<column_type> & column_type_array,
+                          const std::vector<column_type> & column_type_array,
                           std::vector<X> & low_bound_values,
                           std::vector<X> & upper_bound_values,
                           lp_settings & settings,
@@ -130,7 +130,7 @@ public:
                           std::vector<unsigned> & nbasis,
                           std::vector<int> & heading,
                           std::vector<T> & costs,
-                          std::vector<column_type> & column_type_array,
+                          const std::vector<column_type> & column_type_array,
                           std::vector<X> & upper_bound_values,
                           lp_settings & settings,
                           const column_namer& column_names);

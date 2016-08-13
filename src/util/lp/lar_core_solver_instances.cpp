@@ -11,7 +11,7 @@
 #include <functional>
 #include "util/lp/lar_core_solver.cpp"
 template lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::lar_core_solver(std::vector<lean::numeric_pair<lean::mpq>, std::allocator<lean::numeric_pair<lean::mpq> > >&,
-                                                                                           std::vector<lean::column_type, std::allocator<lean::column_type> >&,
+                                                                                           const std::vector<lean::column_type, std::allocator<lean::column_type> >&,
                                                                                            std::vector<lean::numeric_pair<lean::mpq>, std::allocator<lean::numeric_pair<lean::mpq> > >&,
                                                                                            std::vector<lean::numeric_pair<lean::mpq>, std::allocator<lean::numeric_pair<lean::mpq> > >&,
                                                                                            std::vector<unsigned int, std::allocator<unsigned int> >&,

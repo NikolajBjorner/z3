@@ -15,7 +15,7 @@
 #include "util/lp/lar_core_solver.h"
 namespace lean {
 template <typename T, typename X>
-lar_core_solver<T, X>::lar_core_solver(std::vector<X> & x, std::vector<column_type> & column_types,
+lar_core_solver<T, X>::lar_core_solver(std::vector<X> & x, const std::vector<column_type> & column_types,
                                        std::vector<X> & low_bounds, std::vector<X> & upper_bounds,
                                        std::vector<unsigned> & basis,
                                        std::vector<unsigned> & nbasis,
@@ -554,7 +554,7 @@ template <typename T, typename X> bool lar_core_solver<T, X>::non_basis_columns_
 template <typename T, typename X> void lar_core_solver<T, X>::prefix() {
     init_local();
     this->init();
-    this->init_basis_heading();
+    //    this->init_basis_heading();
 }
 
 template <typename T, typename X> void lar_core_solver<T, X>::feasibility_loop() {
@@ -797,10 +797,10 @@ template <typename T, typename X> void lar_core_solver<T, X>::solve() {
         this->m_status = OPTIMAL;
         return;
     }
-    this->snap_xN_to_bounds_and_free_columns_to_zeroes();
+    lean_assert(non_basis_columns_are_set_correctly());
+    
     this->solve_Ax_eq_b();
     lean_assert(this->A_mult_x_is_off() == false);
-    lean_assert(non_basis_columns_are_set_correctly());
     if (this->m_settings.row_feasibility) {
         row_feasibility_loop();
     } else {

@@ -14,60 +14,48 @@ template < typename B> class stacked_vector {
     struct delta {
         unsigned m_size;
         std::unordered_map<unsigned, B> m_original_changed;
-        //        std::unordered_map<A,B, Hash, KeyEqual, Allocator > m_deb_copy;
+        std::vector<B> m_deb_copy;
     };
     std::vector<B> m_vector;
     std::stack<delta> m_stack;
 public:
-    // class ref {
-    //     stacked_vector<B> & m_vec;
-    //     unsigned m_i;
-    // public:
-     //     ref(stacked_vector<B> ) :m_vector(m), m_i(key) {}
-    //     ref & operator=(const B & b) {
-    //     m_vec.emplace_replace(m_i, b);
-    //     return *this;
-    //     }
-    //     ref & operator=(const ref & b) { lean_assert(false); return *this; }
-    //     operator const B&() const {
-        
-    //     auto it = m_vec.m_vector.find(m_key);
-    //     lean_assert(it != m_vec.m_vector.end());
-    //     return it->second;
-    //     }
-    // };
+    class ref {
+        stacked_vector<B> & m_vec;
+        unsigned m_i;
+    public:
+        ref(stacked_vector<B> &m, unsigned key) :m_vec(m), m_i(key) {
+            lean_assert(key < m.size());
+        }
+        ref & operator=(const B & b) {
+            m_vec.emplace_replace(m_i, b);
+            return *this;
+        }
+        ref & operator=(const ref & b) { lean_assert(false); return *this; }
+        operator const B&() const {
+            return m_vec.m_vector[m_i];
+        }
+    };
 private:
-    void emplace_replace(unsigned a,const B & b) {
+    void emplace_replace(unsigned i,const B & b) {
         if (!m_stack.empty()) {
+            if (m_vector[i] == b)
+                return;
             delta & d = m_stack.top();
-            auto it = m_vector.find(a);
-            if (it == m_vector.end()) {
-                d.m_new.insert(a);
-                m_vector.emplace(a, b);
-            }
-            else if (it->second != b) {
-                auto nit = d.m_new.find(a);
-                if (nit == d.m_new.end()) { // we do not have the old key
-                    auto & orig_changed = d.m_original_changed;
-                    auto itt = orig_changed.find(a);
-                    if (itt == orig_changed.end()) {
-                        orig_changed.emplace(a, it->second);
-                    }
-                    else if (itt->second == b) {
-                        orig_changed.erase(itt);
-                    }
-                }
-                it->second = b;
+            if (i < d.m_size) {
+                auto & orig_changed = d.m_original_changed;
+                auto it = orig_changed.find(i);
+                if (it == orig_changed.end())
+                    orig_changed.emplace(i, m_vector[i] );
+                else if (it->second == b)
+                    orig_changed.erase(it);
             }
         }
-        else { // there is no stack: just emplace or replace
-            m_vector[a] = b;
-        }
+        m_vector[i] = b;
     }
 public:
-    // ref operator[] (unsigned a) {
-    //     return ref(*this, a);
-    // }
+    ref operator[] (unsigned a) {
+        return ref(*this, a);
+    }
 
     const B & operator[](unsigned a) const {
         lean_assert(a < m_vector.size());
@@ -83,6 +71,7 @@ public:
     void push() {
         delta d;
         d.m_size = m_vector.size();
+        d.m_deb_copy = m_vector;
         m_stack.push(d);
     }
 
@@ -100,8 +89,15 @@ public:
                 m_vector.pop_back();
             
             for (auto & t : d.m_original_changed) {
+                lean_assert(t.first < m_vector.size());
                 m_vector[t.first] = t.second;
             }
+            lean_assert(d.m_deb_copy.size() == m_vector.size());
+            for (int i = 0; i < m_vector.size();i++){
+                std::cout << "i = " << i << std::endl;
+                lean_assert(d.m_deb_copy[i] == m_vector[i]);
+            }
+            lean_assert(d.m_deb_copy == m_vector);
             m_stack.pop();
         }
     }

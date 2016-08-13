@@ -45,7 +45,7 @@ lp_core_solver_base(static_matrix<T, X> & A,
                     std::vector<T> & costs,
                     lp_settings & settings,
                     const column_namer& column_names,
-                    std::vector<column_type> & column_types,
+                    const std::vector<column_type> & column_types,
                     std::vector<X> & low_bound_values,
                     std::vector<X> & upper_bound_values):
     m_pivot_row_of_B_1(A.row_count()),
@@ -77,8 +77,9 @@ lp_core_solver_base(static_matrix<T, X> & A,
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 allocate_basis_heading() { // the rest of initilization will be handled by the factorization class
-    m_basis_heading.clear();
-    m_basis_heading.resize(m_n(), -1);
+    // m_basis_heading.clear();
+    // m_basis_heading.resize(m_n(), -1);
+    lean_assert(basis_heading_is_correct());
 }
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 init() {
@@ -544,7 +545,10 @@ non_basis_is_correctly_represented_in_heading() {
 }
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
-basis_heading_is_correct() {
+    basis_heading_is_correct() {
+    lean_assert(m_basis_heading.size() == m_A.column_count());
+    lean_assert(m_basis.size() == m_A.row_count());
+    lean_assert(m_non_basic_columns.size() == m_A.column_count() - m_A.row_count());
     if (!basis_has_no_doubles()) {
         std::cout << "basis_has_no_doubles" << std::endl;
         return false;
@@ -816,7 +820,7 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_v
     }
 }
 template <typename T, typename X> void lp_core_solver_base<T, X>::
-print_linear_combination_of_column_indices(const std::vector<std::pair<T, unsigned>> & coeffs, std::ostream & out) {
+print_linear_combination_of_column_indices(const std::vector<std::pair<T, unsigned>> & coeffs, std::ostream & out) const {
     bool first = true;
     for (const auto & it : coeffs) {
         auto val = it.first;
