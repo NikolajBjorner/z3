@@ -1078,7 +1078,7 @@ bool sparse_matrix<T, X>::is_upper_triangular_and_maximums_are_set_correctly_in_
                 return false;
             if (aj == ai) {
                 if (iv.m_value != 1) {
-                    std::cout << "value at diagonal = " << iv.m_value << std::endl;
+                    // std::cout << "value at diagonal = " << iv.m_value << std::endl;
                     return false;
                 }
             }
@@ -1109,18 +1109,18 @@ void sparse_matrix<T, X>::check_column_vs_rows(unsigned col) {
     for (indexed_value<T> & column_iv : mc) {
         indexed_value<T> & row_iv = column_iv_other(column_iv);
         if (row_iv.m_index != col) {
-            std::cout << "m_other in row does not belong to column " << col << ", but to column  " << row_iv.m_index << std::endl;
+            //            std::cout << "m_other in row does not belong to column " << col << ", but to column  " << row_iv.m_index << std::endl;
             lean_assert(false);
         }
 
         if (& row_iv_other(row_iv) != &column_iv) {
-            std::cout << "row and col do not point to each other" << std::endl;
+            // std::cout << "row and col do not point to each other" << std::endl;
             lean_assert(false);
         }
 
         if (row_iv.m_value != column_iv.m_value) {
-            std::cout << "the data from col " << col << " for row " << column_iv.m_index << " is different in the column " << std::endl;
-            std::cout << "in the col it is " << column_iv.m_value << ", but in the row it is " << row_iv.m_value << std::endl;
+            // std::cout << "the data from col " << col << " for row " << column_iv.m_index << " is different in the column " << std::endl;
+            // std::cout << "in the col it is " << column_iv.m_value << ", but in the row it is " << row_iv.m_value << std::endl;
             lean_assert(false);
         }
     }
@@ -1133,18 +1133,18 @@ void sparse_matrix<T, X>::check_row_vs_columns(unsigned row) {
         indexed_value<T> & column_iv = row_iv_other(row_iv);
 
         if (column_iv.m_index != row) {
-            std::cout << "col_iv does not point to correct row " << row << " but to " << column_iv.m_index << std::endl;
+            // std::cout << "col_iv does not point to correct row " << row << " but to " << column_iv.m_index << std::endl;
             lean_assert(false);
         }
 
         if (& row_iv != & column_iv_other(column_iv)) {
-            std::cout << "row and col do not point to each other" << std::endl;
+            // std::cout << "row and col do not point to each other" << std::endl;
             lean_assert(false);
         }
 
         if (row_iv.m_value != column_iv.m_value) {
-            std::cout << "the data from col " << column_iv.m_index << " for row " << row << " is different in the column " << std::endl;
-            std::cout << "in the col it is " << column_iv.m_value << ", but in the row it is " << row_iv.m_value << std::endl;
+            // std::cout << "the data from col " << column_iv.m_index << " for row " << row << " is different in the column " << std::endl;
+            // std::cout << "in the col it is " << column_iv.m_value << ", but in the row it is " << row_iv.m_value << std::endl;
             lean_assert(false);
         }
     }

@@ -38,23 +38,6 @@ struct conversion_helper {
     }
 };
 
-struct column_info_with_cls { // column_info_with canonic_left_side
-    canonic_left_side  m_canonic_left_side;
-    column_info<mpq> m_column_info;
-    bool operator!=(const column_info_with_cls & c) const {
-        return !(*this == c);
-    }
-
-    bool operator==(const column_info_with_cls & c) const {
-        return m_canonic_left_side==c.m_canonic_left_side && m_column_info == c.m_column_info;
-    }
-    // constructor
-    column_info_with_cls(): m_column_info(static_cast<unsigned>(-1)) {}
-
-    // constructor
-    column_info_with_cls(const canonic_left_side & cls) : m_canonic_left_side(cls), m_column_info(static_cast<unsigned>(-1)) {}
-};
-
 template<>
 struct conversion_helper <double> {
     static double get_low_bound(const column_info<mpq> & ci);
@@ -80,6 +63,7 @@ class lar_solver : public column_namer {
     stacked_vector<column_type> m_column_types;
     stacked_vector<numeric_pair<mpq>> m_low_bounds;
     stacked_vector<numeric_pair<mpq>> m_upper_bounds;
+    stacked_vector<unsigned> m_sorted_basis;
     std::vector<unsigned> m_basis;
     std::vector<unsigned> m_nbasis;
     std::vector<int> m_heading;
@@ -209,9 +193,7 @@ public:
             left_side.emplace_back(1, j);
             return add_constraint(left_side, kind, right_side);
         }
-        std::cout << "adding bound for a term" << std::endl;
-        m_mpq_lar_core_solver.print_linear_combination_of_column_indices(m_terms()[adjust_term_index(j)].m_coeffs, std::cout);
-        // it is a term!
+        // it is a term
         return add_constraint(m_terms()[adjust_term_index(j)].m_coeffs, kind, right_side);
     }
 
@@ -239,7 +221,7 @@ public:
 
     bool the_right_sides_do_not_sum_to_zero(const std::vector<std::pair<mpq, unsigned>> & evidence);
 
-    bool the_evidence_is_correct();
+    bool evidence_is_correct();
 
     mpq sum_of_right_sides_of_evidence(const std::vector<std::pair<mpq, unsigned>> & evidence);
 
@@ -387,7 +369,6 @@ public:
      }
 
     void add_new_var_to_core_fields(bool register_in_basis) {
-        std::cout << "add_new_var_to_core_fields(" << register_in_basis<<")\n";
         unsigned i = m_A.column_count();
         m_A.add_column();
         lean_assert(m_x.size() == i);
@@ -418,74 +399,301 @@ public:
         lean_assert(m_column_names.size() == j);
         m_column_names.push_back(s);
     }
-    
-    void update_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side) {
-        column_type type = m_column_types[j];
-        mpq y_of_bound(0);
-        if (j==15) {
-        std::cout << "column type " << column_type_to_string(type) << std::endl;
-        std::cout << "x[" << j << "] = " << T_to_string(m_x[j]) << std::endl;
-        std::cout << "kind = " << lconstraint_kind_string(kind) << std::endl;
-        std::cout << right_side << std::endl;
-        }
-        switch(type) {
-        case free_column:
-            {
-            switch (kind) {
-            case LT:
-                std::cout << "LT case" << std::endl;
-                y_of_bound = -1;
-            case LE:
-                m_column_types[j] = upper_bound;
-                lean_assert(m_column_types[j] == upper_bound);
-                lean_assert(m_upper_bounds.size() > j);
-                {
-                    auto up = numeric_pair<mpq>(right_side, y_of_bound);
-                    m_upper_bounds[j] = up;
-                    if (m_heading[j] < 0)
-                        m_x[j] = up;
-                }
-                break;
-            case GT:
-                y_of_bound = 1;
-                std::cout << "GT case" << std::endl;
-            case GE:
-                std::cout << "GE case " << std::endl;
-                m_column_types[j] = low_bound;
-                lean_assert(m_upper_bounds.size() > j);
-                {
-                    auto low = numeric_pair<mpq>(right_side, y_of_bound);
-                    m_low_bounds[j] = low;
-                    if (m_heading[j] < 0)
-                        m_x[j] = low;
-                }
-                break;
-            case EQ:
-                lean_assert(false);
-                break;
 
-            default:
-                lean_unreachable();
-                
+
+    void set_upper_bound_witness(constraint_index ci) {
+        const lar_normalized_constraint & a = m_normalized_constraints[ci];
+        auto & cls = a.m_canonic_left_side;
+        ul_pair ul = m_map_of_canonic_left_sides_to_ul_pairs[cls];
+        ul.m_upper_bound_witness = ci;
+        m_map_of_canonic_left_sides_to_ul_pairs[cls] = ul;
+    }
+
+    void set_low_bound_witness(constraint_index ci) {
+        const lar_normalized_constraint & a = m_normalized_constraints[ci];
+        auto & cls = a.m_canonic_left_side;
+        ul_pair ul = m_map_of_canonic_left_sides_to_ul_pairs[cls];
+        ul.m_low_bound_witness = ci;
+        m_map_of_canonic_left_sides_to_ul_pairs[cls] = ul;
+    }
+
+    
+    void update_free_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_ind) {
+        mpq y_of_bound(0);
+        switch (kind) {
+        case LT:
+            y_of_bound = -1;
+        case LE:
+            m_column_types[j] = upper_bound;
+            lean_assert(m_column_types[j] == upper_bound);
+            lean_assert(m_upper_bounds.size() > j);
+            {
+                auto up = numeric_pair<mpq>(right_side, y_of_bound);
+                m_upper_bounds[j] = up;
+                if (m_heading[j] < 0)
+                    m_x[j] = up;
             }
-            std::cout << "type_was  free_column " << std::endl;
+            set_upper_bound_witness(constr_ind);
             break;
-            case boxed:
-                lean_assert(false);
-            case low_bound:
-                lean_assert(false);
-            case upper_bound:
-                lean_assert(false);
-            case fixed:
-                lean_assert(false);
-                break;
+        case GT:
+            y_of_bound = 1;
+        case GE:
+            m_column_types[j] = low_bound;
+            lean_assert(m_upper_bounds.size() > j);
+            {
+                auto low = numeric_pair<mpq>(right_side, y_of_bound);
+                m_low_bounds[j] = low;
+                if (m_heading[j] < 0)
+                    m_x[j] = low;
             }
-            lean_assert(false);
+            set_low_bound_witness(constr_ind);
+            break;
+        case EQ:
+            m_column_types[j] = fixed;
+            m_low_bounds[j] = m_upper_bounds[j] =
+                m_x[j] = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
+            set_upper_bound_witness(constr_ind);
+            set_low_bound_witness(constr_ind);
+            break;
+
+        default:
+            lean_unreachable();
+                
         }
     }
 
+    void update_upper_bound_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
+        lean_assert(m_column_types[j] == upper_bound);
+        mpq y_of_bound(0);
+        switch (kind) {
+        case LT:
+            y_of_bound = -1;
+        case LE:
+            {
+                auto up = numeric_pair<mpq>(right_side, y_of_bound);
+                if (up < m_upper_bounds()[j]) {
+                    m_upper_bounds[j] = up;
+                    set_upper_bound_witness(ci);
+                    if (m_heading[j] < 0)
+                        m_x[j] = up;
+                }
+            }
+            break;
+        case GT:
+            y_of_bound = 1;
+        case GE:            
+            m_column_types[j] = boxed;
+            {
+                auto low = numeric_pair<mpq>(right_side, y_of_bound);
+                m_low_bounds[j] = low;
+                set_low_bound_witness(ci);
+                if (m_heading[j] < 0)
+                    m_x[j] = low;
+                if (low > m_upper_bounds[j]) {
+                    m_status = INFEASIBLE;
+                    m_infeasible_canonic_left_side = m_normalized_constraints()[ci].m_canonic_left_side;
+                } else {
+                    m_column_types[j] = m_low_bounds()[j] < m_upper_bounds()[j]? boxed : fixed;
+                }                     
+            }
+            break;
+        case EQ:
+            {
+                auto v = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
+                if (v > m_upper_bounds[j]) {
+                    m_status = INFEASIBLE;
+                    set_low_bound_witness(ci);
+                    m_infeasible_canonic_left_side = m_normalized_constraints()[ci].m_canonic_left_side;
+                } else {
+                    m_low_bounds[j] = m_upper_bounds[j] = v;
+                    set_low_bound_witness(ci);
+                    set_upper_bound_witness(ci);
+                    m_column_types[j] = fixed;
+                }
+                break;
+            }
+            break;
+
+        default:
+            lean_unreachable();
+                
+        }
+    }
+    
+    void update_boxed_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
+        lean_assert(m_column_types[j] == boxed && m_low_bounds()[j] < m_upper_bounds()[j]);
+        mpq y_of_bound(0);
+        switch (kind) {
+        case LT:
+            y_of_bound = -1;
+        case LE:
+            {
+                auto up = numeric_pair<mpq>(right_side, y_of_bound);
+                if (up < m_upper_bounds[j]) {
+                    m_upper_bounds[j] = up;
+                    set_upper_bound_witness(ci);
+                }
+                if (m_heading[j] < 0)
+                    m_x[j] = up;
+
+                if (up < m_low_bounds[j]) {
+                    m_status = INFEASIBLE;
+                    m_infeasible_canonic_left_side = m_normalized_constraints()[ci].m_canonic_left_side;
+                } else {
+                    if (m_low_bounds()[j] == m_upper_bounds()[j])
+                        m_column_types[j] = fixed;
+                }                    
+            }
+            break;
+        case GT:
+            y_of_bound = 1;
+        case GE:            
+            {
+                auto low = numeric_pair<mpq>(right_side, y_of_bound);
+                if (low > m_low_bounds[j]) {
+                    m_low_bounds[j] = low;
+                    if (m_heading[j] < 0)
+                        m_x[j] = low;
+                    set_low_bound_witness(ci);
+                }
+                if (low > m_upper_bounds[j]) {
+                    m_status = INFEASIBLE;
+                    m_infeasible_canonic_left_side = m_normalized_constraints()[ci].m_canonic_left_side;
+                } else if ( low == m_upper_bounds[j]) {
+                    m_column_types[j] = fixed;
+                }
+            }
+            break;
+        case EQ:
+            {
+                auto v = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
+                if (v < m_low_bounds[j]) {
+                    m_status = INFEASIBLE;
+                    m_infeasible_canonic_left_side = m_normalized_constraints()[ci].m_canonic_left_side;
+                    set_upper_bound_witness(ci);                    
+                } else if (v > m_upper_bounds[j]) {
+                    m_status = INFEASIBLE;
+                    m_infeasible_canonic_left_side = m_normalized_constraints()[ci].m_canonic_left_side;
+                    set_low_bound_witness(ci);                    
+                } else {
+                    m_low_bounds[j] = m_upper_bounds[j] = v;
+                    set_low_bound_witness(ci);
+                    set_upper_bound_witness(ci);
+                    m_column_types[j] = fixed;
+                }
+                if (m_heading[j] < 0)
+                    m_x[j] = v;
+                
+                break;
+            }
+
+        default:
+            lean_unreachable();
+                
+        }
+    }
+    void update_low_bound_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
+        lean_assert(m_column_types[j] == low_bound);
+        mpq y_of_bound(0);
+        switch (kind) {
+        case LT:
+            y_of_bound = -1;
+        case LE:
+            {
+                auto up = numeric_pair<mpq>(right_side, y_of_bound);
+                m_upper_bounds[j] = up;
+                set_upper_bound_witness(ci);
+                if (m_heading[j] < 0)
+                    m_x[j] = up;
+
+                if (up < m_low_bounds[j]) {
+                    m_status = INFEASIBLE;
+                    m_infeasible_canonic_left_side = m_normalized_constraints()[ci].m_canonic_left_side;
+                } else {
+                    m_column_types[j] = m_low_bounds()[j] < m_upper_bounds()[j]? boxed : fixed;
+                }                    
+            }
+            break;
+        case GT:
+            y_of_bound = 1;
+        case GE:            
+            {
+                auto low = numeric_pair<mpq>(right_side, y_of_bound);
+                if (low > m_low_bounds[j]) {
+                    m_low_bounds[j] = low;
+                    if (m_heading[j] < 0)
+                        m_x[j] = low;
+                    set_low_bound_witness(ci);
+                }
+            }
+            break;
+        case EQ:
+            {
+                auto v = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
+                if (v < m_low_bounds[j]) {
+                    m_status = INFEASIBLE;
+                    m_infeasible_canonic_left_side = m_normalized_constraints()[ci].m_canonic_left_side;
+                    set_upper_bound_witness(ci);                    
+                } else {
+                    m_low_bounds[j] = m_upper_bounds[j] = v;
+                    set_low_bound_witness(ci);
+                    set_upper_bound_witness(ci);
+                    m_column_types[j] = fixed;
+                }
+                if (m_heading[j] < 0)
+                    m_x[j] = v;
+                break;
+            }
+
+        default:
+            lean_unreachable();
+                
+        }
+    }
+
+    
+    void update_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index) {
+        switch(m_column_types[j]) {
+        case free_column:
+            update_free_column_type_and_bound(j, kind, right_side, constr_index);
+            break;
+        case boxed:
+            update_boxed_column_type_and_bound(j, kind, right_side, constr_index);
+            break;
+        case low_bound:
+            update_low_bound_column_type_and_bound(j, kind, right_side, constr_index);
+            break;
+        case upper_bound:
+            update_upper_bound_column_type_and_bound(j, kind, right_side, constr_index);
+            break;
+        case fixed:
+            {
+                auto v = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
+                lean_assert(m_low_bounds()[j] == m_upper_bounds()[j]);
+                if (v < m_low_bounds[j]) { 
+                    m_status = INFEASIBLE;
+                    m_infeasible_canonic_left_side = m_normalized_constraints()[constr_index].m_canonic_left_side;
+                    set_upper_bound_witness(constr_index);
+                } else if (v > m_low_bounds[j]) { 
+                    m_status = INFEASIBLE;
+                    m_infeasible_canonic_left_side = m_normalized_constraints()[constr_index].m_canonic_left_side;
+                    set_low_bound_witness(constr_index);
+                } else {
+                    m_low_bounds[j] = m_upper_bounds[j] = v;
+                    set_low_bound_witness(constr_index);
+                    set_upper_bound_witness(constr_index);
+                }
+                break;
+            }           
+            break;
+        default:
+            lean_assert(false); // cannot be here
+        }
+    }
+
+
     void substitute_terms(const mpq & mult, const std::vector<std::pair<mpq, var_index>>& left_side_with_terms,std::vector<std::pair<mpq, var_index>> &left_side, mpq & right_side) const {
-        for ( auto & t : left_side_with_terms ) {
+        for (auto & t : left_side_with_terms) {
             if (t.second < m_terms_start_index) {
                 lean_assert(t.second < m_A.column_count());
                 left_side.push_back(std::pair<mpq, var_index>(mult * t.first, t.second));
@@ -497,5 +705,41 @@ public:
         }
     }
 
+    void pop_basis(unsigned k) {
+        // restore by using m_sorted
+        m_sorted_basis.pop(k);
+        m_heading.clear();
+        m_heading.resize(m_A.column_count(), -1);
+        m_basis.clear();
+        for (unsigned i = 0; i < m_sorted_basis.size(); i++ ) {
+            unsigned j = m_sorted_basis[i];
+            m_heading[j] = i;
+            m_basis.push_back(j);
+        }
+        
+        m_nbasis.clear();
+        for (unsigned j = 0; j < m_heading.size(); j++) {
+            int & pos = m_heading[j]; // we are going to change it!
+            if (pos < 0 ) { // j is in nbasis
+                pos = -1 - static_cast<int>(m_nbasis.size());
+                m_nbasis.push_back(j);
+            }
+        }
+    }
+
+    
+    void sort_and_push_basis() {
+        std::vector<unsigned> basis_copy(m_basis);
+        std::sort(basis_copy.begin(), basis_copy.end());
+        lean_assert(m_sorted_basis.size() <= m_basis.size());
+        for (unsigned i = 0; i < m_basis.size();i++) {
+            if (i == m_sorted_basis.size()) {
+                m_sorted_basis.push_back(m_basis[i]);
+            } else {
+                m_sorted_basis[i] = m_basis[i];
+            }
+        }
+        m_sorted_basis.push();
+    }
 };
 }

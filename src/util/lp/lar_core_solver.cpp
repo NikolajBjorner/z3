@@ -45,7 +45,7 @@ template <typename T, typename X> void lar_core_solver<T, X>::init_costs() {
     for (unsigned j = this->m_n(); j--;)
         init_cost_for_column(j);
     if (!(this->total_iterations() ==0 || inf >= m_infeasibility)) {
-        std::cout << "inf was " << T_to_string(inf) << " and now " << T_to_string(m_infeasibility) << std::endl;
+        // std::cout << "inf was " << T_to_string(inf) << " and now " << T_to_string(m_infeasibility) << std::endl;
         lean_assert(false);
     }
     if (inf == m_infeasibility)
@@ -747,10 +747,12 @@ template <typename T, typename X> X lar_core_solver<T, X>::find_initial_delta_an
     entering_delta_sign = - get_sign(this->m_pivot_row[entering]) * m_infeasible_row_sign;
     lean_assert(entering_delta_sign != 0);
     X delta = (m_infeasible_row_sign > 0? (this->m_low_bound_values[bj] - x) : (x - this->m_upper_bound_values[bj])) / abs(this->m_pivot_row[entering]);
+    lean_assert(delta > zero_of_type<X>());
     if (this->m_column_type[entering] == boxed) {
         X span = this->bound_span(entering);
         if (span < delta) {
             delta = span;
+            lean_assert(delta > zero_of_type<X>());
             leaving_candidates.push_back(entering);
         } else {
             leaving_candidates.push_back(bj);
@@ -780,7 +782,7 @@ template <typename T, typename X> void lar_core_solver<T, X>::advance_on_infeasi
     update_basis_and_x_with_comparison(entering, leaving, delta * entering_delta_sign);
 }
 
-template <typename T, typename X>    void lar_core_solver<T, X>::advance_on_infeasible_row(unsigned i) {
+template <typename T, typename X> void lar_core_solver<T, X>::advance_on_infeasible_row(unsigned i) {
     calculate_pivot_row(i);
     int entering = choose_entering_column_for_row_inf_strategy();
     if (entering == -1) {
@@ -797,9 +799,9 @@ template <typename T, typename X> void lar_core_solver<T, X>::solve() {
         this->m_status = OPTIMAL;
         return;
     }
-    lean_assert(non_basis_columns_are_set_correctly());
-    
-    this->solve_Ax_eq_b();
+    this->snap_non_basic_x_to_bound();
+    if(this->A_mult_x_is_off())
+        this->solve_Ax_eq_b();
     lean_assert(this->A_mult_x_is_off() == false);
     if (this->m_settings.row_feasibility) {
         row_feasibility_loop();
@@ -808,7 +810,7 @@ template <typename T, typename X> void lar_core_solver<T, X>::solve() {
     }
 }
 
-template <typename T, typename X> void lar_core_solver<T, X>::print_column_info(unsigned j, std::ostream & out) {
+template <typename T, typename X> void lar_core_solver<T, X>::print_column_info(unsigned j, std::ostream & out) const {
     out << "type = " << column_type_to_string(this->m_column_type[j]) << std::endl;
     switch (this->m_column_type[j]) {
     case fixed:

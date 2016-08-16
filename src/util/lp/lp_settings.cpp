@@ -86,14 +86,14 @@ bool vectors_are_equal(T * a, std::vector<T>  &b, unsigned n) {
     if (numeric_traits<T>::precise()) {
         for (unsigned i = 0; i < n; i ++){
             if (!numeric_traits<T>::is_zero(a[i] - b[i])) {
-                std::cout << "a[" << i <<"]" << a[i] << ", " << "b[" << i <<"]" << b[i] << std::endl;
+                // std::cout << "a[" << i <<"]" << a[i] << ", " << "b[" << i <<"]" << b[i] << std::endl;
                 return false;
             }
         }
     } else {
         for (unsigned i = 0; i < n; i ++){
             if (std::abs(numeric_traits<T>::get_double(a[i] - b[i])) > 0.000001) {
-                std::cout << "a[" << i <<"]" << a[i] << ", " << "b[" << i <<"]" << b[i] << std::endl;
+                // std::cout << "a[" << i <<"]" << a[i] << ", " << "b[" << i <<"]" << b[i] << std::endl;
                 return false;
             }
         }
@@ -108,14 +108,14 @@ bool vectors_are_equal(const std::vector<T> & a, const buffer<T>  &b) {
     if (numeric_traits<T>::precise()) {
         for (unsigned i = 0; i < n; i ++){
             if (!numeric_traits<T>::is_zero(a[i] - b[i])) {
-                std::cout << "a[" << i <<"]" << a[i] << ", " << "b[" << i <<"]" << b[i] << std::endl;
+                // std::cout << "a[" << i <<"]" << a[i] << ", " << "b[" << i <<"]" << b[i] << std::endl;
                 return false;
             }
         }
     } else {
         for (unsigned i = 0; i < n; i ++){
             if (fabs(numeric_traits<T>::get_double(a[i] - b[i])) > 0.000001) {
-                std::cout << "a[" << i <<"] = " << a[i] << ", but " << "b[" << i <<"] = " << b[i] << std::endl;
+                // std::cout << "a[" << i <<"] = " << a[i] << ", but " << "b[" << i <<"] = " << b[i] << std::endl;
                 return false;
             }
         }
@@ -130,14 +130,14 @@ bool vectors_are_equal(const std::vector<T> & a, const std::vector<T>  &b) {
     if (numeric_traits<T>::precise()) {
         for (unsigned i = 0; i < n; i ++){
             if (!numeric_traits<T>::is_zero(a[i] - b[i])) {
-                std::cout << "a[" << i <<"]" << a[i] << ", " << "b[" << i <<"]" << b[i] << std::endl;
+                // std::cout << "a[" << i <<"]" << a[i] << ", " << "b[" << i <<"]" << b[i] << std::endl;
                 return false;
             }
         }
     } else {
         for (unsigned i = 0; i < n; i ++){
             if (fabs(numeric_traits<T>::get_double(a[i] - b[i])) > 0.000001) {
-                std::cout << "a[" << i <<"] = " << a[i] << ", but " << "b[" << i <<"] = " << b[i] << std::endl;
+                // std::cout << "a[" << i <<"] = " << a[i] << ", but " << "b[" << i <<"] = " << b[i] << std::endl;
                 return false;
             }
         }

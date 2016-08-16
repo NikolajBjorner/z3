@@ -509,7 +509,6 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::recover_leavin
 }
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::revert_to_previous_basis() {
-    //    std::cout << "recovering basis p = " << m_p << " q = " << m_q << std::endl;
     change_basis(m_p, m_q, this->m_basis, this->m_non_basic_columns, this->m_basis_heading);
     init_factorization(this->m_factorization, this->m_A, this->m_basis, this->m_settings);
     if (this->m_factorization->get_status() != LU_status::OK) {
@@ -782,7 +781,6 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::solve() { // s
             return;
         }
         one_iteration();
-        std::cout << "dual\n";
     } while (this->m_status != FLOATING_POINT_ERROR && this->m_status != DUAL_UNBOUNDED && this->m_status != OPTIMAL &&
              this->m_iters_with_no_cost_growing <= this->m_settings.max_number_of_iterations_with_no_improvements
              && this->total_iterations() <= this->m_settings.max_total_number_of_iterations);

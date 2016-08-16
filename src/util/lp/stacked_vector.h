@@ -92,11 +92,6 @@ public:
                 lean_assert(t.first < m_vector.size());
                 m_vector[t.first] = t.second;
             }
-            lean_assert(d.m_deb_copy.size() == m_vector.size());
-            for (unsigned i = 0; i < m_vector.size();i++){
-                std::cout << "i = " << i << std::endl;
-                lean_assert(d.m_deb_copy[i] == m_vector[i]);
-            }
             lean_assert(d.m_deb_copy == m_vector);
             m_stack.pop();
         }
