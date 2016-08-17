@@ -253,6 +253,28 @@ public:
     // recalculates the projection of x to B, such that Ax = b, whereab is the right side
     void solve_Ax_eq_b();
 
+    void snap_column_to_bound(unsigned j) {
+        switch (m_column_type[j]) {
+        case fixed:
+        case boxed:
+            if (x_is_at_bound(j))
+                break; // we should preserve x if possible
+            m_x[j] = m_low_bound_values[j];
+            break;
+        case low_bound:
+            if (x_is_at_low_bound(j))
+                break;
+            m_x[j] = m_low_bound_values[j];
+            break;
+        case upper_bound:
+            if (x_is_at_upper_bound(j))
+                break;
+            m_x[j] = m_upper_bound_values[j];
+            break;
+        default:
+            break;
+        }
+    }
     void snap_non_basic_x_to_bound();
     void snap_non_basic_x_to_bound_and_free_to_zeroes();
     void snap_xN_to_bounds_and_fill_xB();

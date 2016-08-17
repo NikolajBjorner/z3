@@ -152,14 +152,12 @@ void random_updater::random_shift_var(unsigned j) {
 }
 
 void random_updater::update() {
-    std::cout << "we have " << m_var_set.size() << " variables, and " << m_values.size() << " different values" << std::endl;
     for (auto j : m_var_set) {
         if (m_var_set.size() <= m_values.size()) {
             break; // we are done
         }
         random_shift_var(j);
     }
-    std::cout << "after run : we have " << m_var_set.size() << " variables, and " << m_values.size() << " different values" << std::endl;
 }
 
 void random_updater::add_value(numeric_pair<mpq>& v) {

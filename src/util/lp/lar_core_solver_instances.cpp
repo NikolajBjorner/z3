@@ -22,7 +22,7 @@ template lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::lar_c
                                                                                            const column_namer&);
 template void lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::solve();
 template void lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::prefix();
-template void lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::print_column_info(unsigned int, std::ostream & out);
+template void lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::print_column_info(unsigned int, std::ostream & out) const;
 #ifdef LEAN_DEBUG
 template lean::numeric_pair<lean::mpq> lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::get_deb_inf();
 #endif

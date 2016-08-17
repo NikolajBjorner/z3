@@ -198,11 +198,11 @@ A_mult_x_is_off() {
         for (unsigned i = 0; i < m_m(); i++) {
             X delta = m_b[i] - m_A.dot_product_with_row(i, m_x);
             if (delta != numeric_traits<X>::zero()) {
-                std::cout << "x is off (";
-                std::cout << "m_b[" << i  << "] = " << m_b[i] << " ";
-                std::cout << "left side = " << m_A.dot_product_with_row(i, m_x) << ' ';
-                std::cout << "delta = " << delta << ' ';
-                std::cout << "iters = " << total_iterations() << ")" << std::endl;
+                // std::cout << "x is off (";
+                // std::cout << "m_b[" << i  << "] = " << m_b[i] << " ";
+                // std::cout << "left side = " << m_A.dot_product_with_row(i, m_x) << ' ';
+                // std::cout << "delta = " << delta << ' ';
+                // std::cout << "iters = " << total_iterations() << ")" << std::endl;
                 return true;
             }
         }
@@ -550,22 +550,22 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::
     lean_assert(m_basis.size() == m_A.row_count());
     lean_assert(m_non_basic_columns.size() == m_A.column_count() - m_A.row_count());
     if (!basis_has_no_doubles()) {
-        std::cout << "basis_has_no_doubles" << std::endl;
+        //        std::cout << "basis_has_no_doubles" << std::endl;
         return false;
     }
 
     if (!non_basis_has_no_doubles()) {
-        std::cout << "non_basis_has_no_doubles" << std::endl;
+        // std::cout << "non_basis_has_no_doubles" << std::endl;
         return false;
     }
 
     if (!basis_is_correctly_represented_in_heading()) {
-        std::cout << "basis_is_correctly_represented_in_heading" << std::endl;
+        // std::cout << "basis_is_correctly_represented_in_heading" << std::endl;
         return false;
     }
 
     if (!non_basis_is_correctly_represented_in_heading()) {
-        std::cout << "non_basis_is_correctly_represented_in_heading" << std::endl;
+        // std::cout << "non_basis_is_correctly_represented_in_heading" << std::endl;
         return false;
     }
 
@@ -679,30 +679,12 @@ solve_Ax_eq_b() {
     add_delta_to_xB(rrs);
 }
 
+
+
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 snap_non_basic_x_to_bound() {
-    for (unsigned j : non_basis()) {
-        switch (m_column_type[j]) {
-        case fixed:
-        case boxed:
-            if (x_is_at_bound(j))
-                break; // we should preserve x if possible
-            m_x[j] = m_low_bound_values[j];
-            break;
-        case low_bound:
-            if (x_is_at_low_bound(j))
-                break;
-            m_x[j] = m_low_bound_values[j];
-            break;
-        case upper_bound:
-            if (x_is_at_upper_bound(j))
-                break;
-            m_x[j] = m_upper_bound_values[j];
-            break;
-        default:
-            break;
-        }
-    }
+    for (unsigned j : non_basis())
+        snap_column_to_bound(j);
 }
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 snap_non_basic_x_to_bound_and_free_to_zeroes() {

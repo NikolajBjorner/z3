@@ -269,7 +269,7 @@ template <typename T, typename X> bool lp_primal_simplex<T, X>::bounds_hold(std:
         }
 
         if (!it.second->bounds_hold(sol_it->second)) {
-            std::cout << "bounds do not hold for " << it.second->get_name() << std::endl;
+            //            std::cout << "bounds do not hold for " << it.second->get_name() << std::endl;
             it.second->bounds_hold(sol_it->second);
             return false;
         }
@@ -287,15 +287,10 @@ template <typename T, typename X> T lp_primal_simplex<T, X>::get_row_value(unsig
     T ret = numeric_traits<T>::zero();
     for (auto & pair : it->second) {
         auto cit = this->m_map_from_var_index_to_column_info.find(pair.first);
-        if (cit == this->m_map_from_var_index_to_column_info.end()){
-            std::cout << "cannot find column " << pair.first << std::endl;
-        }
-
+        lean_assert(cit != this->m_map_from_var_index_to_column_info.end());
         column_info<T> * ci = cit->second;
         auto sol_it = solution.find(ci->get_name());
-        if (sol_it == solution.end()) {
-            std::cout << "cannot find in the solution column " << ci->get_name() << std::endl;
-        }
+        lean_assert(sol_it != solution.end());
         T column_val = sol_it->second;
         if (print) {
             std::cout << pair.second << "(" << ci->get_name() << "=" << column_val << ") ";

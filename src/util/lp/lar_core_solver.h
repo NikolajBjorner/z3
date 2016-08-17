@@ -174,7 +174,7 @@ public:
 
     bool low_bounds_are_set() const { return true; }
 
-    void print_column_info(unsigned j, std::ostream & out);
+    void print_column_info(unsigned j, std::ostream & out) const;
 
 };
 }

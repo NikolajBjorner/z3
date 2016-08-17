@@ -273,8 +273,8 @@ template <typename T, typename X>    void static_matrix<T, X>::check_consistency
     for (auto & t : by_rows) {
         auto ic = by_cols.find(t.first);
         if (ic == by_cols.end()){
-            std::cout << "rows have pair (" << t.first.first <<"," << t.first.second
-                      << "), but columns don't " << std::endl;
+            //std::cout << "rows have pair (" << t.first.first <<"," << t.first.second
+            //         << "), but columns don't " << std::endl;
         }
         lean_assert(ic != by_cols.end());
         lean_assert(t.second == ic->second);
