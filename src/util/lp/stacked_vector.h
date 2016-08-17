@@ -14,7 +14,7 @@ template < typename B> class stacked_vector {
     struct delta {
         unsigned m_size;
         std::unordered_map<unsigned, B> m_original_changed;
-        std::vector<B> m_deb_copy;
+        //        std::vector<B> m_deb_copy;
     };
     std::vector<B> m_vector;
     std::stack<delta> m_stack;
@@ -71,7 +71,7 @@ public:
     void push() {
         delta d;
         d.m_size = m_vector.size();
-        d.m_deb_copy = m_vector;
+        //        d.m_deb_copy = m_vector;
         m_stack.push(d);
     }
 
@@ -92,7 +92,7 @@ public:
                 lean_assert(t.first < m_vector.size());
                 m_vector[t.first] = t.second;
             }
-            lean_assert(d.m_deb_copy == m_vector);
+            //            lean_assert(d.m_deb_copy == m_vector);
             m_stack.pop();
         }
     }

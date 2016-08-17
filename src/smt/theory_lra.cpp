@@ -1429,8 +1429,7 @@ namespace smt {
                     break;
                 }
                 default:
-                    SASSERT(false);  // it seesm the control should not be here
-   
+                    SASSERT(false);  // it seems the control should not be here
                 }
             }
             for (auto const& ev : evidence) {
