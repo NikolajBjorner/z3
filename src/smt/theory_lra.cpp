@@ -632,10 +632,10 @@ namespace smt {
             th(th), m(m), m_params(p), a(m), 
             m_arith_eq_adapter(th, p, a),
             m_internalize_head(0),
-            m_asserted_qhead(0), 
             m_delay_constraints(false), 
             m_delayed_terms(m),
             m_not_handled(0),
+            m_asserted_qhead(0), 
             m_model_eqs(DEFAULT_HASHTABLE_INITIAL_CAPACITY, var_value_hash(*this), var_value_eq(*this)),
             m_resource_limit(*this) {
             init_solver();
@@ -886,7 +886,7 @@ namespace smt {
             expr_ref zero(a.mk_int(0), m);
             literal q_ge_0     = mk_literal(a.mk_ge(q, zero));
             literal q_le_0     = mk_literal(a.mk_le(q, zero));
-            literal eqz        = th.mk_eq(q, zero, false);
+            //            literal eqz        = th.mk_eq(q, zero, false);
             literal eq         = th.mk_eq(a.mk_add(a.mk_mul(q, div), mod), p, false);
             literal mod_ge_0   = mk_literal(a.mk_ge(mod, zero));
             // q >= 0 or p = (p mod q) + q * (p div q)
@@ -1428,6 +1428,9 @@ namespace smt {
                     out << "def: v" << v << " := " << mk_pp(th.get_enode(v)->get_owner(), m) << "\n";
                     break;
                 }
+                default:
+                    SASSERT(false);  // it seesm the control should not be here
+   
                 }
             }
             for (auto const& ev : evidence) {
