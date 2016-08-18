@@ -167,8 +167,8 @@ public:
                                          m_basis,
                                          m_nbasis,
                                          m_heading,
-                                     m_A,
-                                     m_settings,
+                                         m_A,
+                                         m_settings,
                                          *this) {
     }
 
@@ -269,6 +269,8 @@ public:
 
     void print_left_side_of_constraint(const lar_base_constraint * c, std::ostream & out) const ;
 
+    void print_term(lar_term const& term, std::ostream & out) const ;
+
     mpq get_infeasibility_of_solution(std::unordered_map<std::string, mpq> & solution);
 
     mpq get_infeasibility_of_constraint(const lar_normalized_constraint & norm_constr, std::unordered_map<std::string, mpq> & solution);
@@ -326,6 +328,7 @@ public:
         lean_assert(j >= m_terms_start_index);
         return m_terms[j - m_terms_start_index];
     }
+
  
     bool need_to_presolve_with_double_solver() const {
         return m_settings.use_double_solver_for_lar

@@ -676,6 +676,14 @@ void lar_solver::print_left_side_of_constraint(const lar_base_constraint * c, st
 //     }
 // }
 
+void lar_solver::print_term(lar_term const& term, std::ostream & out) const {
+    if (!numeric_traits<mpq>::is_zero(term.m_v)) {
+        out << term.m_v << " + ";
+    }
+    m_mpq_lar_core_solver.print_linear_combination_of_column_indices(term.m_coeffs, out);
+}
+
+
 mpq lar_solver::get_infeasibility_of_solution(std::unordered_map<std::string, mpq> & solution) {
     mpq ret = numeric_traits<mpq>::zero();
     for (auto & it : m_normalized_constraints()) {
