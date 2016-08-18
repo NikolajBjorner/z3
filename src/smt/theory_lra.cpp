@@ -225,6 +225,10 @@ namespace smt {
         unsigned_vector        m_bounds_trail;
         unsigned               m_asserted_qhead;
 
+        svector<std::pair<theory_var, theory_var> >       m_assume_eq_candidates; 
+        unsigned                                          m_assume_eq_head;
+
+
         struct var_value_eq {
             imp & m_th;
             var_value_eq(imp & th):m_th(th) {}
@@ -620,7 +624,8 @@ namespace smt {
                     vi = m_solver->add_term(m_left_side, st.coeff());
                     m_theory_var2var_index.setx(v, vi, UINT_MAX);
                     m_var_trail.push_back(v);
-                    TRACE("arith", tout << "v" << v << " := " << mk_pp(term, m) << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";);
+                    TRACE("arith", tout << "v" << v << " := " << mk_pp(term, m) << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";
+                          m_solver->print_term(m_solver->get_term(vi), tout); tout << "\n";);
                 }
                 return v;
             }
@@ -636,6 +641,7 @@ namespace smt {
             m_delayed_terms(m),
             m_not_handled(0),
             m_asserted_qhead(0), 
+            m_assume_eq_head(0),
             m_model_eqs(DEFAULT_HASHTABLE_INITIAL_CAPACITY, var_value_hash(*this), var_value_eq(*this)),
             m_resource_limit(*this) {
             init_solver();
@@ -967,17 +973,25 @@ namespace smt {
                 (v != null_theory_var) &&
                 (v < static_cast<theory_var>(m_theory_var2var_index.size())) && 
                 (UINT_MAX != m_theory_var2var_index[v]) && 
-                m_variable_values.count(v) > 0;
+                (m_solver->is_term(m_theory_var2var_index[v]) || m_variable_values.count(v) > 0);
         }
 
-        rational const& get_value(theory_var v) const {
+        rational get_value(theory_var v) const {
             if (!can_get_value(v)) return rational::zero();
             lean::var_index vi = m_theory_var2var_index[v];
+            if (m_solver->is_term(vi)) {
+                const lean::lar_term& term = m_solver->get_term(vi);
+                rational result = term.m_v;
+                for (unsigned i = 0; i < term.m_coeffs.size(); ++i) {
+                    result += m_variable_values[term.m_coeffs[i].second] * term.m_coeffs[i].first;
+                }
+                return result;
+            }
             return m_variable_values[vi];        
         }
 
         void init_variable_values() {
-            if (m_variable_values.size() == 0 && m_solver.get() && th.get_num_vars() > 0) {
+            if (m_solver.get() && th.get_num_vars() > 0) {
                 m_solver->get_model(m_variable_values);
             }
         }
@@ -1011,6 +1025,8 @@ namespace smt {
             m_model_eqs.reset();
             TRACE("arith", display(tout););
             
+            unsigned old_sz = m_assume_eq_candidates.size();
+            bool result = false;
             int start = ctx().get_random_value();
             for (theory_var i = 0; i < sz; ++i) {
                 theory_var v = (i + start) % sz;
@@ -1029,13 +1045,41 @@ namespace smt {
                 if (n1->get_root() != n2->get_root()) {
                     TRACE("arith", tout << mk_pp(n1->get_owner(), m) << " = " << mk_pp(n2->get_owner(), m) << "\n";
                           tout << mk_pp(n1->get_owner(), m) << " = " << mk_pp(n2->get_owner(), m) << "\n";
-                          tout << m_theory_var2var_index[v] << " = " << m_theory_var2var_index[other] << "\n";);
-                    th.assume_eq(n1, n2);
+                          tout << "v" << v << " = " << "v" << other << "\n";);
+                    m_assume_eq_candidates.push_back(std::make_pair(v, other));
+                    result = true;
+                }
+            }
+            
+            if (result) {
+                ctx().push_trail(restore_size_trail<context, std::pair<theory_var, theory_var>, false>(m_assume_eq_candidates, old_sz));
+            }
+
+            return delayed_assume_eqs();
+        }
+
+        bool delayed_assume_eqs() {
+            if (m_assume_eq_head == m_assume_eq_candidates.size())
+                return false;
+            
+            ctx().push_trail(value_trail<context, unsigned>(m_assume_eq_head));
+            while (m_assume_eq_head < m_assume_eq_candidates.size()) {
+                std::pair<theory_var, theory_var> const & p = m_assume_eq_candidates[m_assume_eq_head];
+                theory_var v1 = p.first;
+                theory_var v2 = p.second;
+                enode* n1 = get_enode(v1);
+                enode* n2 = get_enode(v2);
+                m_assume_eq_head++;
+                CTRACE("arith", 
+                       get_value(v1) == get_value(v2) && n1->get_root() != n2->get_root(),
+                       tout << "assuming eq: v" << v1 << " = v" << v2 << "\n";);
+                if (get_value(v1) == get_value(v2) &&  n1->get_root() != n2->get_root() && th.assume_eq(n1, n2)) {
                     return true;
                 }
             }
             return false;
         }
+
 
         void profile_solver() {
             for (unsigned i = 0; i < 100; ++i) {
@@ -1065,6 +1109,7 @@ namespace smt {
 
         final_check_status final_check_eh() {
             //profile_solver();
+            lbool is_sat = l_true;
             if (m_delay_constraints) {
                 init_solver();
                 for (unsigned i = 0; i < m_asserted_atoms.size(); ++i) {
@@ -1081,10 +1126,17 @@ namespace smt {
                     std::pair<theory_var, theory_var> const& eq = m_delayed_equalities[i];
                     internalize_eq(eq.first, eq.second);
                 }
+                is_sat = make_feasible();
             }
-            lbool is_sat = make_feasible();
+            else if (m_solver->get_status() != lean::lp_status::OPTIMAL) {
+                is_sat = make_feasible();
+            }
             switch (is_sat) {
             case l_true:
+                init_variable_values();
+                if (delayed_assume_eqs()) {
+                    return FC_CONTINUE;
+                }
                 if (assume_eqs()) {
                     return FC_CONTINUE;
                 }
@@ -1152,9 +1204,11 @@ namespace smt {
 
 
         bool can_propagate() {
+#if 0
             if (ctx().at_base_level() && has_delayed_constraints()) {
                 // we could add the delayed constraints here directly to the tableau instead of using bounds variables.
             }
+#endif
             return m_asserted_atoms.size() > m_asserted_qhead;
         }
 
