@@ -643,6 +643,54 @@ public:
         }
     }
 
+    void update_fixed_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
+        lean_assert(m_column_types[j] == fixed && m_low_bounds()[j] == m_upper_bounds()[j]);
+        mpq y_of_bound(0);
+        switch (kind) {
+        case LT:
+            y_of_bound = -1;
+        case LE:
+            {
+                auto up = numeric_pair<mpq>(right_side, y_of_bound);
+                if (up < m_low_bounds[j]) {
+                    m_status = INFEASIBLE;
+                    m_infeasible_canonic_left_side = m_normalized_constraints()[ci].m_canonic_left_side;
+                    set_upper_bound_witness(ci);
+                }                   
+            }
+            break;
+        case GT:
+            y_of_bound = 1;
+        case GE:            
+            {
+                auto low = numeric_pair<mpq>(right_side, y_of_bound);
+                if (low > m_upper_bounds[j]) {
+                    m_status = INFEASIBLE;
+                    m_infeasible_canonic_left_side = m_normalized_constraints()[ci].m_canonic_left_side;
+                    set_low_bound_witness(ci);
+                }
+            }
+            break;
+        case EQ:
+            {
+                auto v = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
+                if (v < m_low_bounds[j]) {
+                    m_status = INFEASIBLE;
+                    m_infeasible_canonic_left_side = m_normalized_constraints()[ci].m_canonic_left_side;
+                    set_upper_bound_witness(ci);                    
+                } else if (v > m_upper_bounds[j]) {
+                    m_status = INFEASIBLE;
+                    m_infeasible_canonic_left_side = m_normalized_constraints()[ci].m_canonic_left_side;
+                    set_low_bound_witness(ci);                    
+                } 
+                break;
+            }
+
+        default:
+            lean_unreachable();
+                
+        }
+    }
     
     void update_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index) {
         switch(m_column_types[j]) {
@@ -659,24 +707,7 @@ public:
             update_upper_bound_column_type_and_bound(j, kind, right_side, constr_index);
             break;
         case fixed:
-            {
-                auto v = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
-                lean_assert(m_low_bounds()[j] == m_upper_bounds()[j]);
-                if (v < m_low_bounds[j]) { 
-                    m_status = INFEASIBLE;
-                    m_infeasible_canonic_left_side = m_normalized_constraints()[constr_index].m_canonic_left_side;
-                    set_upper_bound_witness(constr_index);
-                } else if (v > m_low_bounds[j]) { 
-                    m_status = INFEASIBLE;
-                    m_infeasible_canonic_left_side = m_normalized_constraints()[constr_index].m_canonic_left_side;
-                    set_low_bound_witness(constr_index);
-                } else {
-                    m_low_bounds[j] = m_upper_bounds[j] = v;
-                    set_low_bound_witness(constr_index);
-                    set_upper_bound_witness(constr_index);
-                }
-                break;
-            }           
+            update_fixed_column_type_and_bound(j, kind, right_side, constr_index);
             break;
         default:
             lean_assert(false); // cannot be here
