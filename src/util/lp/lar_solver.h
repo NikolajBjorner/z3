@@ -645,14 +645,21 @@ public:
 
     void update_fixed_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
         lean_assert(m_column_types[j] == fixed && m_low_bounds()[j] == m_upper_bounds()[j]);
+        lean_assert(m_low_bounds()[j].y.is_zero() && m_upper_bounds()[j].y.is_zero());
+        auto v = numeric_pair<mpq>(right_side, mpq(0));
+        
         mpq y_of_bound(0);
         switch (kind) {
         case LT:
-            y_of_bound = -1;
+                if (v <= m_low_bounds[j]) {
+                    m_status = INFEASIBLE;
+                    m_infeasible_canonic_left_side = m_normalized_constraints()[ci].m_canonic_left_side;
+                    set_upper_bound_witness(ci);
+                }                   
+                break;
         case LE:
             {
-                auto up = numeric_pair<mpq>(right_side, y_of_bound);
-                if (up < m_low_bounds[j]) {
+                if (v < m_low_bounds[j]) {
                     m_status = INFEASIBLE;
                     m_infeasible_canonic_left_side = m_normalized_constraints()[ci].m_canonic_left_side;
                     set_upper_bound_witness(ci);
@@ -660,11 +667,17 @@ public:
             }
             break;
         case GT:
-            y_of_bound = 1;
+            {
+                if (v >= m_upper_bounds[j]) {
+                    m_status = INFEASIBLE;
+                    m_infeasible_canonic_left_side = m_normalized_constraints()[ci].m_canonic_left_side;
+                    set_low_bound_witness(ci);
+                }
+            }
+            break;
         case GE:            
             {
-                auto low = numeric_pair<mpq>(right_side, y_of_bound);
-                if (low > m_upper_bounds[j]) {
+                if (v > m_upper_bounds[j]) {
                     m_status = INFEASIBLE;
                     m_infeasible_canonic_left_side = m_normalized_constraints()[ci].m_canonic_left_side;
                     set_low_bound_witness(ci);
@@ -673,7 +686,6 @@ public:
             break;
         case EQ:
             {
-                auto v = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
                 if (v < m_low_bounds[j]) {
                     m_status = INFEASIBLE;
                     m_infeasible_canonic_left_side = m_normalized_constraints()[ci].m_canonic_left_side;

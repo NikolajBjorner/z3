@@ -973,20 +973,25 @@ namespace smt {
                 (v != null_theory_var) &&
                 (v < static_cast<theory_var>(m_theory_var2var_index.size())) && 
                 (UINT_MAX != m_theory_var2var_index[v]) && 
-                (m_solver->is_term(m_theory_var2var_index[v]) || m_variable_values.count(v) > 0);
+                (m_solver->is_term(m_theory_var2var_index[v]) || m_variable_values.count(m_theory_var2var_index[v]) > 0);
         }
 
         rational get_value(theory_var v) const {
             if (!can_get_value(v)) return rational::zero();
             lean::var_index vi = m_theory_var2var_index[v];
+            if (m_variable_values.count(vi) > 0) {
+                return m_variable_values[vi];
+            }
             if (m_solver->is_term(vi)) {
                 const lean::lar_term& term = m_solver->get_term(vi);
                 rational result = term.m_v;
                 for (unsigned i = 0; i < term.m_coeffs.size(); ++i) {
                     result += m_variable_values[term.m_coeffs[i].second] * term.m_coeffs[i].first;
                 }
+                m_variable_values[vi] = result;
                 return result;
             }
+            UNREACHABLE();
             return m_variable_values[vi];        
         }
 
