@@ -513,7 +513,7 @@ public:
     }
     
     void update_boxed_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
-        lean_assert(m_column_types[j] == boxed && m_low_bounds()[j] < m_upper_bounds()[j]);
+        lean_assert(m_status == INFEASIBLE || m_column_types[j] == boxed && m_low_bounds()[j] < m_upper_bounds()[j]);
         mpq y_of_bound(0);
         switch (kind) {
         case LT:
@@ -644,8 +644,8 @@ public:
     }
 
     void update_fixed_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
-        lean_assert(m_column_types[j] == fixed && m_low_bounds()[j] == m_upper_bounds()[j]);
-        lean_assert(m_low_bounds()[j].y.is_zero() && m_upper_bounds()[j].y.is_zero());
+        lean_assert(m_status == INFEASIBLE || m_column_types[j] == fixed && m_low_bounds()[j] == m_upper_bounds()[j]);
+        lean_assert(m_status == INFEASIBLE || m_low_bounds()[j].y.is_zero() && m_upper_bounds()[j].y.is_zero());
         auto v = numeric_pair<mpq>(right_side, mpq(0));
         
         mpq y_of_bound(0);
