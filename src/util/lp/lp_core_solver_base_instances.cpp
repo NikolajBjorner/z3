@@ -102,3 +102,6 @@ template void  lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq
 template bool lean::lp_core_solver_base<double, double>::column_is_feasible(unsigned int) const;
 template bool lean::lp_core_solver_base<lean::mpq, lean::mpq>::column_is_feasible(unsigned int) const;
 template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::print_linear_combination_of_column_indices(std::vector<std::pair<lean::mpq, unsigned int>, std::allocator<std::pair<lean::mpq, unsigned int> > > const&, std::ostream&) const;
+template bool lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<rational> >::column_is_feasible(unsigned int) const;
+template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<rational> >::snap_non_basic_x_to_bound();
+template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::zero_pivot_row();

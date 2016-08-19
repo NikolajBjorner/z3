@@ -19,7 +19,8 @@ template lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::lar_c
                                                                                            std::vector<int> &,
                                                                                            lean::static_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >&,
                                                                                            lean::lp_settings&,
-                                                                                           const column_namer&);
+                                                                                           const column_namer&,
+                                                                                           std::unordered_set<unsigned> & columns_out_of_bounds);
 template void lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::solve();
 template void lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::prefix();
 template void lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::print_column_info(unsigned int, std::ostream & out) const;

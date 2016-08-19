@@ -30,7 +30,10 @@ public:
             m_vec.emplace_replace(m_i, b);
             return *this;
         }
-        ref & operator=(const ref & b) { lean_assert(false); return *this; }
+        ref & operator=(const ref & b) {
+            m_vec.emplace_replace(m_i, b.m_vec.m_vector[b.m_i]);
+            return *this;
+        }
         operator const B&() const {
             return m_vec.m_vector[m_i];
         }

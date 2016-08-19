@@ -96,11 +96,19 @@ public:
     std::size_t hash_of_ls() const {
         std::size_t ret = 0;
         std::hash<std::pair<mpq, var_index>> hash_fun;
-        for (auto v : m_coeffs) {
+        for (auto & v : m_coeffs) {
             ret |= (hash_fun(v) << 2);
         }
         return ret;
     }
+    template <typename T>
+    T value(const std::vector<T> & x) const {
+        T r = zero_of_type<T>();
+        for (auto & v : m_coeffs)
+            r += v.first * x[v.second];
+        return r;
+    }
+    
 };
 
 struct hash_and_equal_of_canonic_left_side_struct {

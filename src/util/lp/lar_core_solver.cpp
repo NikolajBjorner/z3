@@ -22,7 +22,9 @@ lar_core_solver<T, X>::lar_core_solver(std::vector<X> & x, const std::vector<col
                                        std::vector<int> & heading,
                                        static_matrix<T, X> & A,
                                        lp_settings & settings,
-                                       const column_namer & column_names):
+                                       const column_namer & column_names,
+                                       std::unordered_set<unsigned> & columns_out_of_bounds
+):
     lp_core_solver_base<T, X>(A,
                               m_right_sides_dummy,
                               basis,
@@ -34,8 +36,8 @@ lar_core_solver<T, X>::lar_core_solver(std::vector<X> & x, const std::vector<col
                               column_names,
                               column_types,
                               low_bounds,
-                              upper_bounds) {
-}
+                              upper_bounds),
+    m_columns_out_of_bounds(columns_out_of_bounds) {}
 
 template <typename T, typename X> void lar_core_solver<T, X>::init_costs() {
     lean_assert(this->m_x.size() >= this->m_n());
@@ -53,7 +55,7 @@ template <typename T, typename X> void lar_core_solver<T, X>::init_costs() {
 }
 
 
-template <typename T, typename X>    void lar_core_solver<T, X>::init_cost_for_column(unsigned j) {
+template <typename T, typename X> void lar_core_solver<T, X>::init_cost_for_column(unsigned j) {
     // If j is a breakpoint column, then we set the cost zero.
     // When anylyzing an entering column candidate we update the cost of the breakpoints columns to get the left or the right derivative if the infeasibility function
     const X & x = this->m_x[j];
@@ -399,9 +401,9 @@ template <typename T, typename X> void lar_core_solver<T, X>::print_cost(std::os
 
 template <typename T, typename X> void lar_core_solver<T, X>::update_basis_and_x_with_comparison(unsigned entering, unsigned leaving, X delta) {
     if (entering != leaving)
-        this->update_basis_and_x(entering, leaving, delta);
+        update_basis_and_x_lar(entering, leaving, delta);
     else
-        this->update_x(entering, delta);
+        update_x_lar(entering, delta);
 }
 
 template <typename T, typename X>    void lar_core_solver<T, X>::advance_on_sorted_breakpoints(unsigned entering) {
@@ -581,16 +583,17 @@ template <typename T, typename X>    unsigned lar_core_solver<T, X>::get_number_
 }
 
 
-template <typename T, typename X>    void lar_core_solver<T, X>::row_feasibility_loop() {
+template <typename T, typename X> void lar_core_solver<T, X>::row_feasibility_loop() {
     if (this->m_m() == 0) {
         this->m_status = OPTIMAL;
         return;
     }
+
     while (true) {
         if (this->print_statistics_with_iterations_and_check_that_the_time_is_over()){
             return;
         }
-        int i = find_infeasible_row();
+        int i = find_infeasible_row_and_set_infeasible_row_sign();
         if (i == -1) {
             this->m_status = OPTIMAL;
             break;
@@ -603,7 +606,17 @@ template <typename T, typename X>    void lar_core_solver<T, X>::row_feasibility
     }
 }
 
-template <typename T, typename X>    int lar_core_solver<T, X>::find_infeasible_row() {    
+template <typename T, typename X> int lar_core_solver<T, X>::find_infeasible_row_and_set_infeasible_row_sign() {
+    // this is a very simple version. We might consider to find an element with a small markovitz number
+    // or a large column norm when working with doubles
+    auto it = m_columns_out_of_bounds.begin();
+    if (it == m_columns_out_of_bounds.end())
+        return -1;
+    unsigned j = *it;
+    m_infeasible_row_sign = get_infeasibility_sign(j);
+    lean_assert(this->m_basis_heading[j] >= 0);
+    return this->m_basis_heading[j];
+    /*
     unsigned offset = my_random() % this->m_m();
     unsigned initial_offset_in_basis = offset;
     do {
@@ -613,7 +626,7 @@ template <typename T, typename X>    int lar_core_solver<T, X>::find_infeasible_
             return offset;
         if (++offset == this->m_m()) offset = 0;
     } while (offset != initial_offset_in_basis);
-    return -1;
+    return -1;*/
 }
 
 template <typename T, typename X>    int lar_core_solver<T, X>::get_infeasibility_sign(unsigned j) const {
@@ -773,7 +786,7 @@ template <typename T, typename X> void lar_core_solver<T, X>::advance_on_infeasi
     lean_assert(delta > zero_of_type<X>());
     unsigned row = my_random() % this->m_m();
     unsigned initial_row = row;
-    do {
+    do { // todo: run on the column domain here
         if (row != inf_row)
             update_delta_of_entering(entering_delta_sign, row, delta, leaving_candidates);
         if (++row == this->m_m()) row = 0;
@@ -800,10 +813,13 @@ template <typename T, typename X> void lar_core_solver<T, X>::solve() {
         return;
     }
     this->snap_non_basic_x_to_bound();
-    if(this->A_mult_x_is_off())
+    if(this->A_mult_x_is_off()) {
         this->solve_Ax_eq_b();
-    lean_assert(this->A_mult_x_is_off() == false);
-    if (this->m_settings.row_feasibility) {
+        update_columns_out_of_bounds();
+    }
+    lean_assert(columns_out_of_bounds_are_set_correctly());
+
+    if (this->m_settings.row_feasibility) {        
         row_feasibility_loop();
     } else {
         feasibility_loop();
