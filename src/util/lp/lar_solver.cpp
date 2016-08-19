@@ -42,7 +42,7 @@ canonic_left_side lar_solver::create_or_fetch_existing_left_side(const std::vect
         m_map_of_canonic_left_sides_to_ul_pairs[left_side] = ul;
         lean_assert(m_column_names.size() == j);
         m_vec_of_canonic_left_sides.push_back(left_side);
-        add_new_var_to_core_fields(true); // true for registering in basis
+        add_new_var_to_core_fields(true, left_side.value(m_x)); // true for registering in basis
         fill_last_row_of_A(m_A, left_side);
         register_new_var_name(get_column_name(j)); // it will create a default name
     } else {
@@ -292,7 +292,7 @@ var_index lar_solver::add_var(std::string s) {
 
     register_new_var_name(s);
 
-    add_new_var_to_core_fields(false); // false - do not register in basis
+    add_new_var_to_core_fields(false, zero_of_type<numeric_pair<mpq>>()); // false - do not register in basis
     
     return i;
 }
@@ -313,7 +313,7 @@ bool lar_solver::all_constrained_variables_are_registered(const std::vector<std:
 
 
 
-constraint_index lar_solver::add_constraint(const std::vector<std::pair<mpq, var_index>>& left_side_with_terms, lconstraint_kind kind_par, mpq right_side_par) {
+constraint_index lar_solver::add_constraint(const std::vector<std::pair<mpq, var_index>>& left_side_with_terms, lconstraint_kind kind_par, mpq right_side_par) {    
     std::vector<std::pair<mpq, var_index>> left_side;
     substitute_terms(one_of_type<mpq>(), left_side_with_terms, left_side, right_side_par);
     lean_assert(left_side.size() > 0);
@@ -327,7 +327,7 @@ constraint_index lar_solver::add_constraint(const std::vector<std::pair<mpq, var
     lar_normalized_constraint normalized_constraint(ls, ratio, kind, right_side, original_constr);
     m_normalized_constraints.push_back(normalized_constraint);
     constraint_index constr_ind = m_normalized_constraints.size() - 1;
-    update_column_type_and_bound(j, kind, right_side, constr_ind);    
+    update_column_type_and_bound(j, kind, right_side, constr_ind);
     return constr_ind;
 }
 
@@ -421,6 +421,7 @@ bool lar_solver::the_right_sides_do_not_sum_to_zero(const std::vector<std::pair<
 }
 
 bool lar_solver::evidence_is_correct() {
+#ifdef LEAN_DEBUG
     std::vector<std::pair<mpq, unsigned>> evidence;
     get_infeasibility_evidence(evidence);
     lconstraint_kind kind;
@@ -442,6 +443,7 @@ bool lar_solver::evidence_is_correct() {
         lean_assert(false);
         return false;
     }
+#endif
     return true;
 }
 
@@ -805,6 +807,7 @@ void lar_solver::pop(unsigned k) {
     m_x.resize(n);
     pop_basis(k);
     lean_assert(m_mpq_lar_core_solver.basis_heading_is_correct());
+    m_mpq_lar_core_solver.update_columns_out_of_bounds();
 }
 }
 

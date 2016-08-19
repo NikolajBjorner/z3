@@ -13,6 +13,7 @@
 #include "util/lp/indexed_vector.h"
 #include "util/lp/binary_heap_priority_queue.h"
 #include "util/lp/breakpoint.h"
+#include "util/lp/stacked_unordered_set.h"
 namespace lean {
 
 template <typename T, typename X>
@@ -24,9 +25,10 @@ class lar_core_solver : public lp_core_solver_base<T, X> {
     std::vector<breakpoint<X>> m_breakpoints;
     binary_heap_priority_queue<X> m_breakpoint_indices_queue;
     std::vector<std::pair<mpq, unsigned>> m_infeasible_row;
-    int m_infeasible_row_sign = 0;
+    int m_infeasible_row_sign = 0; // todo: get rid of this field
     std::vector<X> m_right_sides_dummy;
     std::vector<T> m_costs_dummy;
+    std::unordered_set<unsigned> & m_columns_out_of_bounds;
 public:
     lar_core_solver(std::vector<X> & x,
                     const std::vector<column_type> & column_types,
@@ -37,7 +39,9 @@ public:
                     std::vector<int> & heading,
                     static_matrix<T, X> & A,
                     lp_settings & settings,
-                    const column_namer & column_names);
+                    const column_namer & column_names,
+                    std::unordered_set<unsigned> & columns_out_of_bounds
+                    );
 
     int get_infeasible_row_sign() const { return m_infeasible_row_sign;   }
 
@@ -133,7 +137,7 @@ public:
 
     void row_feasibility_loop();
 
-    int find_infeasible_row();
+    int find_infeasible_row_and_set_infeasible_row_sign();
 
     int get_infeasibility_sign(unsigned j) const;
 
@@ -175,6 +179,52 @@ public:
     bool low_bounds_are_set() const { return true; }
 
     void print_column_info(unsigned j, std::ostream & out) const;
+
+    void update_columns_out_of_bounds() {
+        m_columns_out_of_bounds.clear();
+        for (auto j : this->m_basis) {
+            if (this->column_is_feasible(j))
+                m_columns_out_of_bounds.erase(j);
+            else
+                m_columns_out_of_bounds.insert(j);
+        }
+    }
+    bool columns_out_of_bounds_are_set_correctly() const {
+        for (auto j : this->m_basis) {
+            if ( this->column_is_feasible(j) ==
+                 (m_columns_out_of_bounds.find(j) != m_columns_out_of_bounds.end()))
+                return false;
+        }
+        for (auto j : m_columns_out_of_bounds){ // j should be a basic column
+            if (j >= this->m_basis_heading.size() || this->m_basis_heading[j] < 0)
+                return false;
+        }
+        return true;
+    }
+
+    void update_cols_out_of_bounds() {
+        for (unsigned i : this->m_ed.m_index) {
+            unsigned j = this->m_basis[i];
+            if (this->column_is_feasible(j))
+                m_columns_out_of_bounds.erase(j);
+            else
+                m_columns_out_of_bounds.insert(j);
+        }
+    }
+    
+    bool update_basis_and_x_lar(int entering, int leaving, X const & tt) {
+        bool ret = this->update_basis_and_x(entering, leaving, tt);
+        if (ret) {
+            update_cols_out_of_bounds();
+            m_columns_out_of_bounds.erase(leaving);
+        }
+        return ret;
+    }
+
+    void update_x_lar(unsigned entering, X delta) {
+        this->update_x(entering, delta);
+        update_cols_out_of_bounds();
+    }
 
 };
 }

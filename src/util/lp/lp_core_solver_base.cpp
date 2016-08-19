@@ -11,6 +11,7 @@
 #include "util/lp/lp_core_solver_base.h"
 namespace lean {
 void init_basic_part_of_basis_heading(std::vector<unsigned> & basis, std::vector<int> & basis_heading) {
+    lean_assert(basis_heading.size() >= basis.size());
     unsigned m = basis.size();
     for (unsigned i = 0; i < m; i++) {
         unsigned column = basis[i];
@@ -77,8 +78,12 @@ lp_core_solver_base(static_matrix<T, X> & A,
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 allocate_basis_heading() { // the rest of initilization will be handled by the factorization class
-    // m_basis_heading.clear();
-    // m_basis_heading.resize(m_n(), -1);
+    if (m_basis_heading.size() != m_A.column_count()) {
+         m_basis_heading.clear();
+         m_basis_heading.resize(m_n(), -1);
+         init_basis_heading_and_non_basic_columns_vector(m_basis, m_basis_heading, m_non_basic_columns);
+    }
+    
     lean_assert(basis_heading_is_correct());
 }
 template <typename T, typename X> void lp_core_solver_base<T, X>::
@@ -281,6 +286,8 @@ update_x(unsigned entering, X delta) {
         m_x[m_basis[i]] -= delta * m_ed[i];
     }
 }
+
+
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 print_statistics(char const* str, X cost) {

@@ -26,6 +26,7 @@
 #include "util/lp/stacked_map.h"
 #include "util/lp/stacked_value.h"
 #include "util/lp/stacked_vector.h"
+#include "util/lp/stacked_unordered_set.h"
 namespace lean {
 template <typename V>
 struct conversion_helper {
@@ -77,7 +78,8 @@ class lar_solver : public column_namer {
     stacked_map<canonic_left_side, ul_pair, hash_and_equal_of_canonic_left_side_struct, hash_and_equal_of_canonic_left_side_struct> m_map_of_canonic_left_sides_to_ul_pairs;
     stacked_vector<lar_normalized_constraint> m_normalized_constraints;
     stacked_vector<canonic_left_side> m_vec_of_canonic_left_sides;
-    
+    // the set of column indices j such that m_x[j] does not satisfy one of its bounds
+    std::unordered_set<var_index> m_columns_out_of_bounds;
     
     lar_core_solver<mpq, numeric_pair<mpq>> m_mpq_lar_core_solver;
     stacked_value<canonic_left_side> m_infeasible_canonic_left_side; // such can be found at the initialization step
@@ -109,19 +111,6 @@ class lar_solver : public column_namer {
     template <typename U, typename V>
     void copy_from_mpq_matrix(static_matrix<U,V> & matr);
     
-    // void fill_column_info_names() {
-    //     for (unsigned j = 0; j < m_A.column_count(); j++) {
-    //         column_info<mpq> t;
-    //         m_column_infos.push_back(t);
-    //         if (j < m_map_from_var_index_to_name_left_side_pair.size()) {
-    //             m_column_infos.back().set_name(m_map_from_var_index_to_name_left_side_pair[j]);
-    //         } else {
-    //             string pref("_s_");
-    //             m_column_infos.back().set_name(pref + T_to_string(j));
-    //         }
-    //         m_column_names
-    //     }
-    // }
     void set_upper_bound_for_column_info(constraint_index i, const lar_normalized_constraint & norm_constr);
 
     bool try_to_set_fixed(column_info<mpq> & ci);
@@ -169,8 +158,8 @@ public:
                                          m_heading,
                                          m_A,
                                          m_settings,
-                                         *this) {
-    }
+                                         *this,
+                                         m_columns_out_of_bounds) {}
 
     virtual ~lar_solver(){}
 
@@ -371,7 +360,7 @@ public:
         m_A.pop(k);
      }
 
-    void add_new_var_to_core_fields(bool register_in_basis) {
+    void add_new_var_to_core_fields(bool register_in_basis, numeric_pair<mpq> val) {
         unsigned i = m_A.column_count();
         m_A.add_column();
         lean_assert(m_x.size() == i);
@@ -381,7 +370,7 @@ public:
         // we need to insert some value, does not matter which
         m_low_bounds.push_back(zero_of_type<numeric_pair<mpq>>());
         m_upper_bounds.push_back(zero_of_type<numeric_pair<mpq>>());
-        m_x.push_back(zero_of_type<numeric_pair<mpq>>());
+        m_x.push_back(val);
 
         lean_assert(m_heading.size() == i); // as m_A.column_count() on the entry to the method
         lean_assert(m_nbasis.size() == i - m_A.row_count());
@@ -691,6 +680,12 @@ public:
             break;
         default:
             lean_assert(false); // cannot be here
+        }
+        if (m_heading[j] >= 0) {
+            if (m_mpq_lar_core_solver.column_is_feasible(j))
+                m_columns_out_of_bounds.erase(j);
+            else
+                m_columns_out_of_bounds.insert(j);
         }
     }
 
