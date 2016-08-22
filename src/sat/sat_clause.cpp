@@ -187,7 +187,7 @@ namespace sat {
 #if defined(Z3DEBUG)
         if (segment >= (c_max_segments-1)) {
             size_t ptr = reinterpret_cast<size_t>(cls) & ~0xFFFFFFFFull;
-            return m_ptr2cls_offset.find(reinterpret_cast<size_t>(ptr));
+            return m_ptr2cls_offset.find(reinterpret_cast<size_t>(ptr)) + segment;
         }
 #endif
         return static_cast<unsigned>(reinterpret_cast<size_t>(cls)) + segment;
