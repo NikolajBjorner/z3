@@ -107,7 +107,7 @@ public:
 
     unsigned column_count() const { return static_cast<unsigned>(m_columns.size()); }
     template <typename L>
-    L dot_product_with_row(unsigned row, const std::vector<L> & w);;
+    L dot_product_with_row(unsigned row, const std::vector<L> & w) const;
 
     unsigned lowest_row_in_column(unsigned col);
 
@@ -147,9 +147,9 @@ public:
 
     std::set<std::pair<unsigned, unsigned>>  get_domain();
 
-    void copy_column_to_vector (unsigned j, indexed_vector<T> & v) const;
+    void copy_column_to_indexed_vector(unsigned j, indexed_vector<T> & v) const;
 
-    void copy_column_to_vector (unsigned j, std::vector<T> & v) const;
+    void copy_column_to_vector(unsigned j, std::vector<T> & v) const;
 
     void add_column_to_vector (const T & a, unsigned j, T * v) const;
     T get_max_abs_in_row(unsigned row) const;

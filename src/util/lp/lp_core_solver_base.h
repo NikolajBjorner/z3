@@ -49,8 +49,8 @@ public:
     indexed_vector<T> m_ed; // the solution of B*m_ed = a
     unsigned m_iters_with_no_cost_growing = 0;
     const std::vector<column_type> & m_column_type;
-    std::vector<X> & m_low_bound_values;
-    std::vector<X> & m_upper_bound_values;
+    std::vector<X> & m_low_bounds;
+    std::vector<X> & m_upper_bounds;
     std::vector<T> m_column_norms; // the approximate squares of column norms that help choosing a profitable column
     std::vector<X> m_copy_of_xB;
     unsigned m_sort_counter = 0;
@@ -166,26 +166,26 @@ public:
     }
 
     bool x_below_low_bound(unsigned p) {
-        return below_bound(m_x[p], m_low_bound_values[p]);
+        return below_bound(m_x[p], m_low_bounds[p]);
     }
 
     bool x_above_low_bound(unsigned p) {
-        return above_bound(m_x[p], m_low_bound_values[p]);
+        return above_bound(m_x[p], m_low_bounds[p]);
     }
 
     bool x_below_upper_bound(unsigned p) {
-        return below_bound(m_x[p], m_upper_bound_values[p]);
+        return below_bound(m_x[p], m_upper_bounds[p]);
     }
 
 
     bool x_above_upper_bound(unsigned p) {
-        return above_bound(m_x[p], m_upper_bound_values[p]);
+        return above_bound(m_x[p], m_upper_bounds[p]);
     }
     bool x_is_at_low_bound(unsigned j) const {
-        return at_bound(m_x[j], m_low_bound_values[j]);
+        return at_bound(m_x[j], m_low_bounds[j]);
     }
     bool x_is_at_upper_bound(unsigned j) const {
-        return at_bound(m_x[j], m_upper_bound_values[j]);
+        return at_bound(m_x[j], m_upper_bounds[j]);
     }
 
     bool x_is_at_bound(unsigned j) const {
@@ -229,8 +229,8 @@ public:
 
     void copy_rs_to_xB(std::vector<X> & rs);
     virtual bool low_bounds_are_set() const { return false; }
-    X low_bound_value(unsigned j) const { return m_low_bound_values[j]; }
-    X upper_bound_value(unsigned j) const { return m_upper_bound_values[j]; }
+    X low_bound_value(unsigned j) const { return m_low_bounds[j]; }
+    X upper_bound_value(unsigned j) const { return m_upper_bounds[j]; }
 
     column_type get_column_type(unsigned j) const {return m_column_type[j]; }
 
@@ -239,7 +239,7 @@ public:
     }
 
     X bound_span(unsigned j) const {
-        return m_upper_bound_values[j] - m_low_bound_values[j];
+        return m_upper_bounds[j] - m_low_bounds[j];
     }
 
     std::string column_name(unsigned column) const;
@@ -259,17 +259,17 @@ public:
         case boxed:
             if (x_is_at_bound(j))
                 break; // we should preserve x if possible
-            m_x[j] = m_low_bound_values[j];
+            m_x[j] = m_low_bounds[j];
             break;
         case low_bound:
             if (x_is_at_low_bound(j))
                 break;
-            m_x[j] = m_low_bound_values[j];
+            m_x[j] = m_low_bounds[j];
             break;
         case upper_bound:
             if (x_is_at_upper_bound(j))
                 break;
-            m_x[j] = m_upper_bound_values[j];
+            m_x[j] = m_upper_bounds[j];
             break;
         default:
             break;

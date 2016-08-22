@@ -180,14 +180,17 @@ public:
 
     void print_column_info(unsigned j, std::ostream & out) const;
 
+    void update_column_out_of_bounds(unsigned j) {
+        if (this->column_is_feasible(j))
+            m_columns_out_of_bounds.erase(j);
+        else
+            m_columns_out_of_bounds.insert(j);
+    }
+    
     void update_columns_out_of_bounds() {
         m_columns_out_of_bounds.clear();
-        for (auto j : this->m_basis) {
-            if (this->column_is_feasible(j))
-                m_columns_out_of_bounds.erase(j);
-            else
-                m_columns_out_of_bounds.insert(j);
-        }
+        for (auto j : this->m_basis)
+            update_column_out_of_bounds(j);
     }
     bool columns_out_of_bounds_are_set_correctly() const {
         for (auto j : this->m_basis) {
@@ -226,5 +229,11 @@ public:
         update_cols_out_of_bounds();
     }
 
+    void delete_lu() {
+        if (this->m_factorization != nullptr) {
+            delete this->m_factorization;
+            this->m_factorization = nullptr;
+        }
+    }
 };
 }

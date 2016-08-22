@@ -44,6 +44,14 @@ enum lp_status {
     UNSTABLE
 };
 
+// when the ratio is less than the return value we switch to solve_By_for_T_indexed_only , still needs tuning
+template <typename X>
+unsigned ratio_of_index_size_to_all_size() {
+    if (numeric_traits<X>::precise())
+        return 10;
+    return 100;
+}
+
 const char* lp_status_to_string(lp_status status);
 
 inline std::ostream& operator<<(std::ostream& out, lp_status status) {

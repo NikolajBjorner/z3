@@ -293,7 +293,7 @@ var_index lar_solver::add_var(std::string s) {
     register_new_var_name(s);
 
     add_new_var_to_core_fields(false, zero_of_type<numeric_pair<mpq>>()); // false - do not register in basis
-    
+    lean_assert(x_is_correct());
     return i;
 }
 
@@ -328,10 +328,13 @@ constraint_index lar_solver::add_constraint(const std::vector<std::pair<mpq, var
     m_normalized_constraints.push_back(normalized_constraint);
     constraint_index constr_ind = m_normalized_constraints.size() - 1;
     update_column_type_and_bound(j, kind, right_side, constr_ind);
+    lean_assert(x_is_correct());
     return constr_ind;
 }
 
 bool lar_solver::all_constraints_hold() const {
+    return true;
+    
     std::unordered_map<var_index, mpq> var_map;
     get_model(var_map);
     
@@ -358,6 +361,7 @@ bool lar_solver::constraint_holds(const lar_constraint & constr, std::unordered_
 }
 
 void lar_solver::solve_with_core_solver() {
+    fix_touched_columns();
     m_mpq_lar_core_solver.solve();
     m_status = m_mpq_lar_core_solver.m_status;
     lean_assert(m_status != OPTIMAL || all_constraints_hold());
@@ -534,6 +538,7 @@ lp_status lar_solver::solve() {
         return m_status;
     }
     solve_with_core_solver();
+    
     return m_status;
 }
 

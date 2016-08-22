@@ -16,16 +16,16 @@
 #include "util/lp/scaler.h"
 #include "util/lp/lar_solver.h"
 namespace lean {
-template double static_matrix<double, double>::dot_product_with_row<double>(unsigned int, std::vector<double, std::allocator<double> > const&);
-template mpq static_matrix<mpq, mpq>::dot_product_with_row<mpq>(unsigned int, std::vector<mpq, std::allocator<mpq> > const&);
-template numeric_pair<mpq> static_matrix<mpq, numeric_pair<mpq> >::dot_product_with_row<numeric_pair<mpq> >(unsigned int, std::vector<numeric_pair<mpq>, std::allocator<numeric_pair<mpq> > > const&);
+template double static_matrix<double, double>::dot_product_with_row<double>(unsigned int, std::vector<double, std::allocator<double> > const&) const;
+template mpq static_matrix<mpq, mpq>::dot_product_with_row<mpq>(unsigned int, std::vector<mpq, std::allocator<mpq> > const&) const ;
+template numeric_pair<mpq> static_matrix<mpq, numeric_pair<mpq> >::dot_product_with_row<numeric_pair<mpq> >(unsigned int, std::vector<numeric_pair<mpq>, std::allocator<numeric_pair<mpq> > > const&) const;
 template void static_matrix<double, double>::add_column_to_vector(double const&, unsigned int, double*) const;
 template void static_matrix<double, double>::add_columns_at_the_end(unsigned int);
 template void static_matrix<double, double>::clear();
 #ifdef LEAN_DEBUG
 template bool static_matrix<double, double>::is_correct() const;
 #endif
-template void static_matrix<double, double>::copy_column_to_vector(unsigned int, indexed_vector<double>&) const;
+template void static_matrix<double, double>::copy_column_to_indexed_vector(unsigned int, indexed_vector<double>&) const;
 template void static_matrix<double, double>::copy_column_to_vector(unsigned int, std::vector<double, std::allocator<double> >&) const;
 template void static_matrix<double, double>::divide_row_by_constant(unsigned int, double const&);
 template double static_matrix<double, double>::dot_product_with_column(std::vector<double, std::allocator<double> > const&, unsigned int) const;
@@ -45,7 +45,7 @@ template static_matrix<double, double>::static_matrix(unsigned int, unsigned int
 template void static_matrix<mpq, mpq>::add_column_to_vector(mpq const&, unsigned int, mpq*) const;
 template void static_matrix<mpq, mpq>::add_columns_at_the_end(unsigned int);
 template bool static_matrix<mpq, mpq>::is_correct() const;
-template void static_matrix<mpq, mpq>::copy_column_to_vector(unsigned int, indexed_vector<mpq>&) const;
+template void static_matrix<mpq, mpq>::copy_column_to_indexed_vector(unsigned int, indexed_vector<mpq>&) const;
 template void static_matrix<mpq, mpq>::divide_row_by_constant(unsigned int, mpq const&);
 template mpq static_matrix<mpq, mpq>::dot_product_with_column(std::vector<mpq, std::allocator<mpq> > const&, unsigned int) const;
 template mpq static_matrix<mpq, mpq>::get_balance() const;
@@ -65,7 +65,7 @@ template static_matrix<mpq, mpq>::static_matrix(unsigned int, unsigned int);
 #ifdef LEAN_DEBUG
 template bool static_matrix<mpq, numeric_pair<mpq> >::is_correct() const;
 #endif
-template void static_matrix<mpq, numeric_pair<mpq> >::copy_column_to_vector(unsigned int, indexed_vector<mpq>&) const;
+template void static_matrix<mpq, numeric_pair<mpq> >::copy_column_to_indexed_vector(unsigned int, indexed_vector<mpq>&) const;
 template mpq static_matrix<mpq, numeric_pair<mpq> >::dot_product_with_column(std::vector<mpq, std::allocator<mpq> > const&, unsigned int) const;
 template mpq static_matrix<mpq, numeric_pair<mpq> >::get_elem(unsigned int, unsigned int) const;
 template void static_matrix<mpq, numeric_pair<mpq> >::init_empty_matrix(unsigned int, unsigned int);

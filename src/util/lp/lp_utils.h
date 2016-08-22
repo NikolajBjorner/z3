@@ -18,7 +18,7 @@ namespace lean {
     typedef z3_exception exception;
 
 #define lean_assert(_x_) { SASSERT(_x_); }
-    inline void lean_unreachable() { } // TODO(levnach)
+inline void lean_unreachable() { lean_assert(false); }
     template <typename X> inline X zero_of_type() { return numeric_traits<X>::zero(); }
     template <typename X> inline X one_of_type() { return numeric_traits<X>::one(); }
     template <typename X> inline bool is_zero(const X & v) { return numeric_traits<X>::is_zero(v); }

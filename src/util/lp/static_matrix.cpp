@@ -53,7 +53,7 @@ template <typename T, typename X>    void static_matrix<T, X>::init_empty_matrix
 }
 template <typename T, typename X>
 template <typename L>
-L static_matrix<T, X>::dot_product_with_row(unsigned row, const std::vector<L> & w) {
+L static_matrix<T, X>::dot_product_with_row(unsigned row, const std::vector<L> & w) const {
     L ret = zero_of_type<L>();
     lean_assert(row < m_rows.size());
     for (auto & it : m_rows[row]) {
@@ -175,7 +175,7 @@ std::set<std::pair<unsigned, unsigned>>  static_matrix<T, X>::get_domain() {
 }
 
 
-template <typename T, typename X>    void static_matrix<T, X>::copy_column_to_vector (unsigned j, indexed_vector<T> & v) const {
+template <typename T, typename X>    void static_matrix<T, X>::copy_column_to_indexed_vector (unsigned j, indexed_vector<T> & v) const {
     lean_assert(j < m_columns.size());
     for (auto & it : m_columns[j]) {
         if (!is_zero(it.m_value))

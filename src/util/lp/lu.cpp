@@ -281,7 +281,7 @@ template <typename T, typename X>
 void lu<T, X>::solve_Bd(unsigned a_column, indexed_vector<T> & d, indexed_vector<T> & w) {
     init_vector_w(a_column, w);
 
-    if (w.m_index.size() * 100 < d.m_data.size()) { // this const might need some tuning
+    if (w.m_index.size() * ratio_of_index_size_to_all_size<T>() < d.m_data.size()) { // this const might need some tuning
         d = w;
         solve_By_for_T_indexed_only(d, m_settings);
     } else {
@@ -292,7 +292,7 @@ void lu<T, X>::solve_Bd(unsigned a_column, indexed_vector<T> & d, indexed_vector
 }
 
 template <typename T, typename X>
-void lu<T, X>::solve_Bd_faster(unsigned a_column, indexed_vector<T> & d) { // d is the right side on the input and the solution at the exit
+void lu<T, X>::solve_Bd_faster(unsigned a_column, indexed_vector<T> & d) { // puts the a_column into d
     init_vector_w(a_column, d);
     solve_By_for_T_indexed_only(d, m_settings);
 }
@@ -375,7 +375,7 @@ void lu<T, X>::perform_transformations_on_w(indexed_vector<T>& w) {
 template <typename T, typename X>
 void lu<T, X>::init_vector_w(unsigned entering, indexed_vector<T> & w) {
     w.clear();
-    m_A.copy_column_to_vector(entering, w); // w = a, the column
+    m_A.copy_column_to_indexed_vector(entering, w); // w = a, the column
     perform_transformations_on_w(w);
 }
 template <typename T, typename X>

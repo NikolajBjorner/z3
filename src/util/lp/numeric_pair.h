@@ -117,16 +117,16 @@ struct numeric_pair {
     }
 
     numeric_pair operator/(const numeric_pair &) const {
-        //        lean_unreachable();
+        // lean_unreachable();
     }
-
-
+    
+    
     numeric_pair operator+(const numeric_pair & a) const  {
         return numeric_pair(a.x + x, a.y + y);
     }
 
     numeric_pair operator*(const numeric_pair & /*a*/) const  {
-        //        lean_unreachable();
+        // lean_unreachable();
     }
 
     numeric_pair&  operator+=(const numeric_pair & a) {
@@ -163,6 +163,8 @@ struct numeric_pair {
 
     static bool precize() { return lean::numeric_traits<T>::precize();}
 
+    bool is_zero() const { return x.is_zero() && y.is_zero(); }
+    
     std::string to_string() const {
         return std::string("(") + T_to_string(x) + ", "  + T_to_string(y) + ")";
     }

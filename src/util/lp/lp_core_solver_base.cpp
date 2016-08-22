@@ -67,8 +67,8 @@ lp_core_solver_base(static_matrix<T, X> & A,
     m_d(m_n()),
     m_ed(m_m()),
     m_column_type(column_types),
-    m_low_bound_values(low_bound_values),
-    m_upper_bound_values(upper_bound_values),
+    m_low_bounds(low_bound_values),
+    m_upper_bounds(upper_bound_values),
     m_column_norms(m_n(), T(1)),
     m_copy_of_xB(m_m()),
     m_steepest_edge_coefficients(A.column_count()) {
@@ -125,6 +125,8 @@ solve_yB(std::vector<T> & y) {
 //     }
 // }
 template <typename T, typename X> void lp_core_solver_base<T, X>::solve_Bd(unsigned entering, indexed_vector<T> & column) {
+    if (m_factorization == nullptr)    
+        init_factorization(m_factorization, m_A, m_basis, m_settings);
     m_factorization->solve_Bd_faster(entering, column);
 }
 
@@ -327,14 +329,14 @@ set_non_basic_x_to_correct_bounds() {
     for (unsigned j : non_basis()) {
         switch (m_column_type[j]) {
         case boxed:
-            m_x[j] = m_d[j] < 0? m_upper_bound_values[j]: m_low_bound_values[j];
+            m_x[j] = m_d[j] < 0? m_upper_bounds[j]: m_low_bounds[j];
             break;
         case low_bound:
-            m_x[j] = m_low_bound_values[j];
+            m_x[j] = m_low_bounds[j];
             lean_assert(column_is_dual_feasible(j));
             break;
         case upper_bound:
-            m_x[j] = m_upper_bound_values[j];
+            m_x[j] = m_upper_bounds[j];
             lean_assert(column_is_dual_feasible(j));
             break;
         default:
@@ -418,23 +420,23 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::column_is_feas
     switch (this->m_column_type[j]) {
     case fixed:
     case boxed:
-        if (this->above_bound(x, this->m_upper_bound_values[j])) {
+        if (this->above_bound(x, this->m_upper_bounds[j])) {
             return false;
-        } else if (this->below_bound(x, this->m_low_bound_values[j])) {
+        } else if (this->below_bound(x, this->m_low_bounds[j])) {
             return false;
         } else {
             return true;
         }
         break;
     case low_bound:
-        if (this->below_bound(x, this->m_low_bound_values[j])) {
+        if (this->below_bound(x, this->m_low_bounds[j])) {
             return false;
         } else {
             return true;
         }
         break;
     case upper_bound:
-        if (this->above_bound(x, this->m_upper_bound_values[j])) {
+        if (this->above_bound(x, this->m_upper_bounds[j])) {
             return false;
         } else {
             return true;
@@ -463,7 +465,7 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::
 update_basis_and_x(int entering, int leaving, X const & tt) {
     if (!is_zero(tt)) {
         update_x(entering, tt);
-        if (A_mult_x_is_off() && !find_x_by_solving()) {
+        if ((!numeric_traits<T>::precise()) && A_mult_x_is_off() && !find_x_by_solving()) {
             init_factorization(m_factorization, m_A, m_basis, m_settings);
             if (!find_x_by_solving()) {
                 restore_x(entering, tt);
@@ -701,10 +703,10 @@ snap_non_basic_x_to_bound_and_free_to_zeroes() {
         case fixed:
         case boxed:
         case low_bound:
-            m_x[j] = m_low_bound_values[j];
+            m_x[j] = m_low_bounds[j];
             break;
         case upper_bound:
-            m_x[j] = m_upper_bound_values[j];
+            m_x[j] = m_upper_bounds[j];
             break;
         default:
             m_x[j] = zero_of_type<X>();

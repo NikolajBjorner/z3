@@ -26,15 +26,15 @@ random_updater::interval random_updater::get_interval_of_non_basic_var(unsigned 
     case free_column:
         break;
     case low_bound:
-        ret.set_low_bound(m_core_solver.m_low_bound_values[j]);
+        ret.set_low_bound(m_core_solver.m_low_bounds[j]);
         break;
     case upper_bound:
-        ret.set_upper_bound(m_core_solver.m_upper_bound_values[j]);
+        ret.set_upper_bound(m_core_solver.m_upper_bounds[j]);
         break;
     case boxed:
     case fixed:
-        ret.set_low_bound(m_core_solver.m_low_bound_values[j]);
-        ret.set_upper_bound(m_core_solver.m_upper_bound_values[j]);
+        ret.set_low_bound(m_core_solver.m_low_bounds[j]);
+        ret.set_upper_bound(m_core_solver.m_upper_bounds[j]);
         break;
     default:
         lean_assert(false);
@@ -52,7 +52,7 @@ void random_updater::diminish_interval_for_basic_var(numeric_pair<mpq>& nb_x, un
     case free_column:
         break;
     case low_bound:
-        delta = m_core_solver.m_x[j] - m_core_solver.m_low_bound_values[j];
+        delta = m_core_solver.m_x[j] - m_core_solver.m_low_bounds[j];
         lean_assert(delta >= zero_of_type<numeric_pair<mpq>>());
         if (a > 0) {
             r.set_upper_bound(nb_x + delta / a);
@@ -61,7 +61,7 @@ void random_updater::diminish_interval_for_basic_var(numeric_pair<mpq>& nb_x, un
         }
         break;
     case upper_bound:
-        delta = m_core_solver.m_upper_bound_values[j] - m_core_solver.m_x[j];
+        delta = m_core_solver.m_upper_bounds[j] - m_core_solver.m_x[j];
         lean_assert(delta >= zero_of_type<numeric_pair<mpq>>());
         if (a > 0) {
             r.set_low_bound(nb_x - delta / a);
@@ -71,17 +71,17 @@ void random_updater::diminish_interval_for_basic_var(numeric_pair<mpq>& nb_x, un
         break;
     case boxed:
         if (a > 0) {
-            delta = m_core_solver.m_x[j] - m_core_solver.m_low_bound_values[j];
+            delta = m_core_solver.m_x[j] - m_core_solver.m_low_bounds[j];
             lean_assert(delta >= zero_of_type<numeric_pair<mpq>>());
             r.set_upper_bound(nb_x + delta / a);
-            delta = m_core_solver.m_upper_bound_values[j] -m_core_solver.m_x[j];
+            delta = m_core_solver.m_upper_bounds[j] - m_core_solver.m_x[j];
             lean_assert(delta >= zero_of_type<numeric_pair<mpq>>());
             r.set_low_bound(nb_x - delta / a);
         } else { // a < 0
-            delta = m_core_solver.m_upper_bound_values[j] -m_core_solver.m_x[j];
+            delta = m_core_solver.m_upper_bounds[j] - m_core_solver.m_x[j];
             lean_assert(delta >= zero_of_type<numeric_pair<mpq>>());
             r.set_upper_bound(nb_x - delta / a);
-            delta = m_core_solver.m_x[j] - m_core_solver.m_low_bound_values[j];
+            delta = m_core_solver.m_x[j] - m_core_solver.m_low_bounds[j];
             lean_assert(delta >= zero_of_type<numeric_pair<mpq>>());
             r.set_low_bound(nb_x + delta / a);
         }

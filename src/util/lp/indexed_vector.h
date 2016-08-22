@@ -28,6 +28,8 @@ public:
         m_data.resize(data_size, numeric_traits<T>::zero());
     }
 
+    indexed_vector() {}
+    
     void resize(unsigned data_size);
     unsigned data_size() const {
         return m_data.size();

@@ -79,12 +79,13 @@ class lar_solver : public column_namer {
     stacked_vector<lar_normalized_constraint> m_normalized_constraints;
     stacked_vector<canonic_left_side> m_vec_of_canonic_left_sides;
     // the set of column indices j such that m_x[j] does not satisfy one of its bounds
-    std::unordered_set<var_index> m_columns_out_of_bounds;
-    
+    std::unordered_set<var_index> m_basic_columns_out_of_bounds;
+    std::unordered_set<var_index> m_touched_nb_columns;
     lar_core_solver<mpq, numeric_pair<mpq>> m_mpq_lar_core_solver;
     stacked_value<canonic_left_side> m_infeasible_canonic_left_side; // such can be found at the initialization step
     stacked_vector<lar_term> m_terms;
     const var_index m_terms_start_index = 1000000;
+    indexed_vector<mpq> m_column_buffer;
     
     ////////////////// methods ////////////////////////////////
     static_matrix<mpq, numeric_pair<mpq>> & A() { return m_A;}
@@ -159,7 +160,7 @@ public:
                                          m_A,
                                          m_settings,
                                          *this,
-                                         m_columns_out_of_bounds) {}
+                                         m_basic_columns_out_of_bounds) {}
 
     virtual ~lar_solver(){}
 
@@ -361,6 +362,7 @@ public:
      }
 
     void add_new_var_to_core_fields(bool register_in_basis, numeric_pair<mpq> val) {
+        m_mpq_lar_core_solver.delete_lu();
         unsigned i = m_A.column_count();
         m_A.add_column();
         lean_assert(m_x.size() == i);
@@ -422,8 +424,9 @@ public:
             {
                 auto up = numeric_pair<mpq>(right_side, y_of_bound);
                 m_upper_bounds[j] = up;
-                if (m_heading[j] < 0)
-                    m_x[j] = up;
+                if (m_heading[j] < 0) {
+                    m_touched_nb_columns.insert(j);
+                }
             }
             set_upper_bound_witness(constr_ind);
             break;
@@ -435,15 +438,18 @@ public:
             {
                 auto low = numeric_pair<mpq>(right_side, y_of_bound);
                 m_low_bounds[j] = low;
-                if (m_heading[j] < 0)
-                    m_x[j] = low;
+                if (m_heading[j] < 0) {
+                    m_touched_nb_columns.insert(j);
+                }
             }
             set_low_bound_witness(constr_ind);
             break;
         case EQ:
             m_column_types[j] = fixed;
-            m_low_bounds[j] = m_upper_bounds[j] =
-                m_x[j] = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
+            m_low_bounds[j] = m_upper_bounds[j] = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
+            if (m_heading[j] < 0) {
+                    m_touched_nb_columns.insert(j);
+            }
             set_upper_bound_witness(constr_ind);
             set_low_bound_witness(constr_ind);
             break;
@@ -466,8 +472,9 @@ public:
                 if (up < m_upper_bounds()[j]) {
                     m_upper_bounds[j] = up;
                     set_upper_bound_witness(ci);
-                    if (m_heading[j] < 0)
-                        m_x[j] = up;
+                    if (m_heading[j] < 0) {
+                        m_touched_nb_columns.insert(j);
+                    }
                 }
             }
             break;
@@ -479,8 +486,9 @@ public:
                 auto low = numeric_pair<mpq>(right_side, y_of_bound);
                 m_low_bounds[j] = low;
                 set_low_bound_witness(ci);
-                if (m_heading[j] < 0)
-                    m_x[j] = low;
+                if (m_heading[j] < 0) {
+                    m_touched_nb_columns.insert(j);
+                }
                 if (low > m_upper_bounds[j]) {
                     m_status = INFEASIBLE;
                     m_infeasible_canonic_left_side = m_normalized_constraints()[ci].m_canonic_left_side;
@@ -498,6 +506,9 @@ public:
                     m_infeasible_canonic_left_side = m_normalized_constraints()[ci].m_canonic_left_side;
                 } else {
                     m_low_bounds[j] = m_upper_bounds[j] = v;
+                    if (m_heading[j] < 0) {
+                        m_touched_nb_columns.insert(j);
+                    }
                     set_low_bound_witness(ci);
                     set_upper_bound_witness(ci);
                     m_column_types[j] = fixed;
@@ -513,7 +524,7 @@ public:
     }
     
     void update_boxed_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
-        lean_assert(m_status == INFEASIBLE || m_column_types[j] == boxed && m_low_bounds()[j] < m_upper_bounds()[j]);
+        lean_assert(m_status == INFEASIBLE || (m_column_types[j] == boxed && m_low_bounds()[j] < m_upper_bounds()[j]));
         mpq y_of_bound(0);
         switch (kind) {
         case LT:
@@ -525,8 +536,9 @@ public:
                     m_upper_bounds[j] = up;
                     set_upper_bound_witness(ci);
                 }
-                if (m_heading[j] < 0)
-                    m_x[j] = up;
+                if (m_heading[j] < 0) {
+                    m_touched_nb_columns.insert(j);
+                }
 
                 if (up < m_low_bounds[j]) {
                     m_status = INFEASIBLE;
@@ -544,8 +556,9 @@ public:
                 auto low = numeric_pair<mpq>(right_side, y_of_bound);
                 if (low > m_low_bounds[j]) {
                     m_low_bounds[j] = low;
-                    if (m_heading[j] < 0)
-                        m_x[j] = low;
+                    if (m_heading[j] < 0) {
+                        m_touched_nb_columns.insert(j);
+                    }
                     set_low_bound_witness(ci);
                 }
                 if (low > m_upper_bounds[j]) {
@@ -573,8 +586,9 @@ public:
                     set_upper_bound_witness(ci);
                     m_column_types[j] = fixed;
                 }
-                if (m_heading[j] < 0)
-                    m_x[j] = v;
+                if (m_heading[j] < 0) {
+                    m_touched_nb_columns.insert(j);
+                }
                 
                 break;
             }
@@ -595,8 +609,9 @@ public:
                 auto up = numeric_pair<mpq>(right_side, y_of_bound);
                 m_upper_bounds[j] = up;
                 set_upper_bound_witness(ci);
-                if (m_heading[j] < 0)
-                    m_x[j] = up;
+                if (m_heading[j] < 0) {
+                    m_touched_nb_columns.insert(j);
+                }
 
                 if (up < m_low_bounds[j]) {
                     m_status = INFEASIBLE;
@@ -613,8 +628,9 @@ public:
                 auto low = numeric_pair<mpq>(right_side, y_of_bound);
                 if (low > m_low_bounds[j]) {
                     m_low_bounds[j] = low;
-                    if (m_heading[j] < 0)
-                        m_x[j] = low;
+                    if (m_heading[j] < 0) {
+                        m_touched_nb_columns.insert(j);
+                    }
                     set_low_bound_witness(ci);
                 }
             }
@@ -632,8 +648,9 @@ public:
                     set_upper_bound_witness(ci);
                     m_column_types[j] = fixed;
                 }
-                if (m_heading[j] < 0)
-                    m_x[j] = v;
+                if (m_heading[j] < 0) {
+                    m_touched_nb_columns.insert(j);
+                }
                 break;
             }
 
@@ -644,8 +661,8 @@ public:
     }
 
     void update_fixed_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
-        lean_assert(m_status == INFEASIBLE || m_column_types[j] == fixed && m_low_bounds()[j] == m_upper_bounds()[j]);
-        lean_assert(m_status == INFEASIBLE || m_low_bounds()[j].y.is_zero() && m_upper_bounds()[j].y.is_zero());
+        lean_assert(m_status == INFEASIBLE || (m_column_types[j] == fixed && m_low_bounds()[j] == m_upper_bounds()[j]));
+        lean_assert(m_status == INFEASIBLE || (m_low_bounds()[j].y.is_zero() && m_upper_bounds()[j].y.is_zero()));
         auto v = numeric_pair<mpq>(right_side, mpq(0));
         
         mpq y_of_bound(0);
@@ -724,11 +741,11 @@ public:
         default:
             lean_assert(false); // cannot be here
         }
-        if (m_heading[j] >= 0) {
+        if (m_heading[j] >= 0) { // but what about the case when m_x[j] is not set correcty?
             if (m_mpq_lar_core_solver.column_is_feasible(j))
-                m_columns_out_of_bounds.erase(j);
+                m_basic_columns_out_of_bounds.erase(j);
             else
-                m_columns_out_of_bounds.insert(j);
+                m_basic_columns_out_of_bounds.insert(j);
         }
     }
 
@@ -782,5 +799,74 @@ public:
         }
         m_sorted_basis.push();
     }
+
+    numeric_pair<mpq> get_delta_of_touched_nb_column(unsigned j) {
+        switch (m_column_types[j]) {
+        case fixed:
+        case boxed:
+            if (m_x[j] <= m_low_bounds[j]) { // the equality case will work just fine
+                return m_low_bounds()[j] - m_x[j];
+            }
+            
+            if (m_x[j] >= m_upper_bounds()[j]) {
+                return m_upper_bounds()[j] - m_x[j];
+            }
+            return my_random() % 2 == 0?  m_upper_bounds()[j] - m_x[j] : m_low_bounds()[j] - m_x[j];
+        case low_bound:
+            return m_low_bounds()[j] - m_x[j];
+        case upper_bound:
+            return m_upper_bounds()[j] - m_x[j];
+        default:
+            lean_assert(false);
+            break;
+        }
+        return zero_of_type<numeric_pair<mpq>>(); // to avoid the compiler warning
+    }
+    
+    void fix_touched_nb_column(unsigned j) {
+        numeric_pair<mpq> delta = get_delta_of_touched_nb_column(j);
+        if (delta.is_zero())
+            return;
+
+        if (m_A.row_count() != m_column_buffer.data_size())
+            m_column_buffer.resize(m_A.row_count());
+        else
+            m_column_buffer.clear();
+        m_mpq_lar_core_solver.solve_Bd(j, m_column_buffer);
+        m_x[j] += delta;
+        for (unsigned i : m_column_buffer.m_index) {
+            unsigned jb = m_basis[i];
+            m_x[jb] -= delta * m_column_buffer[i];
+            m_mpq_lar_core_solver.update_column_out_of_bounds(jb);
+        }
+
+    }
+    
+    void fix_touched_columns() {
+        for (unsigned j : m_touched_nb_columns)
+            fix_touched_nb_column(j);
+        m_touched_nb_columns.clear();
+        lean_assert(x_is_correct());
+    }
+
+    bool x_is_correct() const {
+        if (m_x.size() != m_A.column_count())
+            return false;
+        
+        for (unsigned i = 0; i < m_A.row_count(); i++) {
+            numeric_pair<mpq> delta =  m_A.dot_product_with_row(i, m_x);
+            if (!delta.is_zero()) {
+                // std::cout << "x is off (";
+                // std::cout << "m_b[" << i  << "] = " << m_b[i] << " ";
+                // std::cout << "left side = " << m_A.dot_product_with_row(i, m_x) << ' ';
+                // std::cout << "delta = " << delta << ' ';
+                // std::cout << "iters = " << total_iterations() << ")" << std::endl;
+                return false;
+            }
+        }
+        return true;;
+    
+    }
+    
 };
 }

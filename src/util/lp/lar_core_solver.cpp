@@ -68,28 +68,28 @@ template <typename T, typename X> void lar_core_solver<T, X>::init_cost_for_colu
     switch (this->m_column_type[j]) {
     case fixed:
     case boxed:
-        if (x > this->m_upper_bound_values[j]) {
+        if (x > this->m_upper_bounds[j]) {
             this->m_costs[j] = 1;
-            m_infeasibility += x - this->m_upper_bound_values[j];
-        } else if (x < this->m_low_bound_values[j]) {
-            m_infeasibility += this->m_low_bound_values[j] - x;
+            m_infeasibility += x - this->m_upper_bounds[j];
+        } else if (x < this->m_low_bounds[j]) {
+            m_infeasibility += this->m_low_bounds[j] - x;
             this->m_costs[j] = -1;
         } else {
             this->m_costs[j] = numeric_traits<T>::zero();
         }
         break;
     case low_bound:
-        if (x < this->m_low_bound_values[j]) {
+        if (x < this->m_low_bounds[j]) {
             this->m_costs[j] = -1;
-            m_infeasibility += this->m_low_bound_values[j] - x;
+            m_infeasibility += this->m_low_bounds[j] - x;
         } else {
             this->m_costs[j] = numeric_traits<T>::zero();
         }
         break;
     case upper_bound:
-        if (x > this->m_upper_bound_values[j]) {
+        if (x > this->m_upper_bounds[j]) {
             this->m_costs[j] = 1;
-            m_infeasibility += x - this->m_upper_bound_values[j];
+            m_infeasibility += x - this->m_upper_bounds[j];
         } else {
             this->m_costs[j] = numeric_traits<T>::zero();
         }
@@ -179,20 +179,20 @@ template <typename T, typename X>    X lar_core_solver<T, X>::get_deb_inf_column
     const X & x = this->m_x[j];
     switch (this->m_column_type[j]) {
     case low_bound:
-        if (x < this->m_low_bound_values[j])
-            return this->m_low_bound_values[j] - x;
+        if (x < this->m_low_bounds[j])
+            return this->m_low_bounds[j] - x;
         return zero_of_type<X>();
     case upper_bound:
-        if (x > this->m_upper_bound_values[j])
-            return x - this->m_upper_bound_values[j];
+        if (x > this->m_upper_bounds[j])
+            return x - this->m_upper_bounds[j];
         return zero_of_type<X>();
     case fixed:
     case boxed:
         {
-            if (x < this->m_low_bound_values[j])
-                return this->m_low_bound_values[j] - x;
-            if (x > this->m_upper_bound_values[j])
-                return x - this->m_upper_bound_values[j];
+            if (x < this->m_low_bounds[j])
+                return this->m_low_bounds[j] - x;
+            if (x > this->m_upper_bounds[j])
+                return x - this->m_upper_bounds[j];
             return zero_of_type<X>();
         }
     case free_column:
@@ -304,17 +304,17 @@ template <typename T, typename X>    void lar_core_solver<T, X>::try_add_breakpo
     const X & x = this->m_x[j];
     switch (this->m_column_type[j]) {
     case fixed:
-        try_add_breakpoint(j, x, d, fixed_break, this->m_low_bound_values[j]);
+        try_add_breakpoint(j, x, d, fixed_break, this->m_low_bounds[j]);
         break;
     case boxed:
-        try_add_breakpoint(j, x, d, low_break, this->m_low_bound_values[j]);
-        try_add_breakpoint(j, x, d, upper_break, this->m_upper_bound_values[j]);
+        try_add_breakpoint(j, x, d, low_break, this->m_low_bounds[j]);
+        try_add_breakpoint(j, x, d, upper_break, this->m_upper_bounds[j]);
         break;
     case low_bound:
-        try_add_breakpoint(j, x, d, low_break, this->m_low_bound_values[j]);
+        try_add_breakpoint(j, x, d, low_break, this->m_low_bounds[j]);
         break;
     case upper_bound:
-        try_add_breakpoint(j, x, d, upper_break, this->m_upper_bound_values[j]);
+        try_add_breakpoint(j, x, d, upper_break, this->m_upper_bounds[j]);
         break;
     case free_column:
         break;
@@ -347,13 +347,13 @@ template <typename T, typename X> void lar_core_solver<T, X>::print_bound_info_a
     switch (this->m_column_type[j]) {
     case fixed:
     case boxed:
-        out << "[" << this->m_low_bound_values[j] << "," << this->m_upper_bound_values[j] << "]" << std::endl;
+        out << "[" << this->m_low_bounds[j] << "," << this->m_upper_bounds[j] << "]" << std::endl;
         break;
     case low_bound:
-        out << "[" << this->m_low_bound_values[j] << ", inf" << std::endl;
+        out << "[" << this->m_low_bounds[j] << ", inf" << std::endl;
         break;
     case upper_bound:
-        out << "inf ," << this->m_upper_bound_values[j] << "]" << std::endl;
+        out << "inf ," << this->m_upper_bounds[j] << "]" << std::endl;
         break;
     case free_column:
         out << "inf, inf" << std::endl;
@@ -634,13 +634,13 @@ template <typename T, typename X>    int lar_core_solver<T, X>::get_infeasibilit
     switch (this->m_column_type[j]) {
     case fixed:
     case boxed:
-        if (x < this->m_low_bound_values[j]) return 1;
-        if (x > this->m_upper_bound_values[j]) return -1;
+        if (x < this->m_low_bounds[j]) return 1;
+        if (x > this->m_upper_bounds[j]) return -1;
         return 0;
     case low_bound:
-        return x < this->m_low_bound_values[j] ? 1 : 0;
+        return x < this->m_low_bounds[j] ? 1 : 0;
     case upper_bound:
-        return x > this->m_upper_bound_values[j]? -1 :0;
+        return x > this->m_upper_bounds[j]? -1 :0;
     default:
         return 0;
     }
@@ -733,18 +733,18 @@ template <typename T, typename X>    void lar_core_solver<T, X>::update_delta_of
     switch (this->m_column_type[bj]) {
     case fixed:
     case boxed:
-        if (adj_sign > 0 && x <= this->m_upper_bound_values[bj])
-            update_delta_of_entering_and_leaving_candidates((this->m_upper_bound_values[bj] - x) / abs(ed), delta, leaving_candidates, bj);
-        else if (adj_sign < 0 && x >= this->m_low_bound_values[bj])
-            update_delta_of_entering_and_leaving_candidates((x - this->m_low_bound_values[bj]) / abs(ed), delta, leaving_candidates, bj);
+        if (adj_sign > 0 && x <= this->m_upper_bounds[bj])
+            update_delta_of_entering_and_leaving_candidates((this->m_upper_bounds[bj] - x) / abs(ed), delta, leaving_candidates, bj);
+        else if (adj_sign < 0 && x >= this->m_low_bounds[bj])
+            update_delta_of_entering_and_leaving_candidates((x - this->m_low_bounds[bj]) / abs(ed), delta, leaving_candidates, bj);
         break;
     case low_bound:
-        if (adj_sign < 0 && x >= this->m_low_bound_values[bj])
-            update_delta_of_entering_and_leaving_candidates((x - this->m_low_bound_values[bj]) / abs(ed), delta, leaving_candidates, bj);
+        if (adj_sign < 0 && x >= this->m_low_bounds[bj])
+            update_delta_of_entering_and_leaving_candidates((x - this->m_low_bounds[bj]) / abs(ed), delta, leaving_candidates, bj);
         break;
     case upper_bound:
-        if (adj_sign > 0 && x <= this->m_upper_bound_values[bj])
-            update_delta_of_entering_and_leaving_candidates((this->m_upper_bound_values[bj] - x) / abs(ed), delta, leaving_candidates, bj);
+        if (adj_sign > 0 && x <= this->m_upper_bounds[bj])
+            update_delta_of_entering_and_leaving_candidates((this->m_upper_bounds[bj] - x) / abs(ed), delta, leaving_candidates, bj);
         break;
     default:
         break;
@@ -759,7 +759,7 @@ template <typename T, typename X> X lar_core_solver<T, X>::find_initial_delta_an
     const X & x = this->m_x[bj];
     entering_delta_sign = - get_sign(this->m_pivot_row[entering]) * m_infeasible_row_sign;
     lean_assert(entering_delta_sign != 0);
-    X delta = (m_infeasible_row_sign > 0? (this->m_low_bound_values[bj] - x) : (x - this->m_upper_bound_values[bj])) / abs(this->m_pivot_row[entering]);
+    X delta = (m_infeasible_row_sign > 0? (this->m_low_bounds[bj] - x) : (x - this->m_upper_bounds[bj])) / abs(this->m_pivot_row[entering]);
     lean_assert(delta > zero_of_type<X>());
     if (this->m_column_type[entering] == boxed) {
         X span = this->bound_span(entering);
@@ -813,7 +813,7 @@ template <typename T, typename X> void lar_core_solver<T, X>::solve() {
         return;
     }
     this->snap_non_basic_x_to_bound();
-    if(this->A_mult_x_is_off()) {
+    if(this->A_mult_x_is_off()) { // todo : try to keep the solution correct all the time
         this->solve_Ax_eq_b();
         update_columns_out_of_bounds();
     }
@@ -831,13 +831,13 @@ template <typename T, typename X> void lar_core_solver<T, X>::print_column_info(
     switch (this->m_column_type[j]) {
     case fixed:
     case boxed:
-        out << "(" << this->m_low_bound_values[j] << ", " << this->m_upper_bound_values[j] << ")" << std::endl;
+        out << "(" << this->m_low_bounds[j] << ", " << this->m_upper_bounds[j] << ")" << std::endl;
         break;
     case low_bound:
-        out << this->m_low_bound_values[j] << std::endl;
+        out << this->m_low_bounds[j] << std::endl;
         break;
     case upper_bound:
-        out << this->m_upper_bound_values[j] << std::endl;
+        out << this->m_upper_bounds[j] << std::endl;
         break;
     default:
         lean_assert(false);
