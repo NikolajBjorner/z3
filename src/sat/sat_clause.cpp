@@ -153,14 +153,14 @@ namespace sat {
         ptr &= ~0xFFFFFFFFull; // Keep only high part
         unsigned i = 0;
         for (i = 0; i < m_num_segments; ++i)
-            if (m_segments[i] == ptr)
-                return i;
+          if (m_segments[i] == ptr) 
+            return i;
         i = m_num_segments;
 #if defined(Z3DEBUG)
         SASSERT(i < c_max_segments);
         if (i + 1 == c_max_segments) {
             m_overflow_valid = true;
-            i += c_max_segments * m_cls_offset2ptr.size();
+            i += c_max_segments * m_cls_offset2ptr.size() + 1;
             m_ptr2cls_offset.insert(ptr, i);
             m_cls_offset2ptr.insert(i, cls);
         }
@@ -176,21 +176,23 @@ namespace sat {
         m_segments[i] = ptr;
         ++m_num_segments;
 #endif
+
         return i;
     }
 #endif
 
-    clause_offset clause_allocator::get_offset(clause const * ptr) const {
+    clause_offset clause_allocator::get_offset(clause const * cls) const {
 #if defined(_AMD64_) 
-        unsigned segment = const_cast<clause_allocator*>(this)->get_segment(ptr);
+      unsigned segment = const_cast<clause_allocator*>(this)->get_segment(cls);
 #if defined(Z3DEBUG)
-        if (segment >= c_max_segments) {
+        if (segment >= (c_max_segments-1)) {
+            size_t ptr = reinterpret_cast<size_t>(cls) & ~0xFFFFFFFFull;
             return m_ptr2cls_offset.find(reinterpret_cast<size_t>(ptr));
         }
 #endif
-        return static_cast<unsigned>(reinterpret_cast<size_t>(ptr)) + segment;
+        return static_cast<unsigned>(reinterpret_cast<size_t>(cls)) + segment;
 #else
-        return reinterpret_cast<size_t>(ptr);
+        return reinterpret_cast<size_t>(cls);
 #endif
     }
     

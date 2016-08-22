@@ -619,6 +619,7 @@ namespace sat {
                     }
                     clause_offset cls_off = it->get_clause_offset();
                     clause & c = *(m_cls_allocator.get_clause(cls_off));
+		    SASSERT(m_cls_allocator.get_offset(&c) == cls_off);
                     TRACE("propagate_clause_bug", tout << "processing... " << c << "\nwas_removed: " << c.was_removed() << "\n";);
                     if (c[0] == not_l)
                         std::swap(c[0], c[1]);
