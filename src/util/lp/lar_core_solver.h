@@ -122,7 +122,7 @@ public:
 
     void move_as_many_as_possible_fixed_columns_to_non_basis();
 
-    bool non_basis_columns_are_set_correctly();
+    bool non_basis_columns_are_set_correctly() const; 
 
     void prefix();
 
@@ -234,6 +234,32 @@ public:
             delete this->m_factorization;
             this->m_factorization = nullptr;
         }
+    }
+
+    bool non_basis_column_is_set_correctly(unsigned j) const {
+        if (j >= this->m_n())
+            return false;
+        switch (this->m_column_type[j]) {
+        case fixed:
+        case boxed:
+            if (!this->x_is_at_bound(j))
+                return false;
+            break;
+        case low_bound:
+            if (!this->x_is_at_low_bound(j))
+                return false;
+            break;
+        case upper_bound:
+            if (!this->x_is_at_upper_bound(j))
+                return false;
+            break;
+        case free_column:
+            break;
+        default:
+            lean_assert(false);
+            break;
+        }
+        return true;
     }
 };
 }

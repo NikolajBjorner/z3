@@ -525,31 +525,13 @@ template <typename T, typename X>    void lar_core_solver<T, X>::move_as_many_as
     }
 }
 
-template <typename T, typename X> bool lar_core_solver<T, X>::non_basis_columns_are_set_correctly() {
-    for (unsigned j : this->m_non_basic_columns) {
-        if (j >= this->m_n())
+
+
+
+template <typename T, typename X> bool lar_core_solver<T, X>::non_basis_columns_are_set_correctly() const {
+    for (unsigned j : this->m_non_basic_columns)
+        if (!non_basis_column_is_set_correctly(j))
             return false;
-        switch (this->m_column_type[j]) {
-        case fixed:
-        case boxed:
-        if (!this->x_is_at_bound(j))
-            return false;
-        break;
-        case low_bound:
-            if (!this->x_is_at_low_bound(j))
-                return false;
-            break;
-        case upper_bound:
-            if (!this->x_is_at_upper_bound(j))
-                return false;
-            break;
-        case free_column:
-            break;
-        default:
-            lean_assert(false);
-            break;
-        }
-    }
     return true;
 }
 
@@ -812,12 +794,10 @@ template <typename T, typename X> void lar_core_solver<T, X>::solve() {
         this->m_status = OPTIMAL;
         return;
     }
-    this->snap_non_basic_x_to_bound();
-    if(this->A_mult_x_is_off()) { // todo : try to keep the solution correct all the time
-        this->solve_Ax_eq_b();
-        update_columns_out_of_bounds();
-    }
+
+    lean_assert(!this->A_mult_x_is_off());
     lean_assert(columns_out_of_bounds_are_set_correctly());
+    lean_assert(non_basis_columns_are_set_correctly());
 
     if (this->m_settings.row_feasibility) {        
         row_feasibility_loop();

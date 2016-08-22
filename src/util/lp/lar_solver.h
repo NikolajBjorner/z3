@@ -841,8 +841,17 @@ public:
         }
 
     }
+
+    void find_more_touched_columns() { // todo. can it be optimized during pop() ?
+        for (unsigned j : m_nbasis) {
+            if (!m_mpq_lar_core_solver.non_basis_column_is_set_correctly(j))
+                m_touched_nb_columns.insert(j);
+        }
+    }
+    
     
     void fix_touched_columns() {
+        find_more_touched_columns();
         for (unsigned j : m_touched_nb_columns)
             fix_touched_nb_column(j);
         m_touched_nb_columns.clear();
