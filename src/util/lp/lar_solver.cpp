@@ -333,8 +333,6 @@ constraint_index lar_solver::add_constraint(const std::vector<std::pair<mpq, var
 }
 
 bool lar_solver::all_constraints_hold() const {
-    return true;
-    
     std::unordered_map<var_index, mpq> var_map;
     get_model(var_map);
     
@@ -813,6 +811,7 @@ void lar_solver::pop(unsigned k) {
     pop_basis(k);
     lean_assert(m_mpq_lar_core_solver.basis_heading_is_correct());
     m_mpq_lar_core_solver.update_columns_out_of_bounds();
+    m_touched_nb_columns.clear();
 }
 }
 

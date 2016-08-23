@@ -816,6 +816,8 @@ public:
             return m_low_bounds()[j] - m_x[j];
         case upper_bound:
             return m_upper_bounds()[j] - m_x[j];
+        case free_column:
+            return zero_of_type<numeric_pair<mpq>>();
         default:
             lean_assert(false);
             break;
