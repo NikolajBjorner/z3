@@ -134,7 +134,7 @@ namespace smt {
         arith_eq_adapter     m_arith_eq_adapter;
 
         vector<rational>    m_columns;
-
+        int m_print_counter = 0;
 
         // temporary values kept during internalization
         struct internalize_state {
@@ -1344,7 +1344,8 @@ namespace smt {
             lean::lp_status status = m_solver->solve();
             sw.stop();
             m_stats.m_num_iterations = m_solver->settings().st().m_total_iterations;
-            std::cout << status << " " << sw.get_seconds() << " " << m_stats.m_num_iterations << "\n";
+            if (m_print_counter++ % 1000 == 0)
+                std::cout << status << " " << sw.get_seconds() << " " << m_stats.m_num_iterations << "\n";
             //m_stats.m_num_iterations_with_no_progress += m_solver->settings().st().m_iters_with_no_cost_growing;
 
             switch (status) {

@@ -362,7 +362,6 @@ public:
      }
 
     void add_new_var_to_core_fields(bool register_in_basis, numeric_pair<mpq> val) {
-        m_mpq_lar_core_solver.delete_lu();
         unsigned i = m_A.column_count();
         m_A.add_column();
         lean_assert(m_x.size() == i);
@@ -380,6 +379,7 @@ public:
             m_A.add_row();
             m_heading.push_back(m_basis.size());
             m_basis.push_back(i);
+            m_mpq_lar_core_solver.delete_lu();
         }else {
             m_heading.push_back(- static_cast<int>(m_nbasis.size()) - 1);
             m_nbasis.push_back(i);
