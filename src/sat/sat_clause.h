@@ -128,14 +128,12 @@ namespace sat {
 #if defined(_AMD64_) 
         unsigned get_segment(clause const* cls);
         static const unsigned  c_cls_alignment = 3; 
-        static const unsigned  c_max_segments  = 1 << c_cls_alignment;
-        static const size_t    c_aligment_mask = (1ull << c_cls_alignment) - 1ull;
+        static const unsigned  c_last_segment  = (1ull << c_cls_alignment) - 1ull;
+        static const size_t    c_alignment_mask = (1ull << c_cls_alignment) - 1ull;
         unsigned               m_num_segments;
-        size_t                 m_segments[c_max_segments];
+        size_t                 m_segments[c_last_segment];
 #if defined(Z3DEBUG)
-        bool                   m_overflow_valid;
-        size_t_map<unsigned>   m_ptr2cls_offset;
-        u_map<clause const*>   m_cls_offset2ptr;
+        u_map<clause const*>   m_last_seg_id2cls;
 #endif
 #endif
     public:
