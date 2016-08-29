@@ -186,7 +186,7 @@ void test_small_lu(lp_settings & settings) {
     indexed_vector<double> w(m.row_count());
     cout << "entering 2, leaving 0" << std::endl;
     l.prepare_entering(2, w); // to init vector w
-    l.replace_column(0, 0, w, heading[0]);
+    l.replace_column(0, w, heading[0]);
     change_basis(2, 0, basis, non_basic_columns, heading);
     // #ifdef LEAN_DEBUG
     // cout << "we were factoring " << std::endl;
@@ -195,7 +195,7 @@ void test_small_lu(lp_settings & settings) {
     lean_assert(l.is_correct(basis));
     cout << "entering 4, leaving 3" << std::endl;
     l.prepare_entering(4, w); // to init vector w
-    l.replace_column(3, 0, w, heading[3]);
+    l.replace_column(0, w, heading[3]);
     change_basis(4, 3, basis, non_basic_columns, heading);
     cout << "we were factoring " << std::endl;
 #ifdef LEAN_DEBUG
@@ -208,7 +208,7 @@ void test_small_lu(lp_settings & settings) {
 
     cout << "entering 5, leaving 1" << std::endl;
     l.prepare_entering(5, w); // to init vector w
-    l.replace_column(1, 0, w, heading[1]);
+    l.replace_column(0, w, heading[1]);
     change_basis(5, 1, basis, non_basic_columns, heading);
     cout << "we were factoring " << std::endl;
 #ifdef LEAN_DEBUG
@@ -220,7 +220,7 @@ void test_small_lu(lp_settings & settings) {
     lean_assert(l.is_correct(basis));
     cout << "entering 3, leaving 2" << std::endl;
     l.prepare_entering(3, w); // to init vector w
-    l.replace_column(2, 0, w, heading[2]);
+    l.replace_column(0, w, heading[2]);
     change_basis(3, 2, basis, non_basic_columns, heading);
     cout << "we were factoring " << std::endl;
 #ifdef LEAN_DEBUG
@@ -229,6 +229,23 @@ void test_small_lu(lp_settings & settings) {
         print_matrix(&bl, std::cout);
     }
 #endif
+    lean_assert(l.is_correct(basis));
+
+    m.add_row();
+    m.add_column();
+    m.add_row();
+    m.add_column();
+    for (unsigned i = 0; i < m.column_count(); i++) {
+        m(3, i) = i;
+        m(4, i) = i * i; // to make the rows linearly independent
+    }
+    unsigned j = m.column_count() ;
+    basis.push_back(j-2);
+    heading.push_back(basis.size() - 1);
+    basis.push_back(j-1);
+    heading.push_back(basis.size() - 1);
+    l.add_last_rows_to_B(heading);
+    std::cout << "here" << std::endl;
     lean_assert(l.is_correct(basis));
 }
 
@@ -321,12 +338,12 @@ void test_larger_lu_exp(lp_settings & settings) {
     indexed_vector<double> w(m.row_count());
 
     l.prepare_entering(entering, w);
-    l.replace_column(leaving, 0, w, heading[leaving]);
+    l.replace_column(0, w, heading[leaving]);
     change_basis(entering, leaving, basis, non_basic_columns, heading);
     lean_assert(l.is_correct(basis));
 
     l.prepare_entering(11, w); // to init vector w
-    l.replace_column(0, 0, w, heading[0]);
+    l.replace_column(0, w, heading[0]);
     change_basis(11, 0, basis, non_basic_columns, heading);
     lean_assert(l.is_correct(basis));
 }
@@ -368,7 +385,7 @@ void test_larger_lu_with_holes(lp_settings & settings) {
 
     indexed_vector<double> w(m.row_count());
     l.prepare_entering(8, w); // to init vector w
-    l.replace_column(0, 0, w, heading[0]);
+    l.replace_column(0, w, heading[0]);
     change_basis(8, 0, basis, non_basic_columns, heading);
     lean_assert(l.is_correct(basis));
 }
@@ -415,7 +432,7 @@ void test_larger_lu(lp_settings& settings) {
     }
     indexed_vector<double> w(m.row_count());
     l.prepare_entering(9, w); // to init vector w
-    l.replace_column(0, 0, w, heading[0]);
+    l.replace_column(0, w, heading[0]);
     change_basis(9, 0, basis, non_basic_columns, heading);
     lean_assert(l.is_correct(basis));
 }
@@ -1793,6 +1810,7 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_after_string_with_help("--time_limit", "time limit in seconds");
     parser.add_option_with_help_string("--mpq", "solve for rational numbers");
     parser.add_option_with_help_string("--test_lu", "test the work of the factorization");
+    parser.add_option_with_help_string("--test_small_lu", "test the work of the factorization on a smallish matrix");
     parser.add_option_with_help_string("--test_larger_lu", "test the work of the factorization");
     parser.add_option_with_help_string("--test_larger_lu_with_holes", "test the work of the factorization");
     parser.add_option_with_help_string("--test_lp_0", "solve a small lp");
@@ -2770,6 +2788,12 @@ void test_lp_local(int argn, char**argv) {
     update_settings(args_parser, settings);
     if (args_parser.option_is_used("--test_lu")) {
         test_lu(settings);
+        ret = 0;
+        return finalize(ret);
+    }
+
+    if (args_parser.option_is_used("--test_small_lu")) {
+        test_small_lu(settings);
         ret = 0;
         return finalize(ret);
     }

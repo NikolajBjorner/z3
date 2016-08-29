@@ -8,6 +8,7 @@
 #include <vector>
 #include "util/lp/dense_matrix.h"
 namespace lean {
+template <typename T> void print_vector(const std::vector<T> & t, std::ostream & out);
 template <typename T, typename X> dense_matrix<T, X>::dense_matrix(unsigned m, unsigned n) : m_m(m), m_n(n), m_values(m * n, numeric_traits<T>::zero()) {
 }
 
@@ -76,20 +77,17 @@ template <typename T, typename X> void dense_matrix<T, X>::apply_from_right(T * 
 }
 
 template <typename T, typename X> void dense_matrix<T, X>::apply_from_right(std::vector <T> & w) {
-    T * t = new T[m_m];
-    for (int i = 0; i < m_m; i ++) {
-        T v = numeric_traits<T>::zero();
-        for (int j = 0; j < m_m; j++) {
+    std::vector<T> t(m_m, numeric_traits<T>::zero());
+    for (unsigned i = 0; i < m_m; i ++) {
+        auto & v = t[i];
+        for (unsigned j = 0; j < m_m; j++)
             v += w[j]* get_elem(j, i);
-        }
-        t[i] = v;
     }
 
-    for (int i = 0; i < m_m; i++) {
+    for (unsigned i = 0; i < m_m; i++)
         w[i] = t[i];
-    }
-    delete [] t;
 }
+
 template <typename T, typename X> T* dense_matrix<T, X>::
 apply_from_left_with_different_dims(std::vector<T> &  w) {
     T * t = new T[m_m];
@@ -188,6 +186,7 @@ template <typename T, typename X> void dense_matrix<T, X>::multiply_row_by_const
 
 template <typename T, typename X>
 dense_matrix<T, X> operator* (matrix<T, X> & a, matrix<T, X> & b){
+    lean_assert(a.column_count() == b.row_count());
     dense_matrix<T, X> ret(a.row_count(), b.column_count());
     for (unsigned i = 0; i < ret.m_m; i++)
         for (unsigned j = 0; j< ret.m_n; j++) {

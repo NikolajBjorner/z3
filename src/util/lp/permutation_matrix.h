@@ -119,6 +119,18 @@ class permutation_matrix : public tail_matrix<T, X> {
         unsigned size() const { return static_cast<unsigned>(m_rev.size()); }
 
         unsigned * values() const { return m_permutation; }
+
+        void resize(unsigned size) {
+            unsigned old_size = m_permutation.size();
+            m_permutation.resize(size);
+            m_rev.resize(size);
+            m_T_buffer.resize(size);
+            m_X_buffer.resize(size);
+            for (unsigned i = old_size; i < size; i++) {
+                m_permutation[i] = m_rev[i] = i;
+    }
+        }
+        
     }; // end of the permutation class
 
 #ifdef LEAN_DEBUG

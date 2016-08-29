@@ -123,7 +123,9 @@ public:
 
     void restore_m_ed(T * buffer);
 
-    bool A_mult_x_is_off();
+    bool A_mult_x_is_off() const;
+
+    bool A_mult_x_is_off_on_index(const std::vector<unsigned> & index) const;
     // from page 182 of Istvan Maros's book
     void calculate_pivot_row_of_B_1(unsigned pivot_row);
 

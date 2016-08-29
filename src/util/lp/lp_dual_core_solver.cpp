@@ -80,7 +80,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::restore_non_ba
 template <typename T, typename X> bool lp_dual_core_solver<T, X>::update_basis(int entering, int leaving) {
     // the second argument is the element of the entering column from the pivot row - its value should be equal to the low diagonal element of the bump after all pivoting is done
     if (this->m_refactor_counter++ < 200) {
-        this->m_factorization->replace_column(leaving, this->m_ed[this->m_factorization->basis_heading(leaving)], this->m_w);
+        this->m_factorization->replace_column(this->m_ed[this->m_factorization->basis_heading(leaving)], this->m_w);
         if (this->m_factorization->get_status() == LU_status::OK) {
             this->m_factorization->change_basis(entering, leaving);
             return true;
@@ -445,7 +445,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::snap_xN_to_bou
 template <typename T, typename X> void lp_dual_core_solver<T, X>::init_beta_precisely(unsigned i) {
     std::vector<T> vec(this->m_m(), numeric_traits<T>::zero());
     vec[i] = numeric_traits<T>::one();
-    this->m_factorization->solve_yB(vec, this->m_basis);
+    this->m_factorization->solve_yB_with_error_check(vec, this->m_basis);
     T beta = numeric_traits<T>::zero();
     for (T & v : vec) {
         beta += v * v;

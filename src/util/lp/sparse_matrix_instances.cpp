@@ -99,3 +99,4 @@ template void lean::sparse_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::cr
 
 template void lean::sparse_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::solve_U_y<lean::mpq>(std::vector<lean::mpq, std::allocator<lean::mpq> >&);
 template void lean::sparse_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::double_solve_U_y<lean::mpq>(std::vector<lean::mpq, std::allocator<lean::mpq> >&);
+template void lean::sparse_matrix< lean::mpq,lean::numeric_pair< lean::mpq> >::set(unsigned int,unsigned int, lean::mpq);

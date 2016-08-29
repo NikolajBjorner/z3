@@ -298,7 +298,7 @@ void lu<T, X>::solve_Bd_faster(unsigned a_column, indexed_vector<T> & d) { // pu
 }
 
 template <typename T, typename X>
-void lu<T, X>::solve_yB_internal(std::vector<T>& y) {
+void lu<T, X>::solve_yB(std::vector<T>& y) {
     // first solve yU = cb*R(-1)
     m_R.apply_reverse_from_right_to_T(y); // got y = cb*R(-1)
     m_U.solve_y_U(y); // got y*U=cb*R(-1)
@@ -328,15 +328,15 @@ void lu<T, X>::find_error_of_yB(std::vector<T>& yc, const std::vector<T>& y, con
 // solves y*B = y
 // y is the input
 template <typename T, typename X>
-void lu<T, X>::solve_yB(std::vector<T> & y, const std::vector<unsigned>& basis) {
+void lu<T, X>::solve_yB_with_error_check(std::vector<T> & y, const std::vector<unsigned>& basis) {
     if (numeric_traits<T>::precise()) {
-        solve_yB_internal(y);
+        solve_yB(y);
         return;
     }
     std::vector<T> yc(y); // copy y aside
-    solve_yB_internal(y);
+    solve_yB(y);
     find_error_of_yB(yc, y, basis);
-    solve_yB_internal(yc);
+    solve_yB(yc);
     add_delta_to_solution(yc, y);
 }
 template <typename T, typename X>
@@ -360,13 +360,13 @@ lu<T, X>::~lu(){
 }
 template <typename T, typename X>
 void lu<T, X>::init_vector_y(std::vector<X> & y) {
-    apply_lp_lists_to_y(y);
+    apply_lp_list_to_y(y);
     m_Q.apply_reverse_from_left_to_X(y);
 }
 
 template <typename T, typename X>
 void lu<T, X>::perform_transformations_on_w(indexed_vector<T>& w) {
-    apply_lp_lists_to_w(w);
+    apply_lp_list_to_w(w);
     m_Q.apply_reverse_from_left(w);
     // TBD does not compile: lean_assert(numeric_traits<T>::precise() || check_vector_for_small_values(w, m_settings));
 }
@@ -379,14 +379,14 @@ void lu<T, X>::init_vector_w(unsigned entering, indexed_vector<T> & w) {
     perform_transformations_on_w(w);
 }
 template <typename T, typename X>
-void lu<T, X>::apply_lp_lists_to_w(indexed_vector<T> & w) {
+void lu<T, X>::apply_lp_list_to_w(indexed_vector<T> & w) {
     for (unsigned i = 0; i < m_tail.size(); i++) {
         m_tail[i]->apply_from_left_to_T(w, m_settings);
         // TBD does not compile: lean_assert(check_vector_for_small_values(w, m_settings));
     }
 }
 template <typename T, typename X>
-void lu<T, X>::apply_lp_lists_to_y(std::vector<X>& y) {
+void lu<T, X>::apply_lp_list_to_y(std::vector<X>& y) {
     for (unsigned i = 0; i < m_tail.size(); i++) {
         m_tail[i]->apply_from_left(y, m_settings);
     }
@@ -436,9 +436,8 @@ eta_matrix<T, X> * lu<T, X>::get_eta_matrix_for_pivot(unsigned j, sparse_matrix<
 
 // see page 407 of Chvatal
 template <typename T, typename X>
-unsigned lu<T, X>::transform_U_to_V_by_replacing_column(unsigned leaving, indexed_vector<T> & w,
+unsigned lu<T, X>::transform_U_to_V_by_replacing_column(indexed_vector<T> & w,
                                                         unsigned leaving_column) {
-    // int leaving_column = m_basis_heading[leaving];    
     unsigned column_to_replace = m_R.apply_reverse(leaving_column);
     m_U.replace_column(column_to_replace, w, m_settings);
     return column_to_replace;
@@ -696,15 +695,17 @@ row_eta_matrix<T, X> *lu<T, X>::get_row_eta_matrix_and_set_row_vector(unsigned r
     if (replaced_column == lowest_row_of_the_bump) return nullptr;
     scan_last_row_to_work_vector(lowest_row_of_the_bump);
     pivot_and_solve_the_system(replaced_column, lowest_row_of_the_bump);
-    T denom = std::max(T(1), abs(pivot_elem_for_checking));
-    if (
+    if (numeric_traits<T>::precise() == false) {
+        T denom = std::max(T(1), abs(pivot_elem_for_checking));
+        if (
 #ifdef LEAN_DEBUG
-        !is_zero(pivot_elem_for_checking) &&
+            !is_zero(pivot_elem_for_checking) &&
 #endif
-        !m_settings.abs_val_is_smaller_than_pivot_tolerance((m_row_eta_work_vector[lowest_row_of_the_bump] - pivot_elem_for_checking) / denom)) {
-        set_status(LU_status::Degenerated);
-        //        LP_OUT(m_settings, "diagonal element is off" << std::endl);
-        return nullptr;
+            !m_settings.abs_val_is_smaller_than_pivot_tolerance((m_row_eta_work_vector[lowest_row_of_the_bump] - pivot_elem_for_checking) / denom)) {
+            set_status(LU_status::Degenerated);
+            //        LP_OUT(m_settings, "diagonal element is off" << std::endl);
+            return nullptr;
+        }
     }
 #ifdef LEAN_DEBUG
     auto ret = new row_eta_matrix<T, X>(replaced_column, lowest_row_of_the_bump, m_dim);
@@ -726,11 +727,10 @@ row_eta_matrix<T, X> *lu<T, X>::get_row_eta_matrix_and_set_row_vector(unsigned r
     return ret;
 }
 
-// This method does not update the basis: is_correct() should not be called since it works with the basis.
 template <typename T, typename X>
-void lu<T, X>::replace_column(unsigned leaving, T pivot_elem_for_checking, indexed_vector<T> & w, unsigned leaving_column_of_U){
+void lu<T, X>::replace_column(T pivot_elem_for_checking, indexed_vector<T> & w, unsigned leaving_column_of_U){
     m_refactor_counter++;
-    unsigned replaced_column =  transform_U_to_V_by_replacing_column(leaving, w, leaving_column_of_U);
+    unsigned replaced_column =  transform_U_to_V_by_replacing_column( w, leaving_column_of_U);
     unsigned lowest_row_of_the_bump = m_U.lowest_row_in_column(replaced_column);
     permutation_matrix<T, X> r_wave(m_dim);
     calculate_r_wave_and_update_U(replaced_column, lowest_row_of_the_bump, r_wave);
@@ -746,8 +746,8 @@ void lu<T, X>::replace_column(unsigned leaving, T pivot_elem_for_checking, index
         push_matrix_to_tail(row_eta);
     }
     calculate_Lwave_Pwave_for_bump(replaced_column, lowest_row_of_the_bump);
-    // TBD does not compile: lean_assert(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
-    // TBD does not compile: lean_assert(w.is_OK() && m_row_eta_work_vector.is_OK());
+    // lean_assert(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
+    // lean_assert(w.is_OK() && m_row_eta_work_vector.is_OK());
 }
 template <typename T, typename X>
 void lu<T, X>::calculate_Lwave_Pwave_for_bump(unsigned replaced_column, unsigned lowest_row_of_the_bump){
@@ -791,6 +791,8 @@ void init_factorization(lu<T, X>* & factorization, static_matrix<T, X> & m_A, st
 #ifdef LEAN_DEBUG
 template <typename T, typename X>
 dense_matrix<T, X>  get_B(lu<T, X>& f, const std::vector<unsigned>& basis) {
+    lean_assert(basis.size() == f.dimension());
+    lean_assert(basis.size() == f.m_U.dimension());
     dense_matrix<T, X>  B(f.dimension(), f.dimension());
     for (unsigned i = 0; i < f.dimension(); i++)
         for (unsigned j = 0; j < f.dimension(); j++)

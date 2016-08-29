@@ -101,12 +101,11 @@ public:
     sparse_matrix<T, X> m_U;
     square_dense_submatrix<T, X>* m_dense_LU;
 
-    // m_tail is composed of tail_matrices:
-    // one_off_diagonal_matrix, and transposition_matrix
     std::vector<tail_matrix<T, X> *> m_tail;
     lp_settings & m_settings;
     bool m_failure = false;
-    indexed_vector<T>  m_row_eta_work_vector;
+    indexed_vector<T> m_row_eta_work_vector;
+    indexed_vector<T> m_w_for_extension;
     unsigned m_refactor_counter = 0;
     // constructor
     // if A is an m by n matrix then basis has length m and values in [0,n); the values are all different
@@ -135,14 +134,14 @@ public:
     void solve_Bd(unsigned a_column, indexed_vector<T> & d, indexed_vector<T> & w);
     void solve_Bd_faster(unsigned a_column, indexed_vector<T> & d); // d is the right side on the input and the solution at the exit
 
-    void  solve_yB_internal(std::vector<T>& y);
+    void  solve_yB(std::vector<T>& y);
 
     void add_delta_to_solution(std::vector<T>& yc, std::vector<T>& y);
 
     void find_error_of_yB(std::vector<T>& yc, const std::vector<T>& y,
                           const std::vector<unsigned>& basis);
 
-    void solve_yB(std::vector<T> & y, const std::vector<unsigned>& basis);
+    void solve_yB_with_error_check(std::vector<T> & y, const std::vector<unsigned>& basis);
 
     void apply_Q_R_to_U(permutation_matrix<T, X> & r_wave);
 
@@ -158,8 +157,8 @@ public:
     void perform_transformations_on_w(indexed_vector<T>& w);
 
     void init_vector_w(unsigned entering, indexed_vector<T> & w);
-    void apply_lp_lists_to_w(indexed_vector<T> & w);
-    void apply_lp_lists_to_y(std::vector<X>& y);
+    void apply_lp_list_to_w(indexed_vector<T> & w);
+    void apply_lp_list_to_y(std::vector<X>& y);
 
     void swap_rows(int j, int k);
 
@@ -176,7 +175,7 @@ public:
     eta_matrix<T, X> * get_eta_matrix_for_pivot(unsigned j, sparse_matrix<T, X>& copy_of_U);
 
     // see page 407 of Chvatal
-    unsigned transform_U_to_V_by_replacing_column(unsigned leaving, indexed_vector<T> & w, unsigned leaving_column_of_U);
+    unsigned transform_U_to_V_by_replacing_column(indexed_vector<T> & w, unsigned leaving_column_of_U);
 
 #ifdef LEAN_DEBUG
     void check_vector_w(unsigned entering);
@@ -245,8 +244,7 @@ public:
     // row at the same time
     row_eta_matrix<T, X> *get_row_eta_matrix_and_set_row_vector(unsigned replaced_column, unsigned lowest_row_of_the_bump, const T &  pivot_elem_for_checking);
 
-    // This method does not update the basis: is_correct() should not be called since it works with the basis.
-    void replace_column(unsigned leaving, T pivot_elem, indexed_vector<T> & w, unsigned leaving_column_of_U);
+    void replace_column(T pivot_elem, indexed_vector<T> & w, unsigned leaving_column_of_U);
 
     void calculate_Lwave_Pwave_for_bump(unsigned replaced_column, unsigned lowest_row_of_the_bump);
 
@@ -256,6 +254,46 @@ public:
         init_vector_w(entering, w);
     }
     bool need_to_refactor() { return m_refactor_counter >= 200; }
+    
+    void adjust_dimension_with_matrix_A() {
+        lean_assert(m_A.row_count() >= m_dim);
+        m_dim = m_A.row_count();
+        m_U.resize(m_dim);
+        m_Q.resize(m_dim);
+        m_R.resize(m_dim);
+        m_row_eta_work_vector.resize(m_dim);
+    }
+
+    void add_last_rows_to_B(const std::vector<int> & heading) {
+        unsigned m = m_A.row_count();
+        unsigned m_prev = m_U.dimension();
+        lean_assert(m_prev <= m); // the other branch is not implemented yet
+        if (m_prev == m) 
+            return;
+        lean_assert(m_A.column_count() == heading.size());
+        adjust_dimension_with_matrix_A();
+        m_w_for_extension.resize(m);
+        // At this moment the LU is correct      
+        // for B extended by only by ones at the diagonal in the lower right corner
+        std::unordered_set<unsigned> processed_columns;
+        for (unsigned i = m_prev; i < m; i++)
+            for (const row_cell<T> & c : m_A.m_rows[i]) {
+                int h = heading[c.m_j];
+                if (h < 0) {
+                    continue;
+                }
+                auto it = processed_columns.find(c.m_j);
+                if (it != processed_columns.end()) continue;
+                replace_column_with_only_change_at_last_rows(c.m_j, h);
+                processed_columns.insert(c.m_j);
+            }
+    }
+    // column j is a basis column, and there is a change in the last row
+    void replace_column_with_only_change_at_last_rows(unsigned j, unsigned column_to_change_in_U) {
+        init_vector_w(j, m_w_for_extension);
+        replace_column(zero_of_type<T>(), m_w_for_extension, column_to_change_in_U);
+    }
+    
 }; // end of lu
 
 template <typename T, typename X>

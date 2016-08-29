@@ -379,7 +379,6 @@ public:
             m_A.add_row();
             m_heading.push_back(m_basis.size());
             m_basis.push_back(i);
-            m_mpq_lar_core_solver.delete_lu();
         }else {
             m_heading.push_back(- static_cast<int>(m_nbasis.size()) - 1);
             m_nbasis.push_back(i);
@@ -853,6 +852,7 @@ public:
     
     
     void fix_touched_columns() {
+        lean_assert(x_is_correct());
         find_more_touched_columns();
         for (unsigned j : m_touched_nb_columns)
             fix_touched_nb_column(j);
@@ -861,9 +861,11 @@ public:
     }
 
     bool x_is_correct() const {
-        if (m_x.size() != m_A.column_count())
+        if (m_x.size() != m_A.column_count()) {
+            std::cout << "the size is off " << m_x.size() << ", " << m_A.column_count() << std::endl;
+           
             return false;
-        
+        }
         for (unsigned i = 0; i < m_A.row_count(); i++) {
             numeric_pair<mpq> delta =  m_A.dot_product_with_row(i, m_x);
             if (!delta.is_zero()) {
@@ -872,12 +874,13 @@ public:
                 // std::cout << "left side = " << m_A.dot_product_with_row(i, m_x) << ' ';
                 // std::cout << "delta = " << delta << ' ';
                 // std::cout << "iters = " << total_iterations() << ")" << std::endl;
+                std::cout << "row " << i << " is off" << std::endl;
                 return false;
             }
         }
         return true;;
     
     }
-    
+
 };
 }

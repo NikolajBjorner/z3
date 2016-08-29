@@ -70,6 +70,8 @@ public:
     }
 
     unsigned adjust_column(unsigned  col)  const{
+        if (col >= m_column_permutation.size())
+            return col;
         return m_column_permutation.apply_reverse(col);
     }
 
@@ -81,6 +83,8 @@ public:
     }
 
     unsigned adjust_row_inverse(unsigned row)  const{
+        if (row >= m_row_permutation.size())
+            return row;
         return m_row_permutation.apply_reverse(row);
     }
 

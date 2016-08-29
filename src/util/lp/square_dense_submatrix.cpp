@@ -209,7 +209,7 @@ void square_dense_submatrix<T, X>::apply_from_left_local(indexed_vector<L> & w, 
     std::vector<L> t(m_parent->dimension(), zero_of_type<L>());
     for (auto k : w.m_index) {
         unsigned j = adjust_column(k); // k-th element will contribute only to column j
-        if (j < m_index_start) {
+        if (j < m_index_start || j >= this->m_index_start +  this->m_dim) { // it is a unit matrix outside 
             t[adjust_row_inverse(j)] = w[k];
         } else {
             const L & v = w[k];

@@ -112,7 +112,7 @@ fill_cb(std::vector<T> & y){
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 solve_yB(std::vector<T> & y) {
     fill_cb(y); // now y = cB, that is the projection of costs to basis
-    m_factorization->solve_yB(y, m_basis);
+    m_factorization->solve_yB_with_error_check(y, m_basis);
 }
 
 // template <typename T, typename X> void lp_core_solver_base<T, X>::
@@ -199,23 +199,24 @@ restore_m_ed(T * buffer) {
 }
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
-A_mult_x_is_off() {
+A_mult_x_is_off() const {
     lean_assert(m_x.size() == m_A.column_count());
-    if (precise<T>()) {
-        for (unsigned i = 0; i < m_m(); i++) {
-            X delta = m_b[i] - m_A.dot_product_with_row(i, m_x);
-            if (delta != numeric_traits<X>::zero()) {
-                // std::cout << "x is off (";
-                // std::cout << "m_b[" << i  << "] = " << m_b[i] << " ";
-                // std::cout << "left side = " << m_A.dot_product_with_row(i, m_x) << ' ';
-                // std::cout << "delta = " << delta << ' ';
-                // std::cout << "iters = " << total_iterations() << ")" << std::endl;
-                return true;
-            }
+    if (numeric_traits<T>::precise()) return false;
+#if RUN_A_MULT_X_IS_OFF_FOR_PRECESE
+    for (unsigned i = 0; i < m_m(); i++) {
+        X delta = m_b[i] - m_A.dot_product_with_row(i, m_x);
+        if (delta != numeric_traits<X>::zero()) {
+            // std::cout << "x is off (";
+            // std::cout << "m_b[" << i  << "] = " << m_b[i] << " ";
+            // std::cout << "left side = " << m_A.dot_product_with_row(i, m_x) << ' ';
+            // std::cout << "delta = " << delta << ' ';
+            // std::cout << "iters = " << total_iterations() << ")" << std::endl;
+            return true;
         }
-        return false;
     }
-
+    return false;
+#endif
+    // todo(levnach) run on m_ed.m_index only !!!!!
     T feps = convert_struct<T, double>::convert(m_settings.refactor_tolerance);
     X one = convert_struct<X, double>::convert(1.0);
     for (unsigned i = 0; i < m_m(); i++) {
@@ -235,6 +236,45 @@ A_mult_x_is_off() {
     }
     return false;
 }
+template <typename T, typename X> bool lp_core_solver_base<T, X>::
+A_mult_x_is_off_on_index(const std::vector<unsigned> & index) const {
+    lean_assert(m_x.size() == m_A.column_count());
+    if (numeric_traits<T>::precise()) return false;
+#if RUN_A_MULT_X_IS_OFF_FOR_PRECESE
+    for (unsigned i : index) {
+        X delta = m_b[i] - m_A.dot_product_with_row(i, m_x);
+        if (delta != numeric_traits<X>::zero()) {
+            // std::cout << "x is off (";
+            // std::cout << "m_b[" << i  << "] = " << m_b[i] << " ";
+            // std::cout << "left side = " << m_A.dot_product_with_row(i, m_x) << ' ';
+            // std::cout << "delta = " << delta << ' ';
+            // std::cout << "iters = " << total_iterations() << ")" << std::endl;
+            return true;
+        }
+    }
+    return false;
+#endif
+    // todo(levnach) run on m_ed.m_index only !!!!!
+    T feps = convert_struct<T, double>::convert(m_settings.refactor_tolerance);
+    X one = convert_struct<X, double>::convert(1.0);
+    for (unsigned i : index) {
+        X delta = abs(m_b[i] - m_A.dot_product_with_row(i, m_x));
+        X eps = feps * (one + T(0.1) * abs(m_b[i]));
+
+        if (delta > eps) {
+#if 0
+            LP_OUT(m_settings, "x is off ("
+                << "m_b[" << i  << "] = " << m_b[i] << " "
+                << "left side = " << m_A.dot_product_with_row(i, m_x) << ' '
+                << "delta = " << delta << ' '
+                   << "iters = " << total_iterations() << ")" << std::endl);
+#endif
+            return true;
+        }
+    }
+    return false;
+}
+
 // from page 182 of Istvan Maros's book
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 calculate_pivot_row_of_B_1(unsigned pivot_row) {
@@ -243,7 +283,7 @@ calculate_pivot_row_of_B_1(unsigned pivot_row) {
         m_pivot_row_of_B_1[i] = numeric_traits<T>::zero();
     }
     m_pivot_row_of_B_1[pivot_row] = numeric_traits<T>::one();
-    m_factorization->solve_yB(m_pivot_row_of_B_1, m_basis);
+    m_factorization->solve_yB_with_error_check(m_pivot_row_of_B_1, m_basis);
 }
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
@@ -465,7 +505,7 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::
 update_basis_and_x(int entering, int leaving, X const & tt) {
     if (!is_zero(tt)) {
         update_x(entering, tt);
-        if ((!numeric_traits<T>::precise()) && A_mult_x_is_off() && !find_x_by_solving()) {
+        if ((!numeric_traits<T>::precise()) && A_mult_x_is_off_on_index(m_ed.m_index) && !find_x_by_solving()) {
             init_factorization(m_factorization, m_A, m_basis, m_settings);
             if (!find_x_by_solving()) {
                 restore_x(entering, tt);
@@ -485,7 +525,7 @@ update_basis_and_x(int entering, int leaving, X const & tt) {
     bool refactor = m_factorization->need_to_refactor();
     if (!refactor) {
         const T &  pivot = this->m_pivot_row[entering]; // m_ed[m_factorization->basis_heading(leaving)] is the same but the one that we are using is more precise
-        m_factorization->replace_column(leaving, pivot, m_w, m_basis_heading[leaving]);
+        m_factorization->replace_column(pivot, m_w, m_basis_heading[leaving]);
         if (m_factorization->get_status() == LU_status::OK) {
             change_basis(entering, leaving, m_basis, m_non_basic_columns, m_basis_heading);
             return true;
@@ -797,7 +837,7 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_v
                 init_lu();
             } else {
                 m_factorization->prepare_entering(jj, w); // to init vector w
-                m_factorization->replace_column(ii, zero_of_type<T>(), w, m_basis_heading[ii]);
+                m_factorization->replace_column(zero_of_type<T>(), w, m_basis_heading[ii]);
                 change_basis(jj, ii, m_basis, m_non_basic_columns, m_basis_heading);
             }
             if (m_factorization->get_status() != LU_status::OK) {

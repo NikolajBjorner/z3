@@ -10,7 +10,8 @@
 #include <vector>
 #include <functional>
 #include "util/lp/lp_core_solver_base.cpp"
-template bool lean::lp_core_solver_base<double, double>::A_mult_x_is_off();
+template bool lean::lp_core_solver_base<double, double>::A_mult_x_is_off() const;
+template bool lean::lp_core_solver_base<double, double>::A_mult_x_is_off_on_index(const std::vector<unsigned> &) const;
 template bool lean::lp_core_solver_base<double, double>::basis_heading_is_correct();
 template void lean::lp_core_solver_base<double, double>::calculate_pivot_row_of_B_1(unsigned int);
 template void lean::lp_core_solver_base<double, double>::calculate_pivot_row_when_pivot_row_of_B1_is_ready();
@@ -38,7 +39,8 @@ template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq>
 template void lean::lp_core_solver_base<double, double>::solve_yB(std::vector<double, std::allocator<double> >&);
 template bool lean::lp_core_solver_base<double, double>::update_basis_and_x(int, int, double const&);
 template void lean::lp_core_solver_base<double, double>::update_x(unsigned int, double);
-template bool lean::lp_core_solver_base<lean::mpq, lean::mpq>::A_mult_x_is_off();
+template bool lean::lp_core_solver_base<lean::mpq, lean::mpq>::A_mult_x_is_off() const;
+template bool lean::lp_core_solver_base<lean::mpq, lean::mpq>::A_mult_x_is_off_on_index(const std::vector<unsigned> &) const;
 template bool lean::lp_core_solver_base<lean::mpq, lean::mpq>::basis_heading_is_correct();
 template void lean::lp_core_solver_base<lean::mpq, lean::mpq>::calculate_pivot_row_of_B_1(unsigned int);
 template void lean::lp_core_solver_base<lean::mpq, lean::mpq>::calculate_pivot_row_when_pivot_row_of_B1_is_ready();

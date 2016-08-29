@@ -444,7 +444,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::calc_work
     unsigned i = this->m_m();
     while (i--)
         m_beta[i] = this->m_ed[i];
-    this->m_factorization->solve_yB(m_beta, this->m_basis);
+    this->m_factorization->solve_yB_with_error_check(m_beta, this->m_basis);
 }
 
 template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_entering_and_leaving(int entering, int leaving, X & t) {
@@ -455,7 +455,7 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
     if (entering == leaving) {
         lean_assert(!this->A_mult_x_is_off() );
         this->update_x(entering, t * m_sign_of_entering_delta);
-        if (this->A_mult_x_is_off() && !this->find_x_by_solving()) {
+        if (this->A_mult_x_is_off_on_index(this->m_ed.m_index) && !this->find_x_by_solving()) {
             this->init_lu();
             if (!this->find_x_by_solving()) {
                 this->restore_x(entering, t * m_sign_of_entering_delta);
