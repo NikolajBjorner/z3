@@ -76,6 +76,8 @@ public:
     }
 
     unsigned adjust_column_inverse(unsigned  col)  const{
+        if (col >= m_column_permutation.size())
+            return col;
         return m_column_permutation[col];
     }
     unsigned adjust_row(unsigned row)  const{
