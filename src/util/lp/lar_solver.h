@@ -64,7 +64,7 @@ class lar_solver : public column_namer {
     stacked_vector<column_type> m_column_types;
     stacked_vector<numeric_pair<mpq>> m_low_bounds;
     stacked_vector<numeric_pair<mpq>> m_upper_bounds;
-    stacked_vector<unsigned> m_sorted_basis;
+    stacked_vector<unsigned> m_pushed_basis;
     std::vector<unsigned> m_basis;
     std::vector<unsigned> m_nbasis;
     std::vector<int> m_heading;
@@ -764,12 +764,12 @@ public:
 
     void pop_basis(unsigned k) {
         // restore by using m_sorted
-        m_sorted_basis.pop(k);
+        m_pushed_basis.pop(k);
         m_heading.clear();
         m_heading.resize(m_A.column_count(), -1);
         m_basis.clear();
-        for (unsigned i = 0; i < m_sorted_basis.size(); i++ ) {
-            unsigned j = m_sorted_basis[i];
+        for (unsigned i = 0; i < m_pushed_basis.size(); i++ ) {
+            unsigned j = m_pushed_basis[i];
             m_heading[j] = i;
             m_basis.push_back(j);
         }
@@ -786,17 +786,15 @@ public:
 
     
     void sort_and_push_basis() {
-        std::vector<unsigned> basis_copy(m_basis);
-        std::sort(basis_copy.begin(), basis_copy.end());
-        lean_assert(m_sorted_basis.size() <= m_basis.size());
+        lean_assert(m_pushed_basis.size() <= m_basis.size());
         for (unsigned i = 0; i < m_basis.size();i++) {
-            if (i == m_sorted_basis.size()) {
-                m_sorted_basis.push_back(m_basis[i]);
+            if (i == m_pushed_basis.size()) {
+                m_pushed_basis.push_back(m_basis[i]);
             } else {
-                m_sorted_basis[i] = m_basis[i];
+                m_pushed_basis[i] = m_basis[i];
             }
         }
-        m_sorted_basis.push();
+        m_pushed_basis.push();
     }
 
     numeric_pair<mpq> get_delta_of_touched_nb_column(unsigned j) {
