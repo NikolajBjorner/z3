@@ -529,7 +529,7 @@ update_basis_and_x(int entering, int leaving, X const & tt) {
     // need to refactor == true
     change_basis(entering, leaving, m_basis, m_non_basic_columns, m_basis_heading);
     init_factorization(m_factorization, m_A, m_basis, m_settings);
-    if (m_factorization->get_status() != LU_status::OK || A_mult_x_is_off()) {
+    if (m_factorization->get_status() != LU_status::OK) {
         LP_OUT(m_settings, "failing refactor for entering = " << entering << ", leaving = " << leaving << " total_iterations = " << total_iterations() << std::endl);
         restore_x_and_refactor(entering, leaving, tt);
         lean_assert(!A_mult_x_is_off());

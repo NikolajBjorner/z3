@@ -104,10 +104,15 @@ T one_elem_on_diag<T, X>::get_elem(unsigned i, unsigned j) const {
 #endif
 template <typename T, typename X>
 void one_elem_on_diag<T, X>::apply_from_left_to_T(indexed_vector<T> & w, lp_settings & settings) {
-    w[m_i] /= m_val;
-    if (settings.abs_val_is_smaller_than_drop_tolerance(w[m_i])) {
+    T & t = w[m_i];
+    if (numeric_traits<T>::is_zero(t)) {
+        return;
+    }
+    t /= m_val;
+    if (numeric_traits<T>::precise()) return;
+    if (settings.abs_val_is_smaller_than_drop_tolerance(t)) {
         w.erase_from_index(m_i);
-        w[m_i] = numeric_traits<T>::zero();
+        t = numeric_traits<T>::zero();
     }
 }
 

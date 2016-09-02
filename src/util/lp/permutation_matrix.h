@@ -23,6 +23,7 @@ namespace lean {
 class permutation_matrix : public tail_matrix<T, X> {
         std::vector<unsigned> m_permutation;
         std::vector<unsigned> m_rev;
+        std::vector<unsigned> m_work_array;
         std::vector<T> m_T_buffer;
         std::vector<X> m_X_buffer;
 
@@ -104,8 +105,6 @@ class permutation_matrix : public tail_matrix<T, X> {
         virtual void set_number_of_rows(unsigned /*m*/) { }
         virtual void set_number_of_columns(unsigned /*n*/) { }
 #endif
-        unsigned * clone_m_permutation();
-
         void multiply_by_permutation_from_left(permutation_matrix<T, X> & p);
 
         // this is multiplication in the matrix sense
