@@ -150,11 +150,12 @@ void lu<T, X>::debug_test_of_basis(static_matrix<T, X> const & A, std::vector<un
     lean_assert(set.size() == A.row_count());
 }
 
-// template <typename T, typename X>
-// void lu<T, X>::solve_By(indexed_vector<X> & y) {
-//     init_vector_y(y);
-//     solve_By_when_y_is_ready(y);
-// }
+ template <typename T, typename X>
+ void lu<T, X>::solve_By(indexed_vector<X> & y) {
+     lean_assert(false); // not implemented
+     // init_vector_y(y);
+     // solve_By_when_y_is_ready(y);
+ }
 
 
 template <typename T, typename X>
@@ -310,11 +311,49 @@ void lu<T, X>::solve_yB(std::vector<T>& y) {
         (*e)->apply_from_right(y);
     }
 }
+
 template <typename T, typename X>
-void lu<T, X>::add_delta_to_solution(std::vector<T>& yc, std::vector<T>& y){
+void lu<T, X>::solve_yB_indexed(indexed_vector<T>& y) {
+    lean_assert(y.is_OK());
+    // first solve yU = cb*R(-1)
+    m_R.apply_reverse_from_right_to_T(y); // got y = cb*R(-1)
+    lean_assert(y.is_OK());
+    m_U.solve_y_U_indexed(y, m_settings); // got y*U=cb*R(-1)
+    lean_assert(y.is_OK());
+    m_Q.apply_reverse_from_right_to_T(y);
+    lean_assert(y.is_OK());
+    for (auto e = m_tail.rbegin(); e != m_tail.rend(); ++e) {
+#ifdef LEAN_DEBUG
+        (*e)->set_number_of_columns(m_dim);
+#endif
+        (*e)->apply_from_right(y);
+        lean_assert(y.is_OK());
+    }
+}
+
+template <typename T, typename X>
+void lu<T, X>::add_delta_to_solution(const std::vector<T>& yc, std::vector<T>& y){
     unsigned i = static_cast<unsigned>(y.size());
     while (i--)
         y[i]+=yc[i];
+}
+
+template <typename T, typename X>
+void lu<T, X>::add_delta_to_solution_indexed(const indexed_vector<T>& yc, indexed_vector<T>& y){
+    // todo ( create indexed version later)
+    unsigned i = static_cast<unsigned>(y.m_data.size());
+    y.m_index.clear();
+    while (i--) {
+        auto & v = y.m_data[i] +=yc[i];
+      
+        if (!numeric_traits<T>::is_zero(v)) {
+            if (!lp_settings::is_eps_small_general(v, 1e-14))
+                y.m_index.push_back(i);
+            else {
+                v = zero_of_type<T>();
+            }
+        }
+    }
 }
 
 template <typename T, typename X>
@@ -324,6 +363,40 @@ void lu<T, X>::find_error_of_yB(std::vector<T>& yc, const std::vector<T>& y, con
         yc[i] -= m_A.dot_product_with_column(y, m_basis[i]);
     }
 }
+
+template <typename T, typename X>
+void lu<T, X>::find_error_of_yB_indexed(indexed_vector<T>& yc, const indexed_vector<T>& y, const std::vector<unsigned>& m_basis, const lp_settings& settings) {
+    // todo (create an indexed version)!!!!
+    yc.m_index.clear();
+    lean_assert(!numeric_traits<T>::precise());
+    unsigned i = m_dim;
+    while (i--) {
+        T & v = yc.m_data[i] -= m_A.dot_product_with_column(y.m_data, m_basis[i]);
+        if (settings.abs_val_is_smaller_than_drop_tolerance(v))
+            v = zero_of_type<T>();
+        else
+            yc.m_index.push_back(i);
+    }
+}
+
+
+
+
+// solves y*B = y
+// y is the input
+template <typename T, typename X>
+void lu<T, X>::solve_yB_with_error_check_indexed(indexed_vector<T> & y, const std::vector<unsigned>& basis, const lp_settings & settings) {
+    if (numeric_traits<T>::precise()) {
+        solve_yB_indexed(y);
+        return;
+    }
+    indexed_vector<T> yc(y); // copy y aside (todo, keep yc as a member too)
+    solve_yB_indexed(y);
+    find_error_of_yB_indexed(yc, y, basis, settings);
+    solve_yB_indexed(yc);
+    add_delta_to_solution_indexed(yc, y);
+}
+
 
 // solves y*B = y
 // y is the input

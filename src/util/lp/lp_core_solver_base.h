@@ -28,9 +28,8 @@ class lp_core_solver_base {
     unsigned m_total_iterations = 0;
     unsigned inc_total_iterations() { ++m_settings.st().m_total_iterations; return m_total_iterations++; }
 public:
-    std::vector<T> m_pivot_row_of_B_1;  // the pivot row of the reverse of B
-    std::vector<T> m_pivot_row; // this is the real pivot row of the simplex tableu
-    std::vector<unsigned> m_pivot_row_index;
+    indexed_vector<T> m_pivot_row_of_B_1;  // the pivot row of the reverse of B
+    indexed_vector<T> m_pivot_row; // this is the real pivot row of the simplex tableu
     static_matrix<T, X> & m_A; // the matrix A
     std::vector<X> & m_b; // the right side
     std::vector<unsigned> & m_basis;
@@ -128,8 +127,6 @@ public:
     bool A_mult_x_is_off_on_index(const std::vector<unsigned> & index) const;
     // from page 182 of Istvan Maros's book
     void calculate_pivot_row_of_B_1(unsigned pivot_row);
-
-    void zero_pivot_row();
 
     void calculate_pivot_row_when_pivot_row_of_B1_is_ready();
 

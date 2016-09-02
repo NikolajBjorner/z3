@@ -80,9 +80,10 @@ void print_matrix_with_widths(std::vector<std::vector<std::string>> & A, std::ve
 void print_string_matrix(std::vector<std::vector<std::string>> & A, std::ostream & out) {
     std::vector<unsigned> widths;
 
-    for (unsigned j = 0; j < A[0].size(); j++) {
-        widths.push_back(get_width_of_column(j, A));
-    }
+    if (A.size() > 0)
+        for (unsigned j = 0; j < A[0].size(); j++) {
+            widths.push_back(get_width_of_column(j, A));
+        }
 
     print_matrix_with_widths(A, widths, out);
     out << std::endl;

@@ -123,8 +123,25 @@ public:
         apply_from_left_local(w, settings);
     }
 
-    void apply_from_right(indexed_vector<T> & /* w */) {
-        lean_unreachable(); // not implemented
+    void apply_from_right(indexed_vector<T> & w) {
+        // todo: implement an indexed version
+        apply_from_right(w.m_data);
+        w.m_index.clear();
+        if (numeric_traits<T>::precise()) {
+            for (unsigned i = 0; i < m_parent->dimension(); i++) {
+                if (!is_zero(w.m_data[i]))
+                    w.m_index.push_back(i);
+            }
+        } else  {
+            for (unsigned i = 0; i < m_parent->dimension(); i++) {
+                T & v = w.m_data[i];
+                if (!lp_settings::is_eps_small_general(v, 1e-14)){
+                    w.m_index.push_back(i);
+                } else {
+                    v = zero_of_type<T>();
+                }
+            }
+        }
     }
     void apply_from_left(std::vector<X> & w, lp_settings & /*settings*/) {
         apply_from_left_to_vector(w);// , settings);

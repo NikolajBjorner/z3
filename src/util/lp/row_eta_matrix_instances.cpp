@@ -19,10 +19,13 @@ template double row_eta_matrix<double, double>::get_elem(unsigned int, unsigned 
 #endif
 template void row_eta_matrix<mpq, mpq>::apply_from_left(std::vector<mpq, std::allocator<mpq> >&, lp_settings&);
 template void row_eta_matrix<mpq, mpq>::apply_from_right(std::vector<mpq, std::allocator<mpq> >&);
+template void row_eta_matrix<mpq, mpq>::apply_from_right(indexed_vector<mpq>&);
 template void row_eta_matrix<mpq, numeric_pair<mpq> >::apply_from_left(std::vector<numeric_pair<mpq>, std::allocator<numeric_pair<mpq> > >&, lp_settings&);
 template void row_eta_matrix<mpq, numeric_pair<mpq> >::apply_from_right(std::vector<mpq, std::allocator<mpq> >&);
+template void row_eta_matrix<mpq, numeric_pair<mpq> >::apply_from_right(indexed_vector<mpq>&);
 template void row_eta_matrix<double, double>::apply_from_left(std::vector<double, std::allocator<double> >&, lp_settings&);
 template void row_eta_matrix<double, double>::apply_from_right(std::vector<double, std::allocator<double> >&);
+template void row_eta_matrix<double, double>::apply_from_right(indexed_vector<double>&);
 template void row_eta_matrix<mpq, mpq>::apply_from_left_to_T(indexed_vector<mpq>&, lp_settings&);
 template void row_eta_matrix<mpq, mpq>::apply_from_left_local_to_T(indexed_vector<mpq>&, lp_settings&);
 template void row_eta_matrix<mpq, numeric_pair<mpq> >::apply_from_left_to_T(indexed_vector<mpq>&, lp_settings&);

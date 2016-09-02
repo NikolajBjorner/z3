@@ -377,7 +377,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::update_re
 #endif
     T pivot = this->m_pivot_row[entering];
     T dq = this->m_d[entering]/pivot;
-    for (auto j : this->m_pivot_row_index) {
+    for (auto j : this->m_pivot_row.m_index) {
         //            for (auto j : this->m_non_basic_columns)
         if (this->m_basis_heading[j] >= 0) continue;
         if (j != leaving)
@@ -683,7 +683,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::update_co
     }
     this->m_column_norms[leaving] = g_ent;
 
-    for (unsigned j : this->m_pivot_row_index) {
+    for (unsigned j : this->m_pivot_row.m_index) {
         if (j == leaving)
             continue;
         const T & t = this->m_pivot_row[j];

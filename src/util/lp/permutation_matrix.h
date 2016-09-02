@@ -69,6 +69,8 @@ class permutation_matrix : public tail_matrix<T, X> {
 
         void apply_from_right(std::vector<T> & w);
 
+        void apply_from_right(indexed_vector<T> & w);
+        
         template <typename L>
         void copy_aside(std::vector<L> & t, std::vector<unsigned> & tmp_index, indexed_vector<L> & w);
 
@@ -82,6 +84,7 @@ class permutation_matrix : public tail_matrix<T, X> {
         void apply_reverse_from_left_to_X(std::vector<X> & w);
 
         void apply_reverse_from_right_to_T(std::vector<T> & w);
+        void apply_reverse_from_right_to_T(indexed_vector<T> & w);
         void apply_reverse_from_right_to_X(std::vector<X> & w);
 
         void set_val(unsigned i, unsigned pi) {

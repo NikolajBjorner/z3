@@ -327,8 +327,6 @@ template <typename T, typename X>    void square_dense_submatrix<T, X>::apply_fr
     for (unsigned j = m_index_start; j < end; j++) {
          t[adjust_column_inverse(j)] = column_by_vector_product(j, w);
     }
-    //                std::copy(t.begin(), t.end(), w); // does not compile
-    lean_assert(w.size() == t.size());
     w = t;
 #ifdef LEAN_DEBUG
     //  lean_assert(vector_are_equal<T>(deb_w, w));

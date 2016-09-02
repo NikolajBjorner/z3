@@ -25,3 +25,6 @@ template void lean::eta_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::conju
 template void lean::eta_matrix<double, double>::apply_from_left_local<double>(lean::indexed_vector<double>&, lean::lp_settings&);
 template void lean::eta_matrix<lean::mpq, lean::mpq>::apply_from_left_local<lean::mpq>(lean::indexed_vector<lean::mpq>&, lean::lp_settings&);
 template void lean::eta_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::apply_from_left_local<lean::mpq>(lean::indexed_vector<lean::mpq>&, lean::lp_settings&);
+template void lean::eta_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::apply_from_right(lean::indexed_vector<lean::mpq>&);
+template void lean::eta_matrix<lean::mpq, lean::mpq>::apply_from_right(lean::indexed_vector<lean::mpq>&);
+template void lean::eta_matrix<double, double>::apply_from_right(lean::indexed_vector<double>&);

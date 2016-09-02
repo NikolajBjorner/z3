@@ -50,7 +50,7 @@ lp_core_solver_base(static_matrix<T, X> & A,
                     std::vector<X> & low_bound_values,
                     std::vector<X> & upper_bound_values):
     m_pivot_row_of_B_1(A.row_count()),
-    m_pivot_row(A.column_count(), zero_of_type<T>()),
+    m_pivot_row(A.column_count()),
     m_A(A),
     m_b(b),
     m_basis(basis),
@@ -278,27 +278,22 @@ A_mult_x_is_off_on_index(const std::vector<unsigned> & index) const {
 // from page 182 of Istvan Maros's book
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 calculate_pivot_row_of_B_1(unsigned pivot_row) {
-    unsigned i = m_m();
-    while (i--) {
-        m_pivot_row_of_B_1[i] = numeric_traits<T>::zero();
-    }
-    m_pivot_row_of_B_1[pivot_row] = numeric_traits<T>::one();
-    m_factorization->solve_yB_with_error_check(m_pivot_row_of_B_1, m_basis);
+    lean_assert(m_pivot_row_of_B_1.is_OK());
+    m_pivot_row_of_B_1.clear();
+    m_pivot_row_of_B_1.set_value(numeric_traits<T>::one(), pivot_row);
+    lean_assert(m_pivot_row_of_B_1.is_OK());
+    m_factorization->solve_yB_with_error_check_indexed(m_pivot_row_of_B_1, m_basis, m_settings);
+    lean_assert(m_pivot_row_of_B_1.is_OK());
 }
 
-template <typename T, typename X> void lp_core_solver_base<T, X>::
-zero_pivot_row() {
-    for (unsigned j : m_pivot_row_index)
-        m_pivot_row[j] = numeric_traits<T>::zero();
-    m_pivot_row_index.clear();
-}
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 calculate_pivot_row_when_pivot_row_of_B1_is_ready() {
-    zero_pivot_row();
-    int i = m_m();
-    while (i--) {
-        T pi_1 = m_pivot_row_of_B_1[i];
+    m_pivot_row.clear();
+
+    std::unordered_set<unsigned> index_of_pivot_row;
+    for (unsigned i : m_pivot_row_of_B_1.m_index) {
+        const T & pi_1 = m_pivot_row_of_B_1[i];
         if (numeric_traits<T>::is_zero(pi_1)) {
             continue;
         }
@@ -306,14 +301,14 @@ calculate_pivot_row_when_pivot_row_of_B1_is_ready() {
             unsigned j = c.m_j;
             if (m_basis_heading[j] < 0) {
                 m_pivot_row[j] += c.get_val() * pi_1;
+                index_of_pivot_row.insert(j);
             }
         }
     }
 
-    unsigned j = static_cast<unsigned>(m_pivot_row.size());
-    while (j--) {
+    for (auto j : index_of_pivot_row) {
         if (!is_zero(m_pivot_row[j]))
-            m_pivot_row_index.push_back(j);
+            m_pivot_row.m_index.push_back(j);
     }
 }
 

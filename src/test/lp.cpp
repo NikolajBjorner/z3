@@ -5,7 +5,9 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Author: Lev Nachmanson
 */
 #include <limits>
-// #include <dirent.h>
+#if 0
+#include <dirent.h>
+#endif
 #include <algorithm>
 #include <string>
 #include <set>
@@ -991,7 +993,23 @@ void test_apply_reverse_from_right() {
 }
 
 void test_permutations() {
+    std::cout << "test permutations" << std::endl;
     test_apply_reverse_from_right();
+    std::vector<double> v(5, 0);
+    v[1] = 1;
+    v[3] = 3;
+    permutation_matrix<double, double> p(5);
+    p[0] = 4; p[1] = 2; p[2] = 0; p[3] = 3;
+    p[4] = 1;
+
+    indexed_vector<double> vi(5);
+    vi.set_value(1, 1);
+    vi.set_value(3, 3);
+
+    p.apply_reverse_from_right_to_T(v);
+    p.apply_reverse_from_right_to_T(vi);
+    lean_assert(vectors_are_equal(v, vi.m_data));
+    lean_assert(vi.is_OK());
 }
 
 void lp_solver_test() {
@@ -1385,7 +1403,7 @@ void random_test() {
     }
 }
 
-/*
+#if 0
 void fill_file_names(std::vector<std::string> &file_names,  std::set<string> & minimums) {
     char *home_dir = getenv("HOME");
     if (home_dir == nullptr) {
@@ -1515,8 +1533,7 @@ void fill_file_names(std::vector<std::string> &file_names,  std::set<string> & m
     minimums.insert("/projects/lean/src/tests/util/lp/test_files/netlib/SCSD6.SIF");
     minimums.insert("/projects/lean/src/tests/util/lp/test_files/netlib/MAROS-R7.SIF");
 }
-*/
-/*
+
 void test_out_dir(string out_dir) {
     auto *out_dir_p = opendir(out_dir.c_str());
     if (out_dir_p == nullptr) {
@@ -1546,9 +1563,9 @@ void find_dir_and_file_name(string a, string & dir, string& fn) {
     fn = a.substr(last_slash_pos + 1);
     //    cout << "fn = " << fn << std::endl;
 }
-*/
+
 void process_test_file(string test_dir, string test_file_name, argument_parser & args_parser, string out_dir, unsigned max_iters, unsigned time_limit, unsigned & successes, unsigned & failures, unsigned & inconclusives);
-/*
+
 void solve_some_mps(argument_parser & args_parser) {
     unsigned max_iters, time_limit;
     get_time_limit_and_max_iters_from_parser(args_parser, time_limit, max_iters);
@@ -1631,7 +1648,8 @@ void solve_some_mps(argument_parser & args_parser) {
         }
     }
 }
-*/
+#endif
+
 void solve_rational() {
     lp_primal_simplex<lean::mpq, lean::mpq> solver;
     solver.add_constraint(lp_relation::Equal, lean::mpq(7), 0);
@@ -1796,6 +1814,7 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_after_string_with_help("--density", "the percentage of non-zeroes in the matrix below which it is not dense");
     parser.add_option_with_after_string_with_help("--harris_toler", "harris tolerance");
     parser.add_option_with_help_string("--test_swaps", "test row swaps with a permutation");
+    parser.add_option_with_help_string("--test_perm", "test permutaions");
     parser.add_option_with_after_string_with_help("--checklu", "the file name for lu checking");
     parser.add_option_with_after_string_with_help("--partial_pivot", "the partial pivot constant, a number somewhere between 10 and 100");
     parser.add_option_with_after_string_with_help("--percent_for_enter", "which percent of columns check for entering column");
@@ -2766,6 +2785,10 @@ void test_lp_local(int argn, char**argv) {
         return finalize(0);
     }
 #endif
+    if (args_parser.option_is_used("--test_perm")) {
+        test_permutations();
+        return finalize(0);
+    }
     if (args_parser.option_is_used("--test_file_directory")) {
         test_files_from_directory(args_parser.get_option_value("--test_file_directory"), args_parser);
         return finalize(0);
@@ -2852,8 +2875,9 @@ void test_lp_local(int argn, char**argv) {
     }
     
     if (args_parser.option_is_used("--solve_some_mps")) {
-        
-        // solve_some_mps(args_parser);
+#if 0
+        solve_some_mps(args_parser);
+#endif
         ret = 0;
         return finalize(ret);
     }

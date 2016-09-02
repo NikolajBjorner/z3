@@ -66,6 +66,42 @@ void eta_matrix<T, X>::apply_from_right(std::vector<T> & w) {
     // delete clone_w;
 #endif
 }
+template <typename T, typename X>
+void eta_matrix<T, X>::apply_from_right(indexed_vector<T> & w) {
+#ifdef LEAN_DEBUG
+    std::vector<T> wcopy(w.m_data);
+    apply_from_right(wcopy);
+#endif
+    T t = w[m_column_index] / m_diagonal_element;
+    bool was_in_index = (!numeric_traits<T>::is_zero(t));
+    for (auto & it : m_column_vector.m_data) {
+        t += w[it.first] * it.second;
+    }
+    w[m_column_index] = t;
+
+    if (numeric_traits<T>::precise() ) {
+        if (!numeric_traits<T>::is_zero(t)) {
+            if (!was_in_index)
+                w.m_index.push_back(m_column_index);
+        } else {
+            if (was_in_index)
+                w.erase_from_index(m_column_index);
+        }
+    } else {
+        if (!lp_settings::is_eps_small_general(t, 1e-14)) {
+            if (!was_in_index)
+                w.m_index.push_back(m_column_index);
+        } else {
+            if (was_in_index)
+                w.erase_from_index(m_column_index);
+            w[m_column_index] = zero_of_type<T>();
+        }
+    }
+    lean_assert(w.is_OK());
+#ifdef LEAN_DEBUG
+    lean_assert(vectors_are_equal<T>(wcopy, w.m_data));
+#endif
+}
 #ifdef LEAN_DEBUG
 template <typename T, typename X>
 T eta_matrix<T, X>::get_elem(unsigned i, unsigned j) const {

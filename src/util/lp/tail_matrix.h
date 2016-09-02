@@ -23,6 +23,7 @@ public:
     virtual void apply_from_left_to_T(indexed_vector<T> & w, lp_settings & settings) = 0;
     virtual void apply_from_left(std::vector<X> & w, lp_settings & settings) = 0;
     virtual void apply_from_right(std::vector<T> & w) = 0;
+    virtual void apply_from_right(indexed_vector<T> & w) = 0;
     virtual ~tail_matrix() {}
 };
 }

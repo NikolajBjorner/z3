@@ -67,6 +67,7 @@ public:
     }
 
     void apply_from_right(std::vector<T> & w);
+    void apply_from_right(indexed_vector<T> & w);
 
     T get_elem(unsigned i, unsigned j) const;
 #ifdef LEAN_DEBUG

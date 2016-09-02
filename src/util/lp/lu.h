@@ -68,6 +68,17 @@ public:
         w[m_i] /= m_val;
     }
 
+    void apply_from_right(indexed_vector<T> & w) {
+        if (is_zero(w.m_data[m_i]))
+            return;
+        auto & v = w.m_data[m_i] /= m_val;
+        if (lp_settings::is_eps_small_general(v, 1e-14)) {
+            w.erase_from_index(m_i);
+            v = zero_of_type<T>();
+        }
+    }
+
+    
     void apply_from_left_to_T(indexed_vector<T> & w, lp_settings & settings);
 
     void conjugate_by_permutation(permutation_matrix<T, X> & p) {
@@ -136,12 +147,23 @@ public:
 
     void  solve_yB(std::vector<T>& y);
 
-    void add_delta_to_solution(std::vector<T>& yc, std::vector<T>& y);
+    void  solve_yB_indexed(indexed_vector<T>& y);
 
+    void add_delta_to_solution_indexed(const indexed_vector<T>& yc, indexed_vector<T>& y);
+
+    void add_delta_to_solution(const std::vector<T>& yc, std::vector<T>& y);
+
+    
     void find_error_of_yB(std::vector<T>& yc, const std::vector<T>& y,
                           const std::vector<unsigned>& basis);
 
+    void find_error_of_yB_indexed(indexed_vector<T>& yc, const indexed_vector<T>& y,
+                                  const std::vector<unsigned>& basis, const lp_settings& settings);
+
+    
     void solve_yB_with_error_check(std::vector<T> & y, const std::vector<unsigned>& basis);
+
+    void solve_yB_with_error_check_indexed(indexed_vector<T> & y, const std::vector<unsigned>& basis, const lp_settings &);
 
     void apply_Q_R_to_U(permutation_matrix<T, X> & r_wave);
 

@@ -71,7 +71,7 @@ template <typename T, typename X>
 void permutation_matrix<T, X>::apply_from_left_to_T(indexed_vector<T> & w, lp_settings & ) {
     std::vector<T> t(w.m_index.size());
     std::vector<unsigned> tmp_index(w.m_index.size());
-    copy_aside(t, tmp_index, w);
+    copy_aside(t, tmp_index, w); // todo: is it too much copying
     clear_data(w);
     // set the new values
     for (unsigned i = static_cast<unsigned>(t.size()); i > 0;) {
@@ -101,6 +101,30 @@ template <typename T, typename X> void permutation_matrix<T, X>::apply_from_righ
     // delete [] deb_w;
 #endif
 }
+
+template <typename T, typename X> void permutation_matrix<T, X>::apply_from_right(indexed_vector<T> & w) {
+#ifdef LEAN_DEBUG
+    std::vector<T> wcopy(w.m_data);
+    apply_from_right(wcopy);
+#endif
+    std::vector<T> buffer(w.m_index.size());
+    std::vector<unsigned> index_copy(w.m_index);
+    for (unsigned i = 0; i < w.m_index.size(); i++) {
+        buffer[i] = w.m_data[w.m_index[i]];
+    }
+    w.clear();
+
+    for (unsigned i = 0; i < index_copy.size(); i++) {
+        unsigned j = index_copy[i];
+        unsigned pj = m_permutation[j];
+        w.set_value(buffer[i], pj);
+    }
+    lean_assert(w.is_OK());
+#ifdef LEAN_DEBUG
+    lean_assert(vectors_are_equal(wcopy, w.m_data));
+#endif
+}
+
 
 template <typename T, typename X> template <typename L>
 void permutation_matrix<T, X>::copy_aside(std::vector<L> & t, std::vector<unsigned> & tmp_index, indexed_vector<L> & w) {
@@ -188,6 +212,31 @@ void permutation_matrix<T, X>::apply_reverse_from_right_to_T(std::vector<T> & w)
     while (i-- > 0) {
         w[i] = m_T_buffer[i];
     }
+}
+
+template <typename T, typename X>
+void permutation_matrix<T, X>::apply_reverse_from_right_to_T(indexed_vector<T> & w) {
+    // the result will be w = w * p(-1)
+    std::vector<T> wcopy(w.m_data);
+    apply_reverse_from_right_to_T(wcopy);
+    
+    lean_assert(w.is_OK());
+    std::vector<T> tmp;
+    std::vector<unsigned> tmp_index(w.m_index);
+    for (auto i : w.m_index) {
+        tmp.push_back(w[i]);
+    }
+    w.clear();
+    
+    for (unsigned k = 0; k < tmp_index.size(); k++) {
+        unsigned j = tmp_index[k];
+        w.set_value(tmp[k], m_rev[j]);
+    }
+
+    lean_assert(w.is_OK());
+    
+    lean_assert(vectors_are_equal(w.m_data, wcopy));
+    
 }
 
 

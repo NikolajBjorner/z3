@@ -808,7 +808,7 @@ void lar_solver::pop(unsigned k) {
         delete m_mpq_lar_core_solver.m_factorization;
         m_mpq_lar_core_solver.m_factorization = nullptr;
     }
-    m_mpq_lar_core_solver.zero_pivot_row();
+    //    m_mpq_lar_core_solver.m_pivot_row.clear();
     unsigned n = m_var_names_to_var_index.size();
     m_column_names.resize(n);
     m_x.resize(n);
