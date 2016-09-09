@@ -39,13 +39,13 @@ template void lean::lu<double, double>::init_vector_w(unsigned int, lean::indexe
 template void lean::lu<double, double>::solve_By(std::vector<double, std::allocator<double> >&);
 template void lean::lu<double, double>::solve_By_when_y_is_ready_for_X(std::vector<double, std::allocator<double> >&);
 template void lean::lu<double, double>::solve_yB_with_error_check(std::vector<double, std::allocator<double> >&, const std::vector<unsigned>& basis);
-template void lean::lu<double, double>::solve_yB_with_error_check_indexed(lean::indexed_vector<double>&, std::vector<unsigned int, std::allocator<unsigned int> > const&, const lp_settings&);
+template void lean::lu<double, double>::solve_yB_with_error_check_indexed(lean::indexed_vector<double>&, std::vector<int, std::allocator<int> > const&, const lp_settings&);
 template void lean::lu<lean::mpq, lean::mpq>::replace_column(lean::mpq, lean::indexed_vector<lean::mpq>&, unsigned);
 template void lean::lu<lean::mpq, lean::mpq>::solve_By(std::vector<lean::mpq, std::allocator<lean::mpq> >&);
 template void lean::lu<lean::mpq, lean::mpq>::solve_By_when_y_is_ready_for_X(std::vector<lean::mpq, std::allocator<lean::mpq> >&);
 template void lean::lu<lean::mpq, lean::mpq>::solve_yB_with_error_check(std::vector<lean::mpq, std::allocator<lean::mpq> >&, const std::vector<unsigned>& basis);
-template void lean::lu<lean::mpq, lean::mpq>::solve_yB_with_error_check_indexed(lean::indexed_vector<lean::mpq>&, std::vector<unsigned int, std::allocator<unsigned int> > const&, const lp_settings&);
-template void lean::lu<lean::mpq, lean::numeric_pair<lean::mpq> >::solve_yB_with_error_check_indexed(lean::indexed_vector<lean::mpq>&, std::vector<unsigned int, std::allocator<unsigned int> > const&, const lp_settings&);
+template void lean::lu<lean::mpq, lean::mpq>::solve_yB_with_error_check_indexed(lean::indexed_vector<lean::mpq>&, std::vector< int, std::allocator< int> > const&, const lp_settings&);
+template void lean::lu<lean::mpq, lean::numeric_pair<lean::mpq> >::solve_yB_with_error_check_indexed(lean::indexed_vector<lean::mpq>&, std::vector< int, std::allocator< int> > const&, const lp_settings&);
 template void lean::lu<lean::mpq, lean::numeric_pair<lean::mpq> >::init_vector_w(unsigned int, lean::indexed_vector<lean::mpq>&);
 template void lean::lu<lean::mpq, lean::numeric_pair<lean::mpq> >::replace_column(lean::mpq, lean::indexed_vector<lean::mpq>&, unsigned);
 template void lean::lu<lean::mpq, lean::numeric_pair<lean::mpq> >::solve_Bd_faster(unsigned int, lean::indexed_vector<lean::mpq>&);

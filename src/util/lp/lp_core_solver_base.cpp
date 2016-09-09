@@ -282,7 +282,7 @@ calculate_pivot_row_of_B_1(unsigned pivot_row) {
     m_pivot_row_of_B_1.clear();
     m_pivot_row_of_B_1.set_value(numeric_traits<T>::one(), pivot_row);
     lean_assert(m_pivot_row_of_B_1.is_OK());
-    m_factorization->solve_yB_with_error_check_indexed(m_pivot_row_of_B_1, m_basis, m_settings);
+    m_factorization->solve_yB_with_error_check_indexed(m_pivot_row_of_B_1, m_basis_heading, m_settings);
     lean_assert(m_pivot_row_of_B_1.is_OK());
 }
 
