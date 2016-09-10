@@ -1311,8 +1311,28 @@ namespace smt {
             else {
                 ++m_stats.m_assert_upper;
             }
-            add_ineq_constraint(m_solver->add_var_bound(get_var_index(b.get_var()), k, b.get_value()), literal(bv, !is_true));
-            // add_ineq_constraint(m_solver->add_constraint(m_left_side, k, b.get_value()), literal(bv, !is_true));
+            auto vi = get_var_index(b.get_var());
+            add_ineq_constraint(m_solver->add_var_bound(vi, k, b.get_value()), literal(bv, !is_true));
+
+#if 0
+            std::cout << vi << " " << k << " " << b.get_value() << "\n";
+            if (k == lean::GE) {
+                rational bound;
+                lean::constraint_index ci;
+                bool is_strict;
+                if (m_solver->has_lower_bound(vi, ci, bound, is_strict) && !is_strict && bound == b.get_value()) {
+                    std::cout << "has bound " << bound << "\n";
+                }
+            }
+            else if (k == lean::LE) {
+                rational bound;
+                lean::constraint_index ci;
+                bool is_strict;
+                if (m_solver->has_lower_bound(vi, ci, bound, is_strict) && !is_strict && bound == b.get_value()) {
+                    std::cout << "has bound " << bound << "\n";
+                }
+            }
+#endif
         }
 
         lbool make_feasible() {

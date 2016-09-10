@@ -13,9 +13,20 @@
 #include "util/lp/column_info.h"
 namespace lean {
 
-enum lconstraint_kind {
-    LE = -2, LT = -1 , GE = 2, GT = 1, EQ = 0
-};
+    enum lconstraint_kind {
+        LE = -2, LT = -1 , GE = 2, GT = 1, EQ = 0
+    };
+    
+    inline std::ostream& operator<<(std::ostream& out, lconstraint_kind k) {
+        switch (k) {
+        case LE: return out << "<=";
+        case LT: return out << "<";
+        case GE: return out << ">=";
+        case GT: return out << ">";
+        case EQ: return out << "=";
+        }
+        return out << "??";
+    }
 
 class lar_normalized_constraint; // forward definition
 inline   bool compare(const std::pair<mpq, var_index> & a, const std::pair<mpq, var_index> & b) {
