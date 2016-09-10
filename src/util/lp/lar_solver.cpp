@@ -359,7 +359,11 @@ bool lar_solver::constraint_holds(const lar_constraint & constr, std::unordered_
 }
 
 void lar_solver::solve_with_core_solver() {
-    fix_touched_columns();
+    if (m_mpq_lar_core_solver.m_factorization != nullptr)
+        m_mpq_lar_core_solver.m_factorization->add_last_rows_to_B(m_heading);
+    else
+        init_factorization(m_mpq_lar_core_solver.m_factorization, m_A, m_basis, m_settings);
+    fix_touched_columns(); // todo : should they be up to date?
     m_mpq_lar_core_solver.solve();
     m_status = m_mpq_lar_core_solver.m_status;
     lean_assert(m_status != OPTIMAL || all_constraints_hold());
@@ -804,7 +808,7 @@ void lar_solver::pop(unsigned k) {
         delete m_mpq_lar_core_solver.m_factorization;
         m_mpq_lar_core_solver.m_factorization = nullptr;
     }
-    m_mpq_lar_core_solver.zero_pivot_row();
+    //    m_mpq_lar_core_solver.m_pivot_row.clear();
     unsigned n = m_var_names_to_var_index.size();
     m_column_names.resize(n);
     m_x.resize(n);

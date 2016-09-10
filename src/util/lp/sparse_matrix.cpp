@@ -427,6 +427,40 @@ void sparse_matrix<T, X>::solve_y_U(std::vector<T> & y) const { // works by rows
 #endif
 }
 
+// solving x * this = y, and putting the answer into y
+// the matrix here has to be upper triangular
+template <typename T, typename X>
+void sparse_matrix<T, X>::solve_y_U_indexed(indexed_vector<T> & y, const lp_settings & settings) {
+#ifdef LEAN_DEBUG
+    std::vector<T> ycopy(y.m_data);
+    solve_y_U(ycopy);
+#endif
+    std::vector<unsigned> sorted_active_columns;
+    extend_and_sort_active_rows(y.m_index, sorted_active_columns);
+    for (unsigned k = sorted_active_columns.size(); k-- > 0; ) {
+        unsigned j = sorted_active_columns[k];
+        auto & yj = y[j];
+        for (auto & c: m_columns[adjust_column(j)].m_values) {
+            unsigned i = adjust_row_inverse(c.m_index);
+            if (i == j) continue;
+            yj -= y[i] * c.m_value;
+        }
+    }
+    y.m_index.clear();
+    for (auto j : sorted_active_columns) {
+        if (!settings.abs_val_is_smaller_than_drop_tolerance(y[j]))
+            y.m_index.push_back(j);
+        else if (!numeric_traits<T>::precise())
+            y.m_data[j] = zero_of_type<T>();
+    }
+
+    lean_assert(y.is_OK());
+#ifdef LEAN_DEBUG
+    lean_assert(vectors_are_equal(ycopy, y.m_data));
+#endif
+}
+
+
 // fills the indices for such that y[i] can be not a zero
 // sort them so the smaller indices come first
 //    void fill_reachable_indices(std::set<unsigned> & rset, T *y) {
@@ -548,6 +582,21 @@ void sparse_matrix<T, X>::solve_U_y(std::vector<L> & y) { // it is a column wise
 #endif
 }
 template <typename T, typename X>
+void sparse_matrix<T, X>::process_index_recursively_for_y_U(unsigned j, std::vector<unsigned> & sorted_active_rows) {
+    lean_assert(m_processed[j] == false);
+    auto & row = m_rows[adjust_row(j)];
+    for (auto & c : row) {
+        unsigned i = adjust_column_inverse(c.m_index);
+        if (i == j) continue;
+        if (!m_processed[i]) {
+            process_index_recursively_for_y_U(i, sorted_active_rows);
+        }
+    }
+    m_processed[j]=true;
+    sorted_active_rows.push_back(j);
+}
+
+template <typename T, typename X>
 void sparse_matrix<T, X>::process_column_recursively(unsigned j, std::vector<unsigned> & sorted_active_rows) {
     lean_assert(m_processed[j] == false);
     auto & mc = m_columns[adjust_column(j)].m_values;
@@ -562,6 +611,7 @@ void sparse_matrix<T, X>::process_column_recursively(unsigned j, std::vector<uns
     sorted_active_rows.push_back(j);
 }
 
+
 template <typename T, typename X>
 void sparse_matrix<T, X>::create_graph_G(const std::vector<unsigned> & index_or_right_side, std::vector<unsigned> & sorted_active_rows) {
     for (auto i : index_or_right_side) {
@@ -573,6 +623,20 @@ void sparse_matrix<T, X>::create_graph_G(const std::vector<unsigned> & index_or_
         m_processed[i] = false;
     }
 }
+
+
+template <typename T, typename X>
+void sparse_matrix<T, X>::extend_and_sort_active_rows(const std::vector<unsigned> & index_or_right_side, std::vector<unsigned> & sorted_active_rows) {
+    for (auto i : index_or_right_side) {
+        if (m_processed[i]) continue;
+        process_index_recursively_for_y_U(i, sorted_active_rows);
+    }
+
+    for (auto i : sorted_active_rows) {
+        m_processed[i] = false;
+    }
+}
+
 
 template <typename T, typename X>
 template <typename L>
@@ -596,7 +660,7 @@ void sparse_matrix<T, X>::solve_U_y_indexed_only(indexed_vector<L> & y, const lp
     for (auto j : sorted_active_rows) {
         if (!settings.abs_val_is_smaller_than_drop_tolerance(y[j]))
             y.m_index.push_back(j);
-        else
+        else if (!numeric_traits<L>::precise())
             y[j] = zero_of_type<L>();
     }
 

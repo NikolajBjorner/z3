@@ -47,5 +47,6 @@ public:
         return m_q.is_consistent() && pair_to_index_is_a_bijection() && available_spots_are_correct();
     }
 #endif
+    void resize(unsigned size) { m_q.resize(size); }
 };
 }

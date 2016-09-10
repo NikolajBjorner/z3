@@ -71,7 +71,7 @@ void row_eta_matrix<T, X>::apply_from_left_local_to_X(indexed_vector<X> & w, lp_
 
 template <typename T, typename X>
 void row_eta_matrix<T, X>::apply_from_right(std::vector<T> & w) {
-    T w_row = w[m_row];
+    const T & w_row = w[m_row];
     if (numeric_traits<T>::is_zero(w_row)) return;
 #ifdef LEAN_DEBUG
     // dense_matrix<T> deb(*this);
@@ -89,32 +89,50 @@ void row_eta_matrix<T, X>::apply_from_right(std::vector<T> & w) {
 
 template <typename T, typename X>
 void row_eta_matrix<T, X>::apply_from_right(indexed_vector<T> & w) {
-    T w_row = w[m_row];
+    lean_assert(w.is_OK());
+    const T & w_row = w[m_row];
     if (numeric_traits<T>::is_zero(w_row)) return;
 #ifdef LEAN_DEBUG
-    //        dense_matrix<T> deb(*this);
-    // auto clone_w = clone_vector<T>(w.m_data, m_dimension);
-    // deb.apply_from_right(clone_w);
+    std::vector<T> wcopy(w.m_data);
+    apply_from_right(wcopy);
 #endif
-    for (auto & it : m_row_vector.m_data) {
-        T old_val = w[it.first];
-        T v = w[it.index()] += w_row * it.second;
-        if (numeric_traits<T>::is_zero(old_val)) {
-            w.m_index.push_back(it.index());
-        } else if (numeric_traits<T>::is_zero(v)) { // it is a very rare case
-            auto w_it = std::find(w.m_index.begin(), w.m_index.end(), it.index());
-            lean_assert(w_it != w.m_index.end());
-            w.m_index.erase(w_it);
+    if (numeric_traits<T>::precise()) {
+        for (auto & it : m_row_vector.m_data) {
+            unsigned j = it.first;
+            bool was_zero = numeric_traits<T>::is_zero(w[j]);
+            const T & v = w[j] += w_row * it.second;       
+            
+            if (was_zero) {
+                if (!numeric_traits<T>::is_zero(v))                     
+                    w.m_index.push_back(j);
+            } else {
+                if (numeric_traits<T>::is_zero(v))
+                    w.erase_from_index(j);
+            }
+        }
+    } else { // the non precise version
+        const double drop_eps = 1e-14;
+        for (auto & it : m_row_vector.m_data) {
+            unsigned j = it.first;
+            bool was_zero = numeric_traits<T>::is_zero(w[j]);
+            T & v = w[j] += w_row * it.second;       
+            
+            if (was_zero) { 
+                if (!lp_settings::is_eps_small_general(v, drop_eps))
+                    w.m_index.push_back(j);
+                else
+                    v = zero_of_type<T>();
+            } else {
+                if (lp_settings::is_eps_small_general(v, drop_eps)) {
+                    w.erase_from_index(j);
+                    v = zero_of_type<T>();
+                }
+            }
         }
     }
 #ifdef LEAN_DEBUG
-    // lean_assert(vectors_are_equal<T>(clone_w, w.m_data, m_dimension));
-    // for (unsigned i = 0; i < m_dimension; i++) {
-    //     if (!numeric_traits<T>::is_zero(w.m_data[i])) {
-    //         lean_assert(std::find(w.m_index.begin(), w.m_index.end(), i) != w.m_index.end());
-    //     }
-    // }
-    // delete clone_w;
+    lean_assert(vectors_are_equal(wcopy, w.m_data));
+
 #endif
 }
 

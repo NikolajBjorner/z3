@@ -23,6 +23,7 @@ namespace lean {
 class permutation_matrix : public tail_matrix<T, X> {
         std::vector<unsigned> m_permutation;
         std::vector<unsigned> m_rev;
+        std::vector<unsigned> m_work_array;
         std::vector<T> m_T_buffer;
         std::vector<X> m_X_buffer;
 
@@ -69,6 +70,8 @@ class permutation_matrix : public tail_matrix<T, X> {
 
         void apply_from_right(std::vector<T> & w);
 
+        void apply_from_right(indexed_vector<T> & w);
+        
         template <typename L>
         void copy_aside(std::vector<L> & t, std::vector<unsigned> & tmp_index, indexed_vector<L> & w);
 
@@ -82,6 +85,7 @@ class permutation_matrix : public tail_matrix<T, X> {
         void apply_reverse_from_left_to_X(std::vector<X> & w);
 
         void apply_reverse_from_right_to_T(std::vector<T> & w);
+        void apply_reverse_from_right_to_T(indexed_vector<T> & w);
         void apply_reverse_from_right_to_X(std::vector<X> & w);
 
         void set_val(unsigned i, unsigned pi) {
@@ -101,8 +105,6 @@ class permutation_matrix : public tail_matrix<T, X> {
         virtual void set_number_of_rows(unsigned /*m*/) { }
         virtual void set_number_of_columns(unsigned /*n*/) { }
 #endif
-        unsigned * clone_m_permutation();
-
         void multiply_by_permutation_from_left(permutation_matrix<T, X> & p);
 
         // this is multiplication in the matrix sense
@@ -119,6 +121,18 @@ class permutation_matrix : public tail_matrix<T, X> {
         unsigned size() const { return static_cast<unsigned>(m_rev.size()); }
 
         unsigned * values() const { return m_permutation; }
+
+        void resize(unsigned size) {
+            unsigned old_size = m_permutation.size();
+            m_permutation.resize(size);
+            m_rev.resize(size);
+            m_T_buffer.resize(size);
+            m_X_buffer.resize(size);
+            for (unsigned i = old_size; i < size; i++) {
+                m_permutation[i] = m_rev[i] = i;
+    }
+        }
+        
     }; // end of the permutation class
 
 #ifdef LEAN_DEBUG

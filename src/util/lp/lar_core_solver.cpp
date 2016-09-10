@@ -537,8 +537,8 @@ template <typename T, typename X> bool lar_core_solver<T, X>::non_basis_columns_
 
 template <typename T, typename X> void lar_core_solver<T, X>::prefix() {
     init_local();
-    this->init();
-    //    this->init_basis_heading();
+    unsigned seed = 1;
+    my_random_init(&seed);
 }
 
 template <typename T, typename X> void lar_core_solver<T, X>::feasibility_loop() {

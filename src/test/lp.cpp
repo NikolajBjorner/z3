@@ -5,7 +5,9 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Author: Lev Nachmanson
 */
 #include <limits>
-// #include <dirent.h>
+#if 0
+#include <dirent.h>
+#endif
 #include <algorithm>
 #include <string>
 #include <set>
@@ -186,7 +188,7 @@ void test_small_lu(lp_settings & settings) {
     indexed_vector<double> w(m.row_count());
     cout << "entering 2, leaving 0" << std::endl;
     l.prepare_entering(2, w); // to init vector w
-    l.replace_column(0, 0, w, heading[0]);
+    l.replace_column(0, w, heading[0]);
     change_basis(2, 0, basis, non_basic_columns, heading);
     // #ifdef LEAN_DEBUG
     // cout << "we were factoring " << std::endl;
@@ -195,7 +197,7 @@ void test_small_lu(lp_settings & settings) {
     lean_assert(l.is_correct(basis));
     cout << "entering 4, leaving 3" << std::endl;
     l.prepare_entering(4, w); // to init vector w
-    l.replace_column(3, 0, w, heading[3]);
+    l.replace_column(0, w, heading[3]);
     change_basis(4, 3, basis, non_basic_columns, heading);
     cout << "we were factoring " << std::endl;
 #ifdef LEAN_DEBUG
@@ -208,7 +210,7 @@ void test_small_lu(lp_settings & settings) {
 
     cout << "entering 5, leaving 1" << std::endl;
     l.prepare_entering(5, w); // to init vector w
-    l.replace_column(1, 0, w, heading[1]);
+    l.replace_column(0, w, heading[1]);
     change_basis(5, 1, basis, non_basic_columns, heading);
     cout << "we were factoring " << std::endl;
 #ifdef LEAN_DEBUG
@@ -220,7 +222,7 @@ void test_small_lu(lp_settings & settings) {
     lean_assert(l.is_correct(basis));
     cout << "entering 3, leaving 2" << std::endl;
     l.prepare_entering(3, w); // to init vector w
-    l.replace_column(2, 0, w, heading[2]);
+    l.replace_column(0, w, heading[2]);
     change_basis(3, 2, basis, non_basic_columns, heading);
     cout << "we were factoring " << std::endl;
 #ifdef LEAN_DEBUG
@@ -229,6 +231,23 @@ void test_small_lu(lp_settings & settings) {
         print_matrix(&bl, std::cout);
     }
 #endif
+    lean_assert(l.is_correct(basis));
+
+    m.add_row();
+    m.add_column();
+    m.add_row();
+    m.add_column();
+    for (unsigned i = 0; i < m.column_count(); i++) {
+        m(3, i) = i;
+        m(4, i) = i * i; // to make the rows linearly independent
+    }
+    unsigned j = m.column_count() ;
+    basis.push_back(j-2);
+    heading.push_back(basis.size() - 1);
+    basis.push_back(j-1);
+    heading.push_back(basis.size() - 1);
+    l.add_last_rows_to_B(heading);
+    std::cout << "here" << std::endl;
     lean_assert(l.is_correct(basis));
 }
 
@@ -321,12 +340,12 @@ void test_larger_lu_exp(lp_settings & settings) {
     indexed_vector<double> w(m.row_count());
 
     l.prepare_entering(entering, w);
-    l.replace_column(leaving, 0, w, heading[leaving]);
+    l.replace_column(0, w, heading[leaving]);
     change_basis(entering, leaving, basis, non_basic_columns, heading);
     lean_assert(l.is_correct(basis));
 
     l.prepare_entering(11, w); // to init vector w
-    l.replace_column(0, 0, w, heading[0]);
+    l.replace_column(0, w, heading[0]);
     change_basis(11, 0, basis, non_basic_columns, heading);
     lean_assert(l.is_correct(basis));
 }
@@ -368,7 +387,7 @@ void test_larger_lu_with_holes(lp_settings & settings) {
 
     indexed_vector<double> w(m.row_count());
     l.prepare_entering(8, w); // to init vector w
-    l.replace_column(0, 0, w, heading[0]);
+    l.replace_column(0, w, heading[0]);
     change_basis(8, 0, basis, non_basic_columns, heading);
     lean_assert(l.is_correct(basis));
 }
@@ -415,7 +434,7 @@ void test_larger_lu(lp_settings& settings) {
     }
     indexed_vector<double> w(m.row_count());
     l.prepare_entering(9, w); // to init vector w
-    l.replace_column(0, 0, w, heading[0]);
+    l.replace_column(0, w, heading[0]);
     change_basis(9, 0, basis, non_basic_columns, heading);
     lean_assert(l.is_correct(basis));
 }
@@ -974,7 +993,23 @@ void test_apply_reverse_from_right() {
 }
 
 void test_permutations() {
+    std::cout << "test permutations" << std::endl;
     test_apply_reverse_from_right();
+    std::vector<double> v(5, 0);
+    v[1] = 1;
+    v[3] = 3;
+    permutation_matrix<double, double> p(5);
+    p[0] = 4; p[1] = 2; p[2] = 0; p[3] = 3;
+    p[4] = 1;
+
+    indexed_vector<double> vi(5);
+    vi.set_value(1, 1);
+    vi.set_value(3, 3);
+
+    p.apply_reverse_from_right_to_T(v);
+    p.apply_reverse_from_right_to_T(vi);
+    lean_assert(vectors_are_equal(v, vi.m_data));
+    lean_assert(vi.is_OK());
 }
 
 void lp_solver_test() {
@@ -1368,7 +1403,7 @@ void random_test() {
     }
 }
 
-/*
+#if 0
 void fill_file_names(std::vector<std::string> &file_names,  std::set<string> & minimums) {
     char *home_dir = getenv("HOME");
     if (home_dir == nullptr) {
@@ -1498,8 +1533,7 @@ void fill_file_names(std::vector<std::string> &file_names,  std::set<string> & m
     minimums.insert("/projects/lean/src/tests/util/lp/test_files/netlib/SCSD6.SIF");
     minimums.insert("/projects/lean/src/tests/util/lp/test_files/netlib/MAROS-R7.SIF");
 }
-*/
-/*
+
 void test_out_dir(string out_dir) {
     auto *out_dir_p = opendir(out_dir.c_str());
     if (out_dir_p == nullptr) {
@@ -1529,9 +1563,9 @@ void find_dir_and_file_name(string a, string & dir, string& fn) {
     fn = a.substr(last_slash_pos + 1);
     //    cout << "fn = " << fn << std::endl;
 }
-*/
+
 void process_test_file(string test_dir, string test_file_name, argument_parser & args_parser, string out_dir, unsigned max_iters, unsigned time_limit, unsigned & successes, unsigned & failures, unsigned & inconclusives);
-/*
+
 void solve_some_mps(argument_parser & args_parser) {
     unsigned max_iters, time_limit;
     get_time_limit_and_max_iters_from_parser(args_parser, time_limit, max_iters);
@@ -1614,7 +1648,8 @@ void solve_some_mps(argument_parser & args_parser) {
         }
     }
 }
-*/
+#endif
+
 void solve_rational() {
     lp_primal_simplex<lean::mpq, lean::mpq> solver;
     solver.add_constraint(lp_relation::Equal, lean::mpq(7), 0);
@@ -1779,6 +1814,7 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_after_string_with_help("--density", "the percentage of non-zeroes in the matrix below which it is not dense");
     parser.add_option_with_after_string_with_help("--harris_toler", "harris tolerance");
     parser.add_option_with_help_string("--test_swaps", "test row swaps with a permutation");
+    parser.add_option_with_help_string("--test_perm", "test permutaions");
     parser.add_option_with_after_string_with_help("--checklu", "the file name for lu checking");
     parser.add_option_with_after_string_with_help("--partial_pivot", "the partial pivot constant, a number somewhere between 10 and 100");
     parser.add_option_with_after_string_with_help("--percent_for_enter", "which percent of columns check for entering column");
@@ -1793,6 +1829,7 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_after_string_with_help("--time_limit", "time limit in seconds");
     parser.add_option_with_help_string("--mpq", "solve for rational numbers");
     parser.add_option_with_help_string("--test_lu", "test the work of the factorization");
+    parser.add_option_with_help_string("--test_small_lu", "test the work of the factorization on a smallish matrix");
     parser.add_option_with_help_string("--test_larger_lu", "test the work of the factorization");
     parser.add_option_with_help_string("--test_larger_lu_with_holes", "test the work of the factorization");
     parser.add_option_with_help_string("--test_lp_0", "solve a small lp");
@@ -2748,6 +2785,10 @@ void test_lp_local(int argn, char**argv) {
         return finalize(0);
     }
 #endif
+    if (args_parser.option_is_used("--test_perm")) {
+        test_permutations();
+        return finalize(0);
+    }
     if (args_parser.option_is_used("--test_file_directory")) {
         test_files_from_directory(args_parser.get_option_value("--test_file_directory"), args_parser);
         return finalize(0);
@@ -2770,6 +2811,12 @@ void test_lp_local(int argn, char**argv) {
     update_settings(args_parser, settings);
     if (args_parser.option_is_used("--test_lu")) {
         test_lu(settings);
+        ret = 0;
+        return finalize(ret);
+    }
+
+    if (args_parser.option_is_used("--test_small_lu")) {
+        test_small_lu(settings);
         ret = 0;
         return finalize(ret);
     }
@@ -2828,8 +2875,9 @@ void test_lp_local(int argn, char**argv) {
     }
     
     if (args_parser.option_is_used("--solve_some_mps")) {
-        
-        // solve_some_mps(args_parser);
+#if 0
+        solve_some_mps(args_parser);
+#endif
         ret = 0;
         return finalize(ret);
     }

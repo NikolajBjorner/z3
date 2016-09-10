@@ -7,7 +7,7 @@
 #include <vector>
 #include "util/lp/permutation_matrix.h"
 namespace lean {
-    template <typename T, typename X> permutation_matrix<T, X>::permutation_matrix(unsigned length): m_permutation(length), m_rev(length), m_T_buffer(length), m_X_buffer(length)  {
+template <typename T, typename X> permutation_matrix<T, X>::permutation_matrix(unsigned length): m_permutation(length), m_rev(length), m_T_buffer(length), m_X_buffer(length)  {
     for (unsigned i = 0; i < length; i++) { // do not change the direction of the loop because of the vectorization bug in clang3.3
         m_permutation[i] = m_rev[i] = i;
     }
@@ -71,7 +71,7 @@ template <typename T, typename X>
 void permutation_matrix<T, X>::apply_from_left_to_T(indexed_vector<T> & w, lp_settings & ) {
     std::vector<T> t(w.m_index.size());
     std::vector<unsigned> tmp_index(w.m_index.size());
-    copy_aside(t, tmp_index, w);
+    copy_aside(t, tmp_index, w); // todo: is it too much copying
     clear_data(w);
     // set the new values
     for (unsigned i = static_cast<unsigned>(t.size()); i > 0;) {
@@ -101,6 +101,30 @@ template <typename T, typename X> void permutation_matrix<T, X>::apply_from_righ
     // delete [] deb_w;
 #endif
 }
+
+template <typename T, typename X> void permutation_matrix<T, X>::apply_from_right(indexed_vector<T> & w) {
+#ifdef LEAN_DEBUG
+    std::vector<T> wcopy(w.m_data);
+    apply_from_right(wcopy);
+#endif
+    std::vector<T> buffer(w.m_index.size());
+    std::vector<unsigned> index_copy(w.m_index);
+    for (unsigned i = 0; i < w.m_index.size(); i++) {
+        buffer[i] = w.m_data[w.m_index[i]];
+    }
+    w.clear();
+
+    for (unsigned i = 0; i < index_copy.size(); i++) {
+        unsigned j = index_copy[i];
+        unsigned pj = m_permutation[j];
+        w.set_value(buffer[i], pj);
+    }
+    lean_assert(w.is_OK());
+#ifdef LEAN_DEBUG
+    lean_assert(vectors_are_equal(wcopy, w.m_data));
+#endif
+}
+
 
 template <typename T, typename X> template <typename L>
 void permutation_matrix<T, X>::copy_aside(std::vector<L> & t, std::vector<unsigned> & tmp_index, indexed_vector<L> & w) {
@@ -190,6 +214,31 @@ void permutation_matrix<T, X>::apply_reverse_from_right_to_T(std::vector<T> & w)
     }
 }
 
+template <typename T, typename X>
+void permutation_matrix<T, X>::apply_reverse_from_right_to_T(indexed_vector<T> & w) {
+    // the result will be w = w * p(-1)
+    std::vector<T> wcopy(w.m_data);
+    apply_reverse_from_right_to_T(wcopy);
+    
+    lean_assert(w.is_OK());
+    std::vector<T> tmp;
+    std::vector<unsigned> tmp_index(w.m_index);
+    for (auto i : w.m_index) {
+        tmp.push_back(w[i]);
+    }
+    w.clear();
+    
+    for (unsigned k = 0; k < tmp_index.size(); k++) {
+        unsigned j = tmp_index[k];
+        w.set_value(tmp[k], m_rev[j]);
+    }
+
+    lean_assert(w.is_OK());
+    
+    lean_assert(vectors_are_equal(w.m_data, wcopy));
+    
+}
+
 
 template <typename T, typename X>
 void permutation_matrix<T, X>::apply_reverse_from_right_to_X(std::vector<X> & w) {
@@ -223,54 +272,42 @@ template <typename T, typename X> void permutation_matrix<T, X>::transpose_from_
     set_val(j, pi);
 }
 
-template <typename T, typename X>  unsigned * permutation_matrix<T, X>::clone_m_permutation() {
-    auto r = new unsigned[size()];
-    for (int i = size() - 1; i >= 0; i--) {
-        r[i] = m_permutation[i];
-    }
-    return r;
-}
-
 template <typename T, typename X> void permutation_matrix<T, X>::multiply_by_permutation_from_left(permutation_matrix<T, X> & p) {
-    auto clone = clone_m_permutation();
+    m_work_array = m_permutation;
     lean_assert(p.size() == size());
     unsigned i = size();
     while (i-- > 0) {
-        set_val(i, clone[p[i]]); // we have m(P)*m(Q) = m(QP), where m is the matrix of the permutation
+        set_val(i, m_work_array[p[i]]); // we have m(P)*m(Q) = m(QP), where m is the matrix of the permutation
     }
-    delete [] clone;
 }
 
 // this is multiplication in the matrix sense
 template <typename T, typename X> void permutation_matrix<T, X>::multiply_by_permutation_from_right(permutation_matrix<T, X> & p) {
-    auto clone = clone_m_permutation();
+    m_work_array = m_permutation;
     lean_assert(p.size() == size());
     unsigned i = size();
-    while (i-- > 0) {
-        set_val(i, p[clone[i]]); // we have m(P)*m(Q) = m(QP), where m is the matrix of the permutation
-    }
-    delete [] clone;
+    while (i-- > 0)
+        set_val(i, p[m_work_array[i]]); // we have m(P)*m(Q) = m(QP), where m is the matrix of the permutation
+    
 }
 
 template <typename T, typename X> void permutation_matrix<T, X>::multiply_by_reverse_from_right(permutation_matrix<T, X> & q){ // todo : condensed permutations ?
-    auto clone = clone_m_permutation();
+    m_work_array = m_permutation;
     // the result is this = this*q(-1)
     unsigned i = size();
     while (i-- > 0) {
-        set_val(i, q.m_rev[clone[i]]); // we have m(P)*m(Q) = m(QP), where m is the matrix of the permutation
+        set_val(i, q.m_rev[m_work_array[i]]); // we have m(P)*m(Q) = m(QP), where m is the matrix of the permutation
     }
-    delete [] clone;
 }
 
 template <typename T, typename X> void permutation_matrix<T, X>::multiply_by_permutation_reverse_from_left(permutation_matrix<T, X> & r){ // todo : condensed permutations?
     // the result is this = r(-1)*this
-    auto clone = clone_m_permutation();
+    m_work_array = m_permutation;
     // the result is this = this*q(-1)
     unsigned i = size();
     while (i-- > 0) {
-        set_val(i, clone[r.m_rev[i]]);
+        set_val(i, m_work_array[r.m_rev[i]]);
     }
-    delete [] clone;
 }
 
 

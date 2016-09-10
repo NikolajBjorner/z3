@@ -67,13 +67,14 @@ public:
     }
 
     void apply_from_right(std::vector<T> & w);
+    void apply_from_right(indexed_vector<T> & w);
 
     T get_elem(unsigned i, unsigned j) const;
 #ifdef LEAN_DEBUG
     unsigned row_count() const { return m_length; }
     unsigned column_count() const { return m_length; }
-    void set_number_of_rows(unsigned /*m*/) { }
-    void set_number_of_columns(unsigned /*n*/) { }
+    void set_number_of_rows(unsigned m) { m_length = m; }
+    void set_number_of_columns(unsigned n) { m_length = n; }
 #endif
     void divide_by_diagonal_element() {
         m_column_vector.divide(m_diagonal_element);

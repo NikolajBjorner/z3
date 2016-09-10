@@ -14,7 +14,7 @@
 #include "util/lp/permutation_matrix.h"
 namespace lean {
     // This is the sum of a unit matrix and a lower triangular matrix
-    // with non-zero elements only in one column
+    // with non-zero elements only in one row
 template <typename T, typename X>
 class row_eta_matrix
         : public tail_matrix<T, X> {
@@ -67,8 +67,8 @@ public:
     T get_elem(unsigned row, unsigned col) const;
     unsigned row_count() const { return m_dimension; }
     unsigned column_count() const { return m_dimension; }
-    void set_number_of_rows(unsigned /*m*/) { }
-    void set_number_of_columns(unsigned /*n*/) { }
+    void set_number_of_rows(unsigned m) { m_dimension = m; }
+    void set_number_of_columns(unsigned n) { m_dimension = n; }
 #endif
 }; // end of row_eta_matrix
 }

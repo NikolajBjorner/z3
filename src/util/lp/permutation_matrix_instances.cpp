@@ -55,3 +55,6 @@ template lean::permutation_matrix<double, double>::permutation_matrix(unsigned i
 template void lean::permutation_matrix<double, double>::apply_reverse_from_left_to_X(std::vector<double, class std::allocator<double> > &);
 template void  lean::permutation_matrix< lean::mpq, lean::mpq>::apply_reverse_from_left_to_X(std::vector<lean::mpq, std::allocator<lean::mpq> > &);
 template void lean::permutation_matrix< lean::mpq, lean::numeric_pair< lean::mpq> >::apply_reverse_from_left_to_X(std::vector<lean::numeric_pair< lean::mpq>, std::allocator< lean::numeric_pair< lean::mpq> > > &);
+template void lean::permutation_matrix<double, double>::apply_reverse_from_right_to_T(lean::indexed_vector<double>&);
+template void lean::permutation_matrix<lean::mpq, lean::mpq>::apply_reverse_from_right_to_T(lean::indexed_vector<lean::mpq>&);
+template void lean::permutation_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::apply_reverse_from_right_to_T(lean::indexed_vector<lean::mpq>&);

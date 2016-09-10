@@ -249,6 +249,10 @@ public:
     // the matrix here has to be upper triangular
     void solve_y_U(std::vector<T> & y) const;
 
+    // solving x * this = y, and putting the answer into y
+    // the matrix here has to be upper triangular
+    void solve_y_U_indexed(indexed_vector<T> & y, const lp_settings &);
+
     // fills the indices for such that y[i] can be not a zero
     // sort them so the smaller indices come first
     void fill_reachable_indices(std::set<unsigned> & rset, T *y);
@@ -383,7 +387,25 @@ public:
     void check_matrix();
 #endif
     void create_graph_G(const std::vector<unsigned> & active_rows, std::vector<unsigned> & sorted_active_rows);
-    void process_column_recursively(unsigned i, std::vector<unsigned>  & sorted_rows);
+    void process_column_recursively(unsigned i, std::vector<unsigned>  & sorted_rows);    
+    void extend_and_sort_active_rows(const std::vector<unsigned> & active_rows, std::vector<unsigned> & sorted_active_rows);
+    void process_index_recursively_for_y_U(unsigned j, std::vector<unsigned>  & sorted_rows);
+    void resize(unsigned new_dim) {
+        unsigned old_dim = dimension();
+        lean_assert(new_dim >= old_dim);
+        for (unsigned j = old_dim; j < new_dim; j++) {
+            m_rows.push_back(std::vector<indexed_value<T>>());
+            m_columns.push_back(col_header());
+        }
+        m_pivot_queue.resize(new_dim);
+        m_row_permutation.resize(new_dim);
+        m_column_permutation.resize(new_dim);
+        m_work_pivot_vector.resize(new_dim);
+        m_processed.resize(new_dim);
+        for (unsigned j = old_dim; j < new_dim; j++) {
+            add_new_element(j, j, numeric_traits<T>::one());
+        }
+    }
 };
 };
 

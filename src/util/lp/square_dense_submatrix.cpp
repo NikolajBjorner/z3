@@ -209,7 +209,7 @@ void square_dense_submatrix<T, X>::apply_from_left_local(indexed_vector<L> & w, 
     std::vector<L> t(m_parent->dimension(), zero_of_type<L>());
     for (auto k : w.m_index) {
         unsigned j = adjust_column(k); // k-th element will contribute only to column j
-        if (j < m_index_start) {
+        if (j < m_index_start || j >= this->m_index_start +  this->m_dim) { // it is a unit matrix outside 
             t[adjust_row_inverse(j)] = w[k];
         } else {
             const L & v = w[k];
@@ -316,14 +316,17 @@ template <typename T, typename X>    void square_dense_submatrix<T, X>::apply_fr
     // deb.apply_from_right(deb_w);
 #endif
     std::vector<T> t(w.size());
+
     for (unsigned j = 0; j < m_index_start; j++) {
         t[adjust_column_inverse(j)] = w[adjust_row_inverse(j)];
     }
-    for (unsigned j = m_index_start; j < m_parent->dimension(); j++) {
-        t[adjust_column_inverse(j)] = column_by_vector_product(j, w);
+    unsigned end = m_index_start + m_dim;
+    for (unsigned j = end; j < m_parent->dimension(); j++) {
+        t[adjust_column_inverse(j)] = w[adjust_row_inverse(j)];
     }
-    //                std::copy(t.begin(), t.end(), w); // does not compile
-    lean_assert(w.size() == t.size());
+    for (unsigned j = m_index_start; j < end; j++) {
+         t[adjust_column_inverse(j)] = column_by_vector_product(j, w);
+    }
     w = t;
 #ifdef LEAN_DEBUG
     //  lean_assert(vector_are_equal<T>(deb_w, w));
