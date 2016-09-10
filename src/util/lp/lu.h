@@ -117,6 +117,7 @@ public:
     bool m_failure = false;
     indexed_vector<T> m_row_eta_work_vector;
     indexed_vector<T> m_w_for_extension;
+    indexed_vector<T> m_y_copy;
     unsigned m_refactor_counter = 0;
     // constructor
     // if A is an m by n matrix then basis has length m and values in [0,n); the values are all different
@@ -149,7 +150,7 @@ public:
 
     void  solve_yB_indexed(indexed_vector<T>& y);
 
-    void add_delta_to_solution_indexed(const indexed_vector<T>& yc, indexed_vector<T>& y);
+    void add_delta_to_solution_indexed(indexed_vector<T>& y);
 
     void add_delta_to_solution(const std::vector<T>& yc, std::vector<T>& y);
 
@@ -157,13 +158,13 @@ public:
     void find_error_of_yB(std::vector<T>& yc, const std::vector<T>& y,
                           const std::vector<unsigned>& basis);
 
-    void find_error_of_yB_indexed(indexed_vector<T>& yc, const indexed_vector<T>& y,
-                                  const std::vector<unsigned>& basis, const lp_settings& settings);
+    void find_error_of_yB_indexed(const indexed_vector<T>& y,
+                                  const std::vector<int>& heading, const lp_settings& settings);
 
     
     void solve_yB_with_error_check(std::vector<T> & y, const std::vector<unsigned>& basis);
 
-    void solve_yB_with_error_check_indexed(indexed_vector<T> & y, const std::vector<unsigned>& basis, const lp_settings &);
+    void solve_yB_with_error_check_indexed(indexed_vector<T> & y, const std::vector<int>& heading, const lp_settings &);
 
     void apply_Q_R_to_U(permutation_matrix<T, X> & r_wave);
 
@@ -314,6 +315,18 @@ public:
     void replace_column_with_only_change_at_last_rows(unsigned j, unsigned column_to_change_in_U) {
         init_vector_w(j, m_w_for_extension);
         replace_column(zero_of_type<T>(), m_w_for_extension, column_to_change_in_U);
+    }
+
+    void clean_indexed_vector(indexed_vector<T> & y, const lp_settings & settings) const {
+        for (unsigned k = 0; k < y.m_index.size(); k++) {
+            unsigned i = y.m_index[k];
+            T & v = y.m_data[i];
+            if (settings.abs_val_is_smaller_than_drop_tolerance(v)) {
+                v = zero_of_type<T>();
+                y.m_index.erase(y.m_index.begin() + k--);
+            }
+        }
+
     }
     
 }; // end of lu

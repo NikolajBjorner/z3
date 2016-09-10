@@ -253,7 +253,6 @@ void lu<T, X>::solve_By_for_T_indexed_only(indexed_vector<T> & y, const lp_setti
     }
 }
 
-
 template <typename T, typename X>
 void lu<T, X>::print_matrix_compact(std::ostream & f) {
     f << "matrix_start" << std::endl;
@@ -262,7 +261,7 @@ void lu<T, X>::print_matrix_compact(std::ostream & f) {
     for (unsigned i = 0; i < m_A.row_count(); i++) {
         auto & row = m_A.m_rows[i];
         f << "row " << i << std::endl;
-        for (auto & t : row.m_cells) {
+        for (auto & t : row) {
             f << "column " << t.m_j << " value " << t.m_value << std::endl;
         }
         f << "row_end" << std::endl;
@@ -345,21 +344,26 @@ void lu<T, X>::add_delta_to_solution(const std::vector<T>& yc, std::vector<T>& y
 }
 
 template <typename T, typename X>
-void lu<T, X>::add_delta_to_solution_indexed(const indexed_vector<T>& yc, indexed_vector<T>& y){
+void lu<T, X>::add_delta_to_solution_indexed(indexed_vector<T>& y) { // the delta sits in m_y_copy
     // todo ( create indexed version later)
-    unsigned i = static_cast<unsigned>(y.m_data.size());
-    y.m_index.clear();
-    while (i--) {
-        auto & v = y.m_data[i] +=yc[i];
+    lean_assert(y.is_OK());
+    for (unsigned i : m_y_copy.m_index) {
+        auto & v = y.m_data[i];
+        bool was_zero = numeric_traits<T>::is_zero(v);
+        v += m_y_copy[i];
       
-        if (!numeric_traits<T>::is_zero(v)) {
+        if (was_zero) {
             if (!lp_settings::is_eps_small_general(v, 1e-14))
                 y.m_index.push_back(i);
             else {
                 v = zero_of_type<T>();
             }
+        } else if (lp_settings::is_eps_small_general(v, 1e-14)) {
+            v = zero_of_type<T>();
+            y.erase_from_index(i);
         }
     }
+    lean_assert(y.is_OK());
 }
 
 template <typename T, typename X>
@@ -371,18 +375,54 @@ void lu<T, X>::find_error_of_yB(std::vector<T>& yc, const std::vector<T>& y, con
 }
 
 template <typename T, typename X>
-void lu<T, X>::find_error_of_yB_indexed(indexed_vector<T>& yc, const indexed_vector<T>& y, const std::vector<unsigned>& m_basis, const lp_settings& settings) {
-    // todo (create an indexed version)!!!!
+void lu<T, X>::find_error_of_yB_indexed(const indexed_vector<T>& y, const std::vector<int>& heading, const lp_settings& settings) {
+#if 0 == 1
+    // it is a non efficient version
+    indexed_vector<T> yc = m_y_copy;
     yc.m_index.clear();
     lean_assert(!numeric_traits<T>::precise());
-    unsigned i = m_dim;
-    while (i--) {
-        T & v = yc.m_data[i] -= m_A.dot_product_with_column(y.m_data, m_basis[i]);
-        if (settings.abs_val_is_smaller_than_drop_tolerance(v))
-            v = zero_of_type<T>();
-        else
-            yc.m_index.push_back(i);
+    {
+
+        std::vector<unsigned> d_basis(y.m_data.size());
+        for (unsigned j = 0; j < heading.size(); j++) {
+            if (heading[j] >= 0) {
+                d_basis[heading[j]] = j;
+            }
+        }
+        
+        
+        unsigned i = m_dim;
+        while (i--) {
+            T & v = yc.m_data[i] -= m_A.dot_product_with_column(y.m_data, d_basis[i]);
+            if (settings.abs_val_is_smaller_than_drop_tolerance(v))
+                v = zero_of_type<T>();
+            else
+                yc.m_index.push_back(i);
+        }
     }
+#endif
+
+    // working with m_y_copy
+    for (auto k : y.m_index) {
+        auto & row = m_A.m_rows[k];
+        const T & y_k = y.m_data[k];
+        for (auto & c : row) {
+            unsigned j = c.m_j;
+            int hj = heading[j];
+            if (hj < 0) continue;
+            bool new_for_index = numeric_traits<T>::is_zero(m_y_copy[hj]);
+            m_y_copy.m_data[hj] -= c.get_val() * y_k;
+            if (new_for_index)
+                m_y_copy.m_index.push_back(hj);
+        }
+    }
+    // now clean up m_y_copy.index
+
+    clean_indexed_vector(m_y_copy, settings);
+#if 0==1    
+    lean_assert(m_y_copy.is_OK());
+    lean_assert(vectors_are_equal(m_y_copy.m_data, yc.m_data));
+#endif
 }
 
 
@@ -391,16 +431,16 @@ void lu<T, X>::find_error_of_yB_indexed(indexed_vector<T>& yc, const indexed_vec
 // solves y*B = y
 // y is the input
 template <typename T, typename X>
-void lu<T, X>::solve_yB_with_error_check_indexed(indexed_vector<T> & y, const std::vector<unsigned>& basis, const lp_settings & settings) {
+void lu<T, X>::solve_yB_with_error_check_indexed(indexed_vector<T> & y, const std::vector<int>& heading, const lp_settings & settings) {
     if (numeric_traits<T>::precise()) {
         solve_yB_indexed(y);
         return;
     }
-    indexed_vector<T> yc(y); // copy y aside (todo, keep yc as a member too)
+    m_y_copy = y;
     solve_yB_indexed(y);
-    find_error_of_yB_indexed(yc, y, basis, settings);
-    solve_yB_indexed(yc);
-    add_delta_to_solution_indexed(yc, y);
+    find_error_of_yB_indexed(y, heading, settings); // this works with m_y_copy
+    solve_yB_indexed(m_y_copy);
+    add_delta_to_solution_indexed(y);
 }
 
 

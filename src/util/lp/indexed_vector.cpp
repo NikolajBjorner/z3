@@ -41,7 +41,6 @@ void print_vector(const std::vector<mpq> & t, std::ostream & out) {
 template <typename T>
 void indexed_vector<T>::resize(unsigned data_size) {
     clear();
-    m_index.clear();
     m_data.resize(data_size, numeric_traits<T>::zero());
     lean_assert(is_OK());
 }
