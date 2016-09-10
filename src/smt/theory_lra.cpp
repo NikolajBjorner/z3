@@ -84,6 +84,7 @@ namespace lp {
         unsigned m_bounds_propagations;
         unsigned m_num_iterations;
         unsigned m_num_iterations_with_no_progress;
+        unsigned m_num_factorizations;
         stats() { reset(); }
         void reset() {
             memset(this, 0, sizeof(*this));
@@ -1085,35 +1086,11 @@ namespace smt {
             return false;
         }
 
-
-        void profile_solver() {
-            for (unsigned i = 0; i < 100; ++i) {
-                init_solver();
-                for (unsigned i = 0; i < m_asserted_atoms.size(); ++i) {
-                    bool_var bv = m_asserted_atoms[i].m_bv;
-                    assert_bound(bv, m_asserted_atoms[i].m_is_true, *m_bool_var2bound.find(bv));
-                }
-                for (unsigned i = 0; i < m_delayed_terms.size(); ++i) {
-                    internalize_def(m_delayed_terms[i].get());
-                }
-                for (unsigned i = 0; i < m_delayed_defs.size(); ++i) {
-                    delayed_def const& dd = m_delayed_defs[i];
-                    internalize_eq(dd);
-                }
-                for (unsigned i = 0; i < m_delayed_equalities.size(); ++i) {
-                    std::pair<theory_var, theory_var> const& eq = m_delayed_equalities[i];
-                    internalize_eq(eq.first, eq.second);
-                }
-                make_feasible();
-            }
-        }
-
         bool has_delayed_constraints() const {
             return !(m_asserted_atoms.empty() && m_delayed_terms.empty() && m_delayed_equalities.empty());
         }
 
         final_check_status final_check_eh() {
-            //profile_solver();
             lbool is_sat = l_true;
             if (m_delay_constraints) {
                 init_solver();
@@ -1249,7 +1226,6 @@ namespace smt {
             }
         }
 
-
         // for glb lo': lo' < lo:
         //   lo <= x -> lo' <= x 
         //   lo <= x -> ~(x <= lo')
@@ -1313,6 +1289,9 @@ namespace smt {
         }
 
         void assert_bound(bool_var bv, bool is_true, lp::bound& b) {
+            if (m_solver->get_status() == lean::lp_status::INFEASIBLE) {
+                return;
+            }
             scoped_internalize_state st(*this);
             st.vars().push_back(b.get_var());
             st.coeffs().push_back(rational::one());
@@ -1332,8 +1311,28 @@ namespace smt {
             else {
                 ++m_stats.m_assert_upper;
             }
-            add_ineq_constraint(m_solver->add_var_bound(get_var_index(b.get_var()), k, b.get_value()), literal(bv, !is_true));
-            // add_ineq_constraint(m_solver->add_constraint(m_left_side, k, b.get_value()), literal(bv, !is_true));
+            auto vi = get_var_index(b.get_var());
+            add_ineq_constraint(m_solver->add_var_bound(vi, k, b.get_value()), literal(bv, !is_true));
+
+#if 0
+            std::cout << vi << " " << k << " " << b.get_value() << "\n";
+            if (k == lean::GE) {
+                rational bound;
+                lean::constraint_index ci;
+                bool is_strict;
+                if (m_solver->has_lower_bound(vi, ci, bound, is_strict) && !is_strict && bound == b.get_value()) {
+                    std::cout << "has bound " << bound << "\n";
+                }
+            }
+            else if (k == lean::LE) {
+                rational bound;
+                lean::constraint_index ci;
+                bool is_strict;
+                if (m_solver->has_lower_bound(vi, ci, bound, is_strict) && !is_strict && bound == b.get_value()) {
+                    std::cout << "has bound " << bound << "\n";
+                }
+            }
+#endif
         }
 
         lbool make_feasible() {
@@ -1344,8 +1343,10 @@ namespace smt {
             lean::lp_status status = m_solver->solve();
             sw.stop();
             m_stats.m_num_iterations = m_solver->settings().st().m_total_iterations;
+            m_stats.m_num_factorizations = m_solver->settings().st().m_num_factorizations;
+
             if (m_print_counter++ % 1000 == 0)
-                std::cout << status << " " << sw.get_seconds() << " " << m_stats.m_num_iterations << "\n";
+                std::cout << status << " " << sw.get_seconds() << " " << m_stats.m_num_iterations << " " << m_print_counter << "\n";
             //m_stats.m_num_iterations_with_no_progress += m_solver->settings().st().m_iters_with_no_cost_growing;
 
             switch (status) {
@@ -1504,6 +1505,7 @@ namespace smt {
             st.update("arith-rows", m_stats.m_add_rows);
             st.update("arith-propagations", m_stats.m_bounds_propagations);
             st.update("arith-iterations", m_stats.m_num_iterations);
+            st.update("arith-factorizations", m_stats.m_num_factorizations);
             st.update("arith-plateau-iterations", m_stats.m_num_iterations_with_no_progress);
         }        
     };

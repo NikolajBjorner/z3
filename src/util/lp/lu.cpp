@@ -132,6 +132,7 @@ lu<T, X>::lu(static_matrix<T, X> const & A,
 #ifdef LEAN_DEBUG
     debug_test_of_basis(A, basis);
 #endif
+    ++m_settings.st().m_num_factorizations;
     create_initial_factorization();
     if (get_status() != LU_status::OK) {
         if (get_status() == LU_status::Degenerated) {

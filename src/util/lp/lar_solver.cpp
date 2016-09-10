@@ -517,6 +517,46 @@ void lar_solver::find_solution_signature_with_doubles(lar_solution_signature & s
     extract_signature_from_lp_core_solver(core_solver, signature);
 }
 
+    bool lar_solver::has_lower_bound(var_index var, constraint_index& ci, mpq& value, bool& is_strict) {
+
+        if (var >= m_vec_of_canonic_left_sides().size()) {
+            // TBD: bounds on terms could also be used, caller may have to track these.
+            return false;
+        }
+        const canonic_left_side & ls = m_vec_of_canonic_left_sides()[var];
+        const ul_pair & ul = m_map_of_canonic_left_sides_to_ul_pairs[ls];
+        ci = ul.m_low_bound_witness;
+        if (ci != static_cast<constraint_index>(-1)) {
+            auto& p = m_low_bounds()[var];
+            value = p.x;
+            is_strict = p.y.is_pos();
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+    
+    bool lar_solver::has_upper_bound(var_index var, constraint_index& ci, mpq& value, bool& is_strict) {
+
+        if (var >= m_vec_of_canonic_left_sides().size()) {
+            // TBD: bounds on terms could also be used, caller may have to track these.
+            return false;
+        }
+        const canonic_left_side & ls = m_vec_of_canonic_left_sides()[var];
+        const ul_pair & ul = m_map_of_canonic_left_sides_to_ul_pairs[ls];
+        ci = ul.m_upper_bound_witness;
+        if (ci != static_cast<constraint_index>(-1)) {
+            auto& p = m_upper_bounds()[var];
+            value = p.x;
+            is_strict = p.y.is_neg();
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
 template <typename U, typename V>
 void lar_solver::extract_signature_from_lp_core_solver(lp_primal_core_solver<U, V> & core_solver, lar_solution_signature & signature) {
     for (auto j : core_solver.m_non_basic_columns)
