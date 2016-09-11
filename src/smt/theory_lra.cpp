@@ -1330,7 +1330,14 @@ namespace smt {
         // Then the equality v1 == v2 is propagated to the core.
         // 
 
-        bool propagate_eqs() const { return m_params.m_arith_propagate_eqs && m_num_conflicts < m_params.m_arith_propagation_threshold; }
+        typedef std::pair<lean::constraint_index, rational> constraint_bound;
+        vector<constraint_bound>        m_lower_terms;
+        vector<constraint_bound>        m_upper_terms;
+        typedef std::pair<rational, bool> value_sort_pair;
+        typedef pair_hash<obj_hash<rational>, bool_hash> value_sort_pair_hash;
+        typedef map<value_sort_pair, theory_var, value_sort_pair_hash, default_eq<value_sort_pair> > value2var;
+        value2var               m_fixed_var_table;
+        const lean::constraint_index null_index = static_cast<lean::constraint_index>(-1);
 
         void propagate_eqs(lean::var_index vi, lean::constraint_index ci, lean::lconstraint_kind k, lp::bound& b) {
             if (propagate_eqs()) {
@@ -1350,23 +1357,11 @@ namespace smt {
             }
         }
 
-        typedef std::pair<lean::constraint_index, rational> constraint_bound;
-        vector<constraint_bound>        m_lower_terms;
-        vector<constraint_bound>        m_upper_terms;
-        typedef std::pair<rational, bool> value_sort_pair;
-        typedef pair_hash<obj_hash<rational>, bool_hash> value_sort_pair_hash;
-        typedef map<value_sort_pair, theory_var, value_sort_pair_hash, default_eq<value_sort_pair> > value2var;
-        value2var               m_fixed_var_table;
+        bool propagate_eqs() const { return m_params.m_arith_propagate_eqs && m_num_conflicts < m_params.m_arith_propagation_threshold; }
 
-        const lean::constraint_index null_index = static_cast<lean::constraint_index>(-1);
+        void set_upper_bound(lean::var_index vi, lean::constraint_index ci, rational const& v) { set_bound(vi, ci, v, false);  }
 
-        void set_upper_bound(lean::var_index vi, lean::constraint_index ci, rational const& v) {
-            set_bound(vi, ci, v, false);
-        }
-
-        void set_lower_bound(lean::var_index vi, lean::constraint_index ci, rational const& v) {
-            set_bound(vi, ci, v, true);
-        }
+        void set_lower_bound(lean::var_index vi, lean::constraint_index ci, rational const& v) { set_bound(vi, ci, v, true);   }
 
         void set_bound(lean::var_index vi, lean::constraint_index ci, rational const& v, bool is_lower) {
             if (!m_solver->is_term(vi)) {
@@ -1386,13 +1381,9 @@ namespace smt {
             }
         }
 
-        bool has_upper_bound(lean::var_index vi, lean::constraint_index& ci, rational const& bound) {
-            return has_bound(vi, ci, bound, false);
-        }
+        bool has_upper_bound(lean::var_index vi, lean::constraint_index& ci, rational const& bound) { return has_bound(vi, ci, bound, false); }
 
-        bool has_lower_bound(lean::var_index vi, lean::constraint_index& ci, rational const& bound) {
-            return has_bound(vi, ci, bound, true);
-        }
+        bool has_lower_bound(lean::var_index vi, lean::constraint_index& ci, rational const& bound) { return has_bound(vi, ci, bound, true); }
        
         bool has_bound(lean::var_index vi, lean::constraint_index& ci, rational const& bound, bool is_lower) {
             if (m_solver->is_term(vi)) {
