@@ -1316,14 +1316,25 @@ namespace smt {
             else {
                 ++m_stats.m_assert_upper;
             }
-            rational const& value = b.get_value();
             auto vi = get_var_index(b.get_var());
-            auto ci = m_solver->add_var_bound(vi, k, value);
+            auto ci = m_solver->add_var_bound(vi, k, b.get_value());
             add_ineq_constraint(ci, literal(bv, !is_true));
 
-#if 1
+            propagate_eqs(vi, ci, k, b);
+        }
+
+        //
+        // fixed equalities.
+        // A fixed equality is inferred if there are two variables v1, v2 whose
+        // upper and lower bounds coincide.
+        // Then the equality v1 == v2 is propagated to the core.
+        // 
+
+        bool propagate_eqs() const { return m_params.m_arith_propagate_eqs && m_num_conflicts < m_params.m_arith_propagation_threshold; }
+
+        void propagate_eqs(lean::var_index vi, lean::constraint_index ci, lean::lconstraint_kind k, lp::bound& b) {
             if (propagate_eqs()) {
-                
+                rational const& value = b.get_value();
                 if (k == lean::GE) {
                     set_lower_bound(vi, ci, value);
                     if (has_upper_bound(vi, ci, value)) {
@@ -1337,17 +1348,7 @@ namespace smt {
                     }
                 }
             }
-#endif
         }
-
-        //
-        // fixed equalities.
-        // A fixed equality is inferred if there are two variables v1, v2 whose
-        // upper and lower bounds coincide.
-        // Then the equality v1 == v2 is propagated to the core.
-        // 
-
-        bool propagate_eqs() const { return m_params.m_arith_propagate_eqs && m_num_conflicts < m_params.m_arith_propagation_threshold; }
 
         typedef std::pair<lean::constraint_index, rational> constraint_bound;
         vector<constraint_bound>        m_lower_terms;
