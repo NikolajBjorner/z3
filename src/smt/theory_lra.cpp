@@ -85,6 +85,7 @@ namespace lp {
         unsigned m_num_iterations;
         unsigned m_num_iterations_with_no_progress;
         unsigned m_num_factorizations;
+        unsigned m_fixed_eqs;
         stats() { reset(); }
         void reset() {
             memset(this, 0, sizeof(*this));
@@ -228,6 +229,8 @@ namespace smt {
 
         svector<std::pair<theory_var, theory_var> >       m_assume_eq_candidates; 
         unsigned                                          m_assume_eq_head;
+
+        unsigned               m_num_conflicts;
 
 
         struct var_value_eq {
@@ -643,6 +646,7 @@ namespace smt {
             m_not_handled(0),
             m_asserted_qhead(0), 
             m_assume_eq_head(0),
+            m_num_conflicts(0),
             m_model_eqs(DEFAULT_HASHTABLE_INITIAL_CAPACITY, var_value_hash(*this), var_value_eq(*this)),
             m_resource_limit(*this) {
             init_solver();
@@ -966,6 +970,7 @@ namespace smt {
 
         void init_search_eh() {
             m_arith_eq_adapter.init_search_eh();
+            m_num_conflicts = 0;
         }
 
 
@@ -1311,29 +1316,149 @@ namespace smt {
             else {
                 ++m_stats.m_assert_upper;
             }
+            rational const& value = b.get_value();
             auto vi = get_var_index(b.get_var());
-            add_ineq_constraint(m_solver->add_var_bound(vi, k, b.get_value()), literal(bv, !is_true));
+            auto ci = m_solver->add_var_bound(vi, k, value);
+            add_ineq_constraint(ci, literal(bv, !is_true));
 
-#if 0
-            std::cout << vi << " " << k << " " << b.get_value() << "\n";
-            if (k == lean::GE) {
-                rational bound;
-                lean::constraint_index ci;
-                bool is_strict;
-                if (m_solver->has_lower_bound(vi, ci, bound, is_strict) && !is_strict && bound == b.get_value()) {
-                    std::cout << "has bound " << bound << "\n";
+#if 1
+            if (propagate_eqs()) {
+                
+                if (k == lean::GE) {
+                    set_lower_bound(vi, ci, value);
+                    if (has_upper_bound(vi, ci, value)) {
+                        fixed_var_eh(b.get_var(), value);
+                    }
                 }
-            }
-            else if (k == lean::LE) {
-                rational bound;
-                lean::constraint_index ci;
-                bool is_strict;
-                if (m_solver->has_lower_bound(vi, ci, bound, is_strict) && !is_strict && bound == b.get_value()) {
-                    std::cout << "has bound " << bound << "\n";
+                else if (k == lean::LE) {
+                    set_upper_bound(vi, ci, value);
+                    if (has_lower_bound(vi, ci, value)) {
+                        fixed_var_eh(b.get_var(), value);
+                    }
                 }
             }
 #endif
         }
+
+        //
+        // fixed equalities.
+        // A fixed equality is inferred if there are two variables v1, v2 whose
+        // upper and lower bounds coincide.
+        // Then the equality v1 == v2 is propagated to the core.
+        // 
+
+        bool propagate_eqs() const { return m_params.m_arith_propagate_eqs && m_num_conflicts < m_params.m_arith_propagation_threshold; }
+
+        typedef std::pair<lean::constraint_index, rational> constraint_bound;
+        vector<constraint_bound>        m_lower_terms;
+        vector<constraint_bound>        m_upper_terms;
+        typedef std::pair<rational, bool> value_sort_pair;
+        typedef pair_hash<obj_hash<rational>, bool_hash> value_sort_pair_hash;
+        typedef map<value_sort_pair, theory_var, value_sort_pair_hash, default_eq<value_sort_pair> > value2var;
+        value2var               m_fixed_var_table;
+
+        const lean::constraint_index null_index = static_cast<lean::constraint_index>(-1);
+
+        void set_upper_bound(lean::var_index vi, lean::constraint_index ci, rational const& v) {
+            set_bound(vi, ci, v, false);
+        }
+
+        void set_lower_bound(lean::var_index vi, lean::constraint_index ci, rational const& v) {
+            set_bound(vi, ci, v, true);
+        }
+
+        void set_bound(lean::var_index vi, lean::constraint_index ci, rational const& v, bool is_lower) {
+            if (!m_solver->is_term(vi)) {
+                // m_solver already tracks bounds on proper variables, but not on terms.
+                return;
+            }
+            lean::var_index ti = m_solver->adjust_term_index(vi);
+            auto& vec = is_lower ? m_lower_terms : m_upper_terms;
+            if (vec.size() <= ti) {
+                vec.resize(ti + 1, constraint_bound(null_index, rational()));
+            }
+            constraint_bound& b = vec[ti];
+            if (b.first == null_index || (is_lower? b.second < v : b.second > v)) {
+                ctx().push_trail(vector_value_trail<context, constraint_bound>(vec, ti));
+                b.first = ci;
+                b.second = v;
+            }
+        }
+
+        bool has_upper_bound(lean::var_index vi, lean::constraint_index& ci, rational const& bound) {
+            return has_bound(vi, ci, bound, false);
+        }
+
+        bool has_lower_bound(lean::var_index vi, lean::constraint_index& ci, rational const& bound) {
+            return has_bound(vi, ci, bound, true);
+        }
+       
+        bool has_bound(lean::var_index vi, lean::constraint_index& ci, rational const& bound, bool is_lower) {
+            if (m_solver->is_term(vi)) {
+                lean::var_index ti = m_solver->adjust_term_index(vi);
+                auto& vec = is_lower ? m_lower_terms : m_upper_terms;
+                if (vec.size() > ti) {
+                    constraint_bound& b = vec[ti];
+                    ci = b.first;
+                    return ci != null_index && bound == b.second;
+                }
+                else {
+                    return false;
+                }
+            }
+            else {
+                bool is_strict = false;
+                rational b;
+                if (is_lower) {
+                    return m_solver->has_lower_bound(vi, ci, b, is_strict) && b == bound && !is_strict;
+                }
+                else {
+                    return m_solver->has_upper_bound(vi, ci, b, is_strict) && b == bound && !is_strict;
+                }
+            }
+        }
+
+        bool is_equal(theory_var x, theory_var y) const { return get_enode(x)->get_root() == get_enode(y)->get_root(); }
+
+        void fixed_var_eh(theory_var v1, rational const& bound) {
+            theory_var v2;
+            value_sort_pair key(bound, is_int(v1));
+            if (m_fixed_var_table.find(key, v2)) {
+                if (static_cast<unsigned>(v2) < th.get_num_vars() && !is_equal(v1, v2)) {
+                    auto vi1 = get_var_index(v1);
+                    auto vi2 = get_var_index(v2);
+                    lean::constraint_index ci1, ci2, ci3, ci4;
+                    if (has_lower_bound(vi2, ci3, bound) && has_upper_bound(vi2, ci4, bound)) {
+                        VERIFY (has_lower_bound(vi1, ci1, bound));
+                        VERIFY (has_upper_bound(vi1, ci2, bound));
+                        ++m_stats.m_fixed_eqs;
+                        TRACE("arith", tout << "fixing v" << v1 << " == v" << v2 << "\n";);
+                        m_core.reset();
+                        m_eqs.reset();
+                        set_evidence(ci1);
+                        set_evidence(ci2);
+                        set_evidence(ci3);
+                        set_evidence(ci4);
+                        enode* x = get_enode(v1);
+                        enode* y = get_enode(v2);
+                        justification* js = 
+                            ctx().mk_justification(
+                                ext_theory_eq_propagation_justification(
+                                    get_id(), ctx().get_region(), m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), x, y, 0, 0));
+                        // parameters are TBD.
+                        ctx().assign_eq(x, y, eq_justification(js));
+                    }
+                    else {
+                        // bounds on v2 were changed.
+                        m_fixed_var_table.insert(key, v1);
+                    }
+                }
+            }
+            else {
+                m_fixed_var_table.insert(key, v1);
+            }
+        }
+
 
         lbool make_feasible() {
             reset_variable_values();
@@ -1345,8 +1470,9 @@ namespace smt {
             m_stats.m_num_iterations = m_solver->settings().st().m_total_iterations;
             m_stats.m_num_factorizations = m_solver->settings().st().m_num_factorizations;
 
-            if (m_print_counter++ % 1000 == 0)
+            if (m_print_counter++ % 1000 == 0) {
                 std::cout << status << " " << sw.get_seconds() << " " << m_stats.m_num_iterations << " " << m_print_counter << "\n";
+            }
             //m_stats.m_num_iterations_with_no_progress += m_solver->settings().st().m_iters_with_no_cost_growing;
 
             switch (status) {
@@ -1370,36 +1496,39 @@ namespace smt {
         literal_vector      m_core;
         svector<enode_pair> m_eqs;
 
+        void set_evidence(lean::constraint_index idx) {
+            switch (m_constraint_sources[idx]) {
+            case inequality_source: {
+                literal lit = m_inequalities[idx];
+                SASSERT(lit != null_literal);
+                    m_core.push_back(lit);
+                    break;
+            }
+            case equality_source: {
+                SASSERT(m_equalities[idx].first  != nullptr);
+                    SASSERT(m_equalities[idx].second != nullptr);
+                    m_eqs.push_back(m_equalities[idx]);          
+                    break;
+            }
+                case definition_source: {
+                    // skip definitions (these are treated as hard constraints)
+                    break;
+                }
+            default:
+                UNREACHABLE();
+            }
+        }
+
         void set_conflict() {
             m_eqs.reset();
             m_core.reset();
             m_evidence.clear();
             m_solver->get_infeasibility_evidence(m_evidence);
+            ++m_num_conflicts;
             TRACE("arith", display_evidence(tout, m_evidence); );
             for (auto const& ev : m_evidence) {
-                if (ev.first.is_zero()) { 
-                    continue;
-                }
-                unsigned idx = ev.second;
-                switch (m_constraint_sources[idx]) {
-                case inequality_source: {
-                    literal lit = m_inequalities[idx];
-                    SASSERT(lit != null_literal);
-                    m_core.push_back(lit);
-                    break;
-                }
-                case equality_source: {
-                    SASSERT(m_equalities[idx].first  != nullptr);
-                    SASSERT(m_equalities[idx].second != nullptr);
-                    m_eqs.push_back(m_equalities[idx]);          
-                    break;
-                }
-                case definition_source: {
-                    // skip definitions (these are treated as hard constraints)
-                    break;
-                }
-                default:
-                    UNREACHABLE();
+                if (!ev.first.is_zero()) { 
+                    set_evidence(ev.second);
                 }
             }
             ctx().set_conflict(
@@ -1507,6 +1636,7 @@ namespace smt {
             st.update("arith-iterations", m_stats.m_num_iterations);
             st.update("arith-factorizations", m_stats.m_num_factorizations);
             st.update("arith-plateau-iterations", m_stats.m_num_iterations_with_no_progress);
+            st.update("arith-fixed-eqs", m_stats.m_fixed_eqs);
         }        
     };
     
