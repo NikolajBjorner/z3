@@ -101,27 +101,6 @@ bool vectors_are_equal(T * a, std::vector<T>  &b, unsigned n) {
     return true;
 }
 
-template <typename T>
-bool vectors_are_equal(const std::vector<T> & a, const buffer<T>  &b) {
-    unsigned n = a.size();
-    if (n != b.size()) return false;
-    if (numeric_traits<T>::precise()) {
-        for (unsigned i = 0; i < n; i ++){
-            if (!numeric_traits<T>::is_zero(a[i] - b[i])) {
-                // std::cout << "a[" << i <<"]" << a[i] << ", " << "b[" << i <<"]" << b[i] << std::endl;
-                return false;
-            }
-        }
-    } else {
-        for (unsigned i = 0; i < n; i ++){
-            if (fabs(numeric_traits<T>::get_double(a[i] - b[i])) > 0.000001) {
-                // std::cout << "a[" << i <<"] = " << a[i] << ", but " << "b[" << i <<"] = " << b[i] << std::endl;
-                return false;
-            }
-        }
-    }
-    return true;
-}
 
 template <typename T>
 bool vectors_are_equal(const std::vector<T> & a, const std::vector<T>  &b) {
@@ -136,7 +115,15 @@ bool vectors_are_equal(const std::vector<T> & a, const std::vector<T>  &b) {
         }
     } else {
         for (unsigned i = 0; i < n; i ++){
-            if (fabs(numeric_traits<T>::get_double(a[i] - b[i])) > 0.000001) {
+            double da = numeric_traits<T>::get_double(a[i]);
+            double db = numeric_traits<T>::get_double(b[i]);
+            double amax = std::max(fabs(da), fabs(db));
+            if (amax > 1) {
+                da /= amax;
+                db /= amax;
+            }
+                
+            if (fabs(da - db) > 0.000001) {
                 // std::cout << "a[" << i <<"] = " << a[i] << ", but " << "b[" << i <<"] = " << b[i] << std::endl;
                 return false;
             }

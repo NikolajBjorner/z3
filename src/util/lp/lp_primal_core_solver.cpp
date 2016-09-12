@@ -402,7 +402,7 @@ template <typename T, typename X>    int lp_primal_core_solver<T, X>::refresh_re
     this->m_d[entering] = refreshed_cost;
     T delta = abs(reduced_at_entering_was - refreshed_cost);
     if (delta * 2 > abs(reduced_at_entering_was)) {
-        this->m_status = UNSTABLE;
+        // this->m_status = UNSTABLE;
         if (reduced_at_entering_was > m_epsilon_of_reduced_cost) {
             if (refreshed_cost <= zero_of_type<T>())
                 return 2; // abort entering
@@ -493,7 +493,8 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
         init_reduced_costs();
         m_forbidden_enterings.insert(entering);
         return;
-    }
+    } 
+    
     if (!is_zero(t)) {
         this->m_iters_with_no_cost_growing = 0;
         set_current_x_is_feasible();
@@ -615,9 +616,9 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
             break;
 
         case UNSTABLE:
-            // m_forbidden_enterings.clear();
             this->init_lu();
             init_reduced_costs();
+            this->m_status = FEASIBLE;
             break;
 
         default:

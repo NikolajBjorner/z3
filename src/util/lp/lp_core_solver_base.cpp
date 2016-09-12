@@ -88,10 +88,10 @@ allocate_basis_heading() { // the rest of initilization will be handled by the f
 }
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 init() {
-    allocate_basis_heading();
-    init_factorization(m_factorization, m_A, m_basis, m_settings);
     unsigned seed = 1;
     my_random_init(&seed);
+    allocate_basis_heading();
+    init_factorization(m_factorization, m_A, m_basis, m_settings);
 }
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::

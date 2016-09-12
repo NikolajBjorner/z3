@@ -344,7 +344,6 @@ void lu<T, X>::add_delta_to_solution(const std::vector<T>& yc, std::vector<T>& y
 
 template <typename T, typename X>
 void lu<T, X>::add_delta_to_solution_indexed(indexed_vector<T>& y) { // the delta sits in m_y_copy
-    // todo ( create indexed version later)
     lean_assert(y.is_OK());
     for (unsigned i : m_y_copy.m_index) {
         auto & v = y.m_data[i];
@@ -401,6 +400,7 @@ void lu<T, X>::find_error_of_yB_indexed(const indexed_vector<T>& y, const std::v
     }
 #endif
 
+    lean_assert(m_y_copy.is_OK());
     // working with m_y_copy
     for (auto k : y.m_index) {
         auto & row = m_A.m_rows[k];
@@ -409,19 +409,11 @@ void lu<T, X>::find_error_of_yB_indexed(const indexed_vector<T>& y, const std::v
             unsigned j = c.m_j;
             int hj = heading[j];
             if (hj < 0) continue;
-            bool new_for_index = numeric_traits<T>::is_zero(m_y_copy[hj]);
-            m_y_copy.m_data[hj] -= c.get_val() * y_k;
-            if (new_for_index)
-                m_y_copy.m_index.push_back(hj);
-        }
+            m_y_copy.add_value_at_index_with_drop_tolerance(hj,- c.get_val() * y_k);        }
     }
-    // now clean up m_y_copy.index
 
-    clean_indexed_vector(m_y_copy, settings);
-#if 0==1    
     lean_assert(m_y_copy.is_OK());
-    lean_assert(vectors_are_equal(m_y_copy.m_data, yc.m_data));
-#endif
+
 }
 
 

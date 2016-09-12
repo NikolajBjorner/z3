@@ -11,6 +11,8 @@
 #include <string>
 #include <iomanip>
 #include "util/lp/lp_utils.h"
+#include "util/lp/lp_settings.h"
+#include <unordered_set>
 namespace lean {
 
 template <typename T> void print_vector(const std::vector<T> & t, std::ostream & out);
@@ -40,6 +42,29 @@ public:
         return *this;
     }
 
+    bool operator==(const indexed_vector<T>& y) const {
+        std::unordered_set<unsigned> y_index;
+        for (unsigned i : y.m_index)
+            y_index.insert(i);
+
+        std::unordered_set<unsigned> this_index;
+        for (unsigned i : m_index)
+            this_index.insert(i);
+
+        for (unsigned i : y.m_index) {
+            if (this_index.find(i) == this_index.end())
+                return false;
+        }
+           
+        for (unsigned i : m_index) {
+            if (y_index.find(i) == y_index.end())
+                return false;
+        }
+
+        return vectors_are_equal(m_data, m_data);
+
+    }
+
     indexed_vector() {}
 
     void resize(unsigned data_size);
@@ -51,7 +76,7 @@ public:
         return m_index.size();
     }
 
-    void set_value(T value, unsigned index);
+    void set_value(const T& value, unsigned index);
     void clear();
     void clear_all();
     const T& operator[] (unsigned i) const {
@@ -62,7 +87,48 @@ public:
         return m_data[i];
     }
 
+    void clean_up() {
+        for (unsigned k = 0; k < m_index.size(); k++) {
+            unsigned i = m_index[k];
+            T & v = m_data[i];
+            if (lp_settings::is_eps_small_general(v, 1e-14)) {
+                v = zero_of_type<T>();
+                m_index.erase(m_index.begin() + k--);
+            }
+        }
+    }
+
+    
     void erase_from_index(unsigned j);
+
+    void add_value_at_index_with_drop_tolerance(unsigned j, const T& val_to_add) {
+        T & v = m_data[j];
+        bool was_zero = is_zero(v);
+        v += val_to_add;
+        if (lp_settings::is_eps_small_general(v, 1e-14)) {
+            v = zero_of_type<T>();
+            if (!was_zero) {
+                erase_from_index(j);
+            }
+        } else {
+            if (was_zero)
+                m_index.push_back(j);
+        }
+    }
+
+    void add_value_at_index(unsigned j, const T& val_to_add) {
+        T & v = m_data[j];
+        bool was_zero = is_zero(v);
+        v += val_to_add;
+        if (is_zero(v)) {
+            if (!was_zero)
+                erase_from_index(j);
+        } else {
+            if (was_zero)
+                m_index.push_back(j);
+        }
+    }
+
 #ifdef LEAN_DEBUG
     bool is_OK() const;
     void print(std::ostream & out);

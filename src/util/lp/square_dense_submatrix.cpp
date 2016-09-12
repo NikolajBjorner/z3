@@ -309,7 +309,7 @@ template <typename T, typename X>    bool square_dense_submatrix<T, X>::is_L_mat
     return true;
 }
 
-template <typename T, typename X>    void square_dense_submatrix<T, X>::apply_from_right(std::vector<T> & w) {
+template <typename T, typename X> void square_dense_submatrix<T, X>::apply_from_right(std::vector<T> & w) {
 #ifdef LEAN_DEBUG
     // dense_matrix<T, X> deb(*this);
     // vector<T>  deb_w(w);
@@ -325,7 +325,7 @@ template <typename T, typename X>    void square_dense_submatrix<T, X>::apply_fr
         t[adjust_column_inverse(j)] = w[adjust_row_inverse(j)];
     }
     for (unsigned j = m_index_start; j < end; j++) {
-         t[adjust_column_inverse(j)] = column_by_vector_product(j, w);
+        t[adjust_column_inverse(j)] = column_by_vector_product(j, w);
     }
     w = t;
 #ifdef LEAN_DEBUG

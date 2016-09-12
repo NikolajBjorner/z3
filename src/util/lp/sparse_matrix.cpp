@@ -518,20 +518,8 @@ void sparse_matrix<T, X>::add_delta_to_solution(const indexed_vector<L>& del, in
 //    lean_assert(del.is_OK());
  //   lean_assert(y.is_OK());
     for (auto i : del.m_index) {
-        bool was_zero = is_zero(y[i]);
-        y[i] += del[i];
-        if (settings.abs_val_is_smaller_than_drop_tolerance(y[i]))
-            y[i] = zero_of_type<L>();
-        else if (was_zero)
-            y.m_index.push_back(i);
+        y.add_value_at_index(i, del[i]);
     }
-    std::vector<unsigned> index_copy(y.m_index);
-    y.m_index.clear();
-    for (auto i : index_copy) {
-        if (!is_zero(y[i]))
-            y.m_index.push_back(i);
-    }
-    lean_assert(y.is_OK());
 }
 template <typename T, typename X>
 template <typename L>

@@ -311,23 +311,12 @@ public:
                 processed_columns.insert(c.m_j);
             }
     }
-    // column j is a basis column, and there is a change in the last row
+    // column j is a basis column, and there is a change in the last rows
     void replace_column_with_only_change_at_last_rows(unsigned j, unsigned column_to_change_in_U) {
         init_vector_w(j, m_w_for_extension);
         replace_column(zero_of_type<T>(), m_w_for_extension, column_to_change_in_U);
     }
 
-    void clean_indexed_vector(indexed_vector<T> & y, const lp_settings & settings) const {
-        for (unsigned k = 0; k < y.m_index.size(); k++) {
-            unsigned i = y.m_index[k];
-            T & v = y.m_data[i];
-            if (settings.abs_val_is_smaller_than_drop_tolerance(v)) {
-                v = zero_of_type<T>();
-                y.m_index.erase(y.m_index.begin() + k--);
-            }
-        }
-
-    }
     
 }; // end of lu
 
