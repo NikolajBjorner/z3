@@ -5,7 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Author: Lev Nachmanson
 */
 #include <limits>
-#if 0
+#if _LINUX_
 #include <dirent.h>
 #endif
 #include <algorithm>
@@ -1403,7 +1403,7 @@ void random_test() {
     }
 }
 
-#if 0
+#if _LINUX_
 void fill_file_names(std::vector<std::string> &file_names,  std::set<string> & minimums) {
     char *home_dir = getenv("HOME");
     if (home_dir == nullptr) {
@@ -2875,7 +2875,7 @@ void test_lp_local(int argn, char**argv) {
     }
     
     if (args_parser.option_is_used("--solve_some_mps")) {
-#if 0
+#if _LINUX_
         solve_some_mps(args_parser);
 #endif
         ret = 0;
