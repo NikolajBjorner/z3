@@ -410,6 +410,9 @@ public:
         m_map_of_canonic_left_sides_to_ul_pairs[cls] = ul;
     }
 
+    bool has_lower_bound(var_index var, constraint_index& ci, mpq& value, bool& is_strict);
+    
+    bool has_upper_bound(var_index var, constraint_index& ci, mpq& value, bool& is_strict);
     
     void update_free_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_ind) {
         mpq y_of_bound(0);
@@ -667,12 +670,12 @@ public:
         mpq y_of_bound(0);
         switch (kind) {
         case LT:
-                if (v <= m_low_bounds[j]) {
-                    m_status = INFEASIBLE;
-                    m_infeasible_canonic_left_side = m_normalized_constraints()[ci].m_canonic_left_side;
-                    set_upper_bound_witness(ci);
-                }                   
-                break;
+            if (v <= m_low_bounds[j]) {
+                m_status = INFEASIBLE;
+                m_infeasible_canonic_left_side = m_normalized_constraints()[ci].m_canonic_left_side;
+                set_upper_bound_witness(ci);
+            }                   
+            break;
         case LE:
             {
                 if (v < m_low_bounds[j]) {

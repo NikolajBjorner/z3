@@ -934,11 +934,13 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::mk_clause(literal l1, literal l2, unsigned num_params, parameter * params) {
+//        TRACE("arith", literal lits[2]; lits[0] = l1; lits[1] = l2; display_literals_verbose(tout, 2, lits););
         get_context().mk_th_axiom(get_id(), l1, l2, num_params, params);
     }
 
     template<typename Ext>
     void theory_arith<Ext>::mk_clause(literal l1, literal l2, literal l3, unsigned num_params, parameter * params) {
+//        TRACE("arith", literal lits[3] = { l1, l2, l3 }; display_literals_verbose(tout, 3, lits););
         get_context().mk_th_axiom(get_id(), l1, l2, l3, num_params, params);
     }
 
@@ -946,7 +948,6 @@ namespace smt {
     void theory_arith<Ext>::mk_bound_axioms(atom * a1) {
         theory_var v = a1->get_var();
         atoms & occs = m_var_occs[v];
-        TRACE("mk_bound_axioms", tout << "add bound axioms for v" << v << " " << a1 << "\n";);
         if (!get_context().is_searching()) {
             //
             // NB. We make an assumption that user push calls propagation 
@@ -1084,7 +1085,7 @@ namespace smt {
                     --i;
                 }
             }            
-            CTRACE("arith", !atoms.empty(),  
+            CTRACE("arith_verbose", !atoms.empty(),  
                   for (unsigned i = 0; i < atoms.size(); ++i) {
                       atoms[i]->display(*this, tout); tout << "\n";
                   });
