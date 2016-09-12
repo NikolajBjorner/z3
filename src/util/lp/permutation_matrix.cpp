@@ -292,6 +292,7 @@ template <typename T, typename X> void permutation_matrix<T, X>::multiply_by_per
 }
 
 template <typename T, typename X> void permutation_matrix<T, X>::multiply_by_reverse_from_right(permutation_matrix<T, X> & q){ // todo : condensed permutations ?
+    lean_assert(q.size() == size());
     m_work_array = m_permutation;
     // the result is this = this*q(-1)
     unsigned i = size();

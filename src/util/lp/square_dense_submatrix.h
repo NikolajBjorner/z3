@@ -82,6 +82,8 @@ public:
         return m_column_permutation[col];
     }
     unsigned adjust_row(unsigned row)  const{
+        if (row >= m_row_permutation.size())
+            return row;
         return m_row_permutation[row];
     }
 
