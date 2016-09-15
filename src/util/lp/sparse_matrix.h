@@ -261,7 +261,7 @@ public:
     void find_error_in_solution_U_y(std::vector<L>& y_orig, std::vector<L> & y);
 
     template <typename L>
-    void find_error_in_solution_U_y_indexed(indexed_vector<L>& y_orig, indexed_vector<L> & y);
+    void find_error_in_solution_U_y_indexed(indexed_vector<L>& y_orig, indexed_vector<L> & y,     const std::vector<unsigned>& sorted_active_rows);
 
     template <typename L>
     void add_delta_to_solution(const std::vector<L>& del, std::vector<L> & y);
@@ -281,7 +281,7 @@ public:
     // solving this * x = y, and putting the answer into y
     // the matrix here has to be upper triangular
     template <typename L>
-    void solve_U_y_indexed_only(indexed_vector<L> & y, const lp_settings& );
+    void solve_U_y_indexed_only(indexed_vector<L> & y, const lp_settings&, std::vector<unsigned> & sorted_active_rows );
 
 #ifdef LEAN_DEBUG
     T get_elem(unsigned i, unsigned j) const { return get(i, j); }

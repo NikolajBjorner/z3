@@ -133,7 +133,9 @@ template <typename T, typename X> void lp_core_solver_base<T, X>::solve_Bd(unsig
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 solve_Bd(unsigned entering) {
+    lean_assert(m_ed.is_OK());
     m_factorization->solve_Bd(entering, m_ed, m_w);
+    lean_assert(m_ed.is_OK());
     lean_assert(m_w.is_OK());
 #ifdef LEAN_DEBUG
     // auto B = get_B(m_factorization);
@@ -282,7 +284,7 @@ calculate_pivot_row_of_B_1(unsigned pivot_row) {
     m_pivot_row_of_B_1.clear();
     m_pivot_row_of_B_1.set_value(numeric_traits<T>::one(), pivot_row);
     lean_assert(m_pivot_row_of_B_1.is_OK());
-    m_factorization->solve_yB_with_error_check_indexed(m_pivot_row_of_B_1, m_basis_heading, m_settings);
+    m_factorization->solve_yB_with_error_check_indexed(m_pivot_row_of_B_1, m_basis_heading, m_basis, m_settings);
     lean_assert(m_pivot_row_of_B_1.is_OK());
 }
 

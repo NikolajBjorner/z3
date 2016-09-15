@@ -70,28 +70,28 @@ template void sparse_matrix<double, double>::double_solve_U_y<double>(indexed_ve
 template void sparse_matrix<mpq, mpq>::double_solve_U_y<mpq>(indexed_vector<mpq>&, const lp_settings&);
 template void sparse_matrix<mpq, numeric_pair<mpq>>::double_solve_U_y<mpq>(indexed_vector<mpq>&, const lp_settings&);
 template void sparse_matrix<mpq, numeric_pair<mpq> >::double_solve_U_y<numeric_pair<mpq> >(indexed_vector<numeric_pair<mpq>>&, const lp_settings&);
-template void lean::sparse_matrix<double, double>::solve_U_y_indexed_only<double>(lean::indexed_vector<double>&, const lp_settings&);
-template void lean::sparse_matrix<lean::mpq, lean::mpq>::solve_U_y_indexed_only<lean::mpq>(lean::indexed_vector<lean::mpq>&, const lp_settings &);
+template void lean::sparse_matrix<double, double>::solve_U_y_indexed_only<double>(lean::indexed_vector<double>&, const lp_settings&, std::vector<unsigned> &);
+template void lean::sparse_matrix<lean::mpq, lean::mpq>::solve_U_y_indexed_only<lean::mpq>(lean::indexed_vector<lean::mpq>&, const lp_settings &, std::vector<unsigned> &);
 #ifdef LEAN_DEBUG
 template bool sparse_matrix<double, double>::is_upper_triangular_and_maximums_are_set_correctly_in_rows(lp_settings&) const;
 template bool sparse_matrix<mpq, mpq>::is_upper_triangular_and_maximums_are_set_correctly_in_rows(lp_settings&) const;
 template bool sparse_matrix<mpq, numeric_pair<mpq> >::is_upper_triangular_and_maximums_are_set_correctly_in_rows(lp_settings&) const;
 #endif
 }
-template void lean::sparse_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::solve_U_y_indexed_only<lean::mpq>(lean::indexed_vector<lean::mpq>&, const lp_settings &);
+template void lean::sparse_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::solve_U_y_indexed_only<lean::mpq>(lean::indexed_vector<lean::mpq>&, const lp_settings &, std::vector<unsigned> &);
 template void lean::sparse_matrix<lean::mpq, lean::mpq>::solve_U_y<lean::mpq>(std::vector<lean::mpq, std::allocator<lean::mpq> >&);
 template void lean::sparse_matrix<lean::mpq, lean::mpq>::double_solve_U_y<lean::mpq>(std::vector<lean::mpq, std::allocator<lean::mpq> >&);
 template void lean::sparse_matrix<double, double>::solve_U_y<double>(std::vector<double, std::allocator<double> >&);
 template void lean::sparse_matrix<double, double>::double_solve_U_y<double>(std::vector<double, std::allocator<double> >&);
 template void lean::sparse_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::solve_U_y<lean::numeric_pair<lean::mpq> >(std::vector<lean::numeric_pair<lean::mpq>, std::allocator<lean::numeric_pair<lean::mpq> > >&);
 template void lean::sparse_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::double_solve_U_y<lean::numeric_pair<lean::mpq> >(std::vector<lean::numeric_pair<lean::mpq>, std::allocator<lean::numeric_pair<lean::mpq> > >&);
-template void lean::sparse_matrix<double, double>::find_error_in_solution_U_y_indexed<double>(lean::indexed_vector<double>&, lean::indexed_vector<double>&);
+template void lean::sparse_matrix<double, double>::find_error_in_solution_U_y_indexed<double>(lean::indexed_vector<double>&, lean::indexed_vector<double>&, const std::vector<unsigned> &);
 template double lean::sparse_matrix<double, double>::dot_product_with_row<double>(unsigned int, lean::indexed_vector<double> const&) const;
-template void lean::sparse_matrix<lean::mpq, lean::mpq>::find_error_in_solution_U_y_indexed<lean::mpq>(lean::indexed_vector<lean::mpq>&, lean::indexed_vector<lean::mpq>&);
+template void lean::sparse_matrix<lean::mpq, lean::mpq>::find_error_in_solution_U_y_indexed<lean::mpq>(lean::indexed_vector<lean::mpq>&, lean::indexed_vector<lean::mpq>&, const std::vector<unsigned> &);
 template lean::mpq lean::sparse_matrix<lean::mpq, lean::mpq>::dot_product_with_row<lean::mpq>(unsigned int, lean::indexed_vector<lean::mpq> const&) const;
-template void lean::sparse_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::find_error_in_solution_U_y_indexed<lean::mpq>(lean::indexed_vector<lean::mpq>&, lean::indexed_vector<lean::mpq>&);
+template void lean::sparse_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::find_error_in_solution_U_y_indexed<lean::mpq>(lean::indexed_vector<lean::mpq>&, lean::indexed_vector<lean::mpq>&, const std::vector<unsigned> &);
 template lean::mpq lean::sparse_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::dot_product_with_row<lean::mpq>(unsigned int, lean::indexed_vector<lean::mpq> const&) const;
-template void lean::sparse_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::find_error_in_solution_U_y_indexed<lean::numeric_pair<lean::mpq> >(lean::indexed_vector<lean::numeric_pair<lean::mpq> >&, lean::indexed_vector<lean::numeric_pair<lean::mpq> >&);
+template void lean::sparse_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::find_error_in_solution_U_y_indexed<lean::numeric_pair<lean::mpq> >(lean::indexed_vector<lean::numeric_pair<lean::mpq> >&, lean::indexed_vector<lean::numeric_pair<lean::mpq> >&, const std::vector<unsigned> &);
 template lean::numeric_pair<lean::mpq> lean::sparse_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::dot_product_with_row<lean::numeric_pair<lean::mpq> >(unsigned int, lean::indexed_vector<lean::numeric_pair<lean::mpq> > const&) const;
 template void lean::sparse_matrix<lean::mpq, lean::mpq>::extend_and_sort_active_rows(std::vector<unsigned int, std::allocator<unsigned int> > const&, std::vector<unsigned int, std::allocator<unsigned int> >&);
 

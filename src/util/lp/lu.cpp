@@ -238,19 +238,13 @@ void lu<T, X>::solve_By_when_y_is_ready_for_T(std::vector<T> & y, std::vector<un
 template <typename T, typename X>
 void lu<T, X>::solve_By_for_T_indexed_only(indexed_vector<T> & y, const lp_settings & settings) {
     if (numeric_traits<T>::precise()) {
-        m_U.solve_U_y_indexed_only(y, settings);
+        std::vector<unsigned> active_rows;
+        m_U.solve_U_y_indexed_only(y, settings, active_rows);
         m_R.apply_reverse_from_left(y); // see 24.3 from Chvatal
         return;
     }
     m_U.double_solve_U_y(y, m_settings);
     m_R.apply_reverse_from_left(y); // see 24.3 from Chvatal
-    unsigned i = m_dim;
-    while (i--) {
-        if (is_zero(y[i])) continue;
-        if (m_settings.abs_val_is_smaller_than_drop_tolerance(y[i])){
-            y[i] = zero_of_type<T>();
-        }
-    }
 }
 
 template <typename T, typename X>
@@ -346,6 +340,7 @@ void lu<T, X>::add_delta_to_solution(const std::vector<T>& yc, std::vector<T>& y
 template <typename T, typename X>
 void lu<T, X>::add_delta_to_solution_indexed(indexed_vector<T>& y) { // the delta sits in m_y_copy
     lean_assert(y.is_OK());
+    lean_assert(m_y_copy.is_OK());
     for (unsigned i : m_y_copy.m_index) {
         auto & v = y.m_data[i];
         bool was_zero = numeric_traits<T>::is_zero(v);
@@ -423,16 +418,34 @@ void lu<T, X>::find_error_of_yB_indexed(const indexed_vector<T>& y, const std::v
 // solves y*B = y
 // y is the input
 template <typename T, typename X>
-void lu<T, X>::solve_yB_with_error_check_indexed(indexed_vector<T> & y, const std::vector<int>& heading, const lp_settings & settings) {
+void lu<T, X>::solve_yB_with_error_check_indexed(indexed_vector<T> & y, const std::vector<int>& heading,  const std::vector<unsigned> & basis, const lp_settings & settings) {
     if (numeric_traits<T>::precise()) {
         solve_yB_indexed(y);
         return;
     }
-    m_y_copy = y;
-    solve_yB_indexed(y);
-    find_error_of_yB_indexed(y, heading, settings); // this works with m_y_copy
-    solve_yB_indexed(m_y_copy);
-    add_delta_to_solution_indexed(y);
+    lean_assert(m_y_copy.is_OK());
+    lean_assert(y.is_OK());
+    if (y.m_index.size() * ratio_of_index_size_to_all_size<T>() < m_A.column_count()) {
+        m_y_copy = y;
+        solve_yB_indexed(y);
+        
+        if (y.m_index.size() * ratio_of_index_size_to_all_size<T>() >= m_A.column_count()) {
+            find_error_of_yB(m_y_copy.m_data, y.m_data, basis);
+            solve_yB(m_y_copy.m_data);
+            add_delta_to_solution(m_y_copy.m_data, y.m_data);
+            y.restore_index_and_clean_from_data();
+            m_y_copy.clear_all();
+        } else {
+            find_error_of_yB_indexed(y, heading, settings); // this works with m_y_copy
+            solve_yB_indexed(m_y_copy);
+            add_delta_to_solution_indexed(y);
+        }
+        lean_assert(m_y_copy.is_OK());
+    } else {
+        solve_yB_with_error_check(y.m_data, basis);
+        y.restore_index_and_clean_from_data();
+    }
+    lean_assert(m_y_copy.is_OK());
 }
 
 
@@ -444,11 +457,13 @@ void lu<T, X>::solve_yB_with_error_check(std::vector<T> & y, const std::vector<u
         solve_yB(y);
         return;
     }
-    std::vector<T> yc(y); // copy y aside
+    auto & yc = m_y_copy.m_data;
+    yc =y; // copy y aside
     solve_yB(y);
     find_error_of_yB(yc, y, basis);
     solve_yB(yc);
     add_delta_to_solution(yc, y);
+    m_y_copy.clear_all();
 }
 template <typename T, typename X>
 void lu<T, X>::apply_Q_R_to_U(permutation_matrix<T, X> & r_wave) {
@@ -782,6 +797,9 @@ void lu<T, X>::pivot_and_solve_the_system(unsigned replaced_column, unsigned low
             T delta = col < lowest_row_of_the_bump? -v * iv.m_value: v * iv.m_value;
             lean_assert(numeric_traits<T>::is_zero(delta) == false);
 
+
+            
+           // m_row_eta_work_vector.add_value_at_index_with_drop_tolerance(col, delta);
             if (numeric_traits<T>::is_zero(m_row_eta_work_vector[col])) {
                 if (!m_settings.abs_val_is_smaller_than_drop_tolerance(delta)){
                     m_row_eta_work_vector.set_value(delta, col);
@@ -794,10 +812,9 @@ void lu<T, X>::pivot_and_solve_the_system(unsigned replaced_column, unsigned low
                     if (it != m_row_eta_work_vector.m_index.end())
                         m_row_eta_work_vector.m_index.erase(it);
                 }
-            }
+                }
         }
     }
-    // TBD does not compile: lean_assert(m_row_eta_work_vector.is_OK());
 }
 // see Achim Koberstein's thesis page 58, but here we solve the system and pivot to the last
 // row at the same time

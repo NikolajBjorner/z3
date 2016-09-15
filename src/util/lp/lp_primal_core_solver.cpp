@@ -442,9 +442,11 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::init_run(
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::calc_working_vector_beta_for_column_norms(){
     unsigned i = this->m_m();
+    lean_assert(this->m_ed.is_OK());
+    // todo : use indexed solve
     while (i--)
         m_beta[i] = this->m_ed[i];
-    this->m_factorization->solve_yB_with_error_check(m_beta, this->m_basis);
+    this->m_factorization->solve_yB_with_error_check(m_beta, this->m_basis); // todo, call indexed
 }
 
 template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_entering_and_leaving(int entering, int leaving, X & t) {

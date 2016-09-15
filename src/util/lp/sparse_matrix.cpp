@@ -498,9 +498,9 @@ void sparse_matrix<T, X>::find_error_in_solution_U_y(std::vector<L>& y_orig, std
 
 template <typename T, typename X>
 template <typename L>
-void sparse_matrix<T, X>::find_error_in_solution_U_y_indexed(indexed_vector<L>& y_orig, indexed_vector<L> & y) {
-    for (unsigned i : y_orig.m_index)
-        y_orig[i] -= dot_product_with_row(i, y);
+void sparse_matrix<T, X>::find_error_in_solution_U_y_indexed(indexed_vector<L>& y_orig, indexed_vector<L> & y,  const std::vector<unsigned>& sorted_active_rows) {
+    for (unsigned i: sorted_active_rows)
+        y_orig.add_value_at_index(i, -dot_product_with_row(i, y)); // cannot round up here!!!
 }
 
 
@@ -524,12 +524,17 @@ void sparse_matrix<T, X>::add_delta_to_solution(const indexed_vector<L>& del, in
 template <typename T, typename X>
 template <typename L>
 void sparse_matrix<T, X>::double_solve_U_y(indexed_vector<L>& y, const lp_settings & settings){
+    lean_assert(y.is_OK());
     indexed_vector<L> y_orig(y); // copy y aside
-    solve_U_y_indexed_only(y, settings);
-    find_error_in_solution_U_y_indexed(y_orig, y);
+    std::vector<unsigned> active_rows;
+    solve_U_y_indexed_only(y, settings, active_rows);
+    lean_assert(y.is_OK());
+    find_error_in_solution_U_y_indexed(y_orig, y, active_rows);
     // y_orig contains the error now
-    solve_U_y_indexed_only(y_orig, settings);
+    active_rows.clear();
+    solve_U_y_indexed_only(y_orig, settings, active_rows);
     add_delta_to_solution(y_orig, y, settings);
+    y.clean_up();
 }
 template <typename T, typename X>
 template <typename L>
@@ -628,8 +633,7 @@ void sparse_matrix<T, X>::extend_and_sort_active_rows(const std::vector<unsigned
 
 template <typename T, typename X>
 template <typename L>
-void sparse_matrix<T, X>::solve_U_y_indexed_only(indexed_vector<L> & y, const lp_settings & settings) { // it is a column wise version
-    std::vector<unsigned> sorted_active_rows;
+void sparse_matrix<T, X>::solve_U_y_indexed_only(indexed_vector<L> & y, const lp_settings & settings, std::vector<unsigned> & sorted_active_rows) { // it is a column wise version
     create_graph_G(y.m_index, sorted_active_rows);
 
     for (auto k = sorted_active_rows.size(); k-- > 0;) {

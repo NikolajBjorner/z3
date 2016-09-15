@@ -129,6 +129,18 @@ public:
         }
     }
 
+    void restore_index_and_clean_from_data() {
+        m_index.clear();
+        for (unsigned i = 0; i < m_data.size(); i++) {
+            T & v = m_data[i];
+            if (lp_settings::is_eps_small_general(v, 1e-14)) {
+                v = zero_of_type<T>();
+            } else {
+                m_index.push_back(i);
+            }
+        }
+    }
+    
 #ifdef LEAN_DEBUG
     bool is_OK() const;
     void print(std::ostream & out);

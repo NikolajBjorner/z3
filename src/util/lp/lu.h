@@ -164,7 +164,7 @@ public:
     
     void solve_yB_with_error_check(std::vector<T> & y, const std::vector<unsigned>& basis);
 
-    void solve_yB_with_error_check_indexed(indexed_vector<T> & y, const std::vector<int>& heading, const lp_settings &);
+    void solve_yB_with_error_check_indexed(indexed_vector<T> & y, const std::vector<int>& heading, const std::vector<unsigned> & basis, const lp_settings &);
 
     void apply_Q_R_to_U(permutation_matrix<T, X> & r_wave);
 
