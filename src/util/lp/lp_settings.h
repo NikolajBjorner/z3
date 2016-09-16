@@ -49,7 +49,7 @@ template <typename X>
 unsigned ratio_of_index_size_to_all_size() {
     if (numeric_traits<X>::precise())
         return 10;
-    return 100;
+    return 120;
 }
 
 const char* lp_status_to_string(lp_status status);

@@ -267,7 +267,7 @@ public:
     void add_delta_to_solution(const std::vector<L>& del, std::vector<L> & y);
 
     template <typename L>
-    void add_delta_to_solution(const indexed_vector<L>& del, indexed_vector<L> & y, const lp_settings & settings);
+    void add_delta_to_solution(const indexed_vector<L>& del, indexed_vector<L> & y);
 
     template <typename L>
     void double_solve_U_y(indexed_vector<L>& y, const lp_settings & settings);

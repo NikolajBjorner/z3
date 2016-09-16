@@ -41,7 +41,7 @@ public:
     bool m_using_inf_costs = false;
     bool m_recalc_reduced_costs = false;
     std::set<unsigned> m_forbidden_enterings;
-    std::vector<T> m_beta; // see Swietanowski working vector beta for column norms
+    indexed_vector<T> m_beta; // see Swietanowski working vector beta for column norms
     T m_epsilon_of_reduced_cost = T(1)/T(10000000);
     bool m_exit_on_feasible_solution = false;
     std::vector<T> m_costs_backup;

@@ -293,7 +293,6 @@ template <typename T, typename X> void lp_core_solver_base<T, X>::
 calculate_pivot_row_when_pivot_row_of_B1_is_ready() {
     m_pivot_row.clear();
 
-    std::unordered_set<unsigned> index_of_pivot_row;
     for (unsigned i : m_pivot_row_of_B_1.m_index) {
         const T & pi_1 = m_pivot_row_of_B_1[i];
         if (numeric_traits<T>::is_zero(pi_1)) {
@@ -302,15 +301,9 @@ calculate_pivot_row_when_pivot_row_of_B1_is_ready() {
         for (auto & c : m_A.m_rows[i]) {
             unsigned j = c.m_j;
             if (m_basis_heading[j] < 0) {
-                m_pivot_row[j] += c.get_val() * pi_1;
-                index_of_pivot_row.insert(j);
+                m_pivot_row.add_value_at_index_with_drop_tolerance(j, c.get_val() * pi_1);
             }
         }
-    }
-
-    for (auto j : index_of_pivot_row) {
-        if (!is_zero(m_pivot_row[j]))
-            m_pivot_row.m_index.push_back(j);
     }
 }
 

@@ -514,7 +514,7 @@ void sparse_matrix<T, X>::add_delta_to_solution(const std::vector<L>& del, std::
 }
 template <typename T, typename X>
 template <typename L>
-void sparse_matrix<T, X>::add_delta_to_solution(const indexed_vector<L>& del, indexed_vector<L> & y, const lp_settings & settings) {
+void sparse_matrix<T, X>::add_delta_to_solution(const indexed_vector<L>& del, indexed_vector<L> & y) {
 //    lean_assert(del.is_OK());
  //   lean_assert(y.is_OK());
     for (auto i : del.m_index) {
@@ -531,10 +531,16 @@ void sparse_matrix<T, X>::double_solve_U_y(indexed_vector<L>& y, const lp_settin
     lean_assert(y.is_OK());
     find_error_in_solution_U_y_indexed(y_orig, y, active_rows);
     // y_orig contains the error now
-    active_rows.clear();
-    solve_U_y_indexed_only(y_orig, settings, active_rows);
-    add_delta_to_solution(y_orig, y, settings);
-    y.clean_up();
+    if (y_orig.m_index.size() * ratio_of_index_size_to_all_size<T>() < 32 * dimension()) {
+        active_rows.clear();
+        solve_U_y_indexed_only(y_orig, settings, active_rows);
+        add_delta_to_solution(y_orig, y);
+        y.clean_up();
+    } else { // the dense version
+        solve_U_y(y_orig.m_data);
+        add_delta_to_solution(y_orig.m_data, y.m_data);
+        y.restore_index_and_clean_from_data();
+    }
 }
 template <typename T, typename X>
 template <typename L>
