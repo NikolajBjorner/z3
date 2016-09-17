@@ -45,6 +45,7 @@ class sparse_matrix
         }
     };
 
+    unsigned m_n_of_active_elems = 0;
     binary_heap_upair_queue<unsigned> m_pivot_queue;
 public:
     std::vector<std::vector<indexed_value<T>>>  m_rows;
@@ -53,7 +54,7 @@ public:
     permutation_matrix<T, X>  m_column_permutation;
     indexed_vector<T> m_work_pivot_vector;
     std::vector<bool> m_processed;
-
+    unsigned get_n_of_active_elems() const { return m_n_of_active_elems; }
 
 #ifdef LEAN_DEBUG
     // dense_matrix<T> m_dense;
@@ -297,8 +298,6 @@ public:
     L dot_product_with_row (unsigned row, const indexed_vector<L> & y) const;
 
     unsigned get_number_of_nonzeroes() const;
-
-    unsigned get_number_of_nonzeroes_below_row(unsigned row) const;
 
     bool get_non_zero_column_in_row(unsigned i, unsigned *j) const;
 

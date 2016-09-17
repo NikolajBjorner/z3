@@ -22,6 +22,7 @@ void sparse_matrix<T, X>::copy_column_from_static_matrix(unsigned col, static_ma
         unsigned row_offset = static_cast<unsigned>(row_vector.size());
         new_column_vector.push_back(indexed_value<T>(col_cell.m_value, col_cell.m_i, row_offset));
         row_vector.push_back(indexed_value<T>(col_cell.m_value, col_index_in_the_new_matrix, col_offset));
+        m_n_of_active_elems++;
     }
 }
 
@@ -167,6 +168,8 @@ void sparse_matrix<T, X>::remove_element(std::vector<indexed_value<T>> & row_val
     // do nothing - just decrease the sizes
     column_vals.pop_back();
     row_vals.pop_back();
+    lean_assert(m_n_of_active_elems > 0);
+    m_n_of_active_elems--;
 }
 
 template <typename T, typename X>
@@ -706,17 +709,6 @@ unsigned sparse_matrix<T, X>::get_number_of_nonzeroes() const {
 }
 
 template <typename T, typename X>
-unsigned sparse_matrix<T, X>::get_number_of_nonzeroes_below_row(unsigned row) const {
-    unsigned ret = 0;
-    if (dimension() == 0)
-        return ret;
-    for (unsigned i = dimension() - 1; i > row; i--) {
-        ret += number_of_non_zeroes_in_row(adjust_row(i));
-    }
-    return ret;
-}
-
-template <typename T, typename X>
 bool sparse_matrix<T, X>::get_non_zero_column_in_row(unsigned i, unsigned *j) const {
     // go over the i-th row
     auto & mc = get_row_values(adjust_row(i));
@@ -777,6 +769,7 @@ void sparse_matrix<T, X>::add_new_element(unsigned row, unsigned col, T val) {
     unsigned col_el_offs = static_cast<unsigned>(col_vals.size());
     row_vals.push_back(indexed_value<T>(val, col, col_el_offs));
     col_vals.push_back(indexed_value<T>(val, row, row_el_offs));
+    m_n_of_active_elems++;
 }
 
 // w contains the "rest" of the new column; all common elements of w and the old column has been zeroed
@@ -881,6 +874,7 @@ bool sparse_matrix<T, X>::remove_row_from_active_pivots_and_shorten_columns(unsi
     unsigned arow = adjust_row(row);
     for (auto & iv : m_rows[arow]) {
         m_pivot_queue.remove(arow, iv.m_index);
+        m_n_of_active_elems--;
         if (adjust_column_inverse(iv.m_index) <= row)
             continue; // this column will be removed anyway
         auto & col = m_columns[iv.m_index];
@@ -888,6 +882,7 @@ bool sparse_matrix<T, X>::remove_row_from_active_pivots_and_shorten_columns(unsi
         col.shorten_markovich_by_one();
         if (col.m_values.size() <= col.m_shortened_markovitz)
             return false; // got a zero column
+        lean_assert(m_n_of_active_elems > 0);
     }
     return true;
 }

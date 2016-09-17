@@ -17,7 +17,6 @@ template void sparse_matrix<double, double>::divide_row_by_constant(unsigned int
 template void sparse_matrix<double, double>::fill_eta_matrix(unsigned int, eta_matrix<double, double>**);
 template const double & sparse_matrix<double, double>::get(unsigned int, unsigned int) const;
 template unsigned sparse_matrix<double, double>::get_number_of_nonzeroes() const;
-template unsigned sparse_matrix<double, double>::get_number_of_nonzeroes_below_row(unsigned int) const;
 template bool sparse_matrix<double, double>::get_pivot_for_column(unsigned int&, unsigned int&, int, unsigned int);
 template unsigned sparse_matrix<double, double>::lowest_row_in_column(unsigned int);
 template bool sparse_matrix<double, double>::pivot_row_to_row(unsigned int, double, unsigned int, lp_settings&);
@@ -37,7 +36,6 @@ template void     sparse_matrix<mpq, mpq>::divide_row_by_constant(unsigned int, 
 template void     sparse_matrix<mpq, mpq>::fill_eta_matrix(unsigned int, eta_matrix<mpq, mpq>**);
 template  mpq const & sparse_matrix<mpq, mpq>::get(unsigned int, unsigned int) const;
 template unsigned sparse_matrix<mpq, mpq>::get_number_of_nonzeroes() const;
-template unsigned sparse_matrix<mpq, mpq>::get_number_of_nonzeroes_below_row(unsigned int) const;
 template bool sparse_matrix<mpq, mpq>::get_pivot_for_column(unsigned int&, unsigned int&, int, unsigned int);
 template unsigned sparse_matrix<mpq, mpq>::lowest_row_in_column(unsigned int);
 template bool sparse_matrix<mpq, mpq>::pivot_with_eta(unsigned int, eta_matrix<mpq, mpq>*, lp_settings&);
@@ -54,7 +52,6 @@ template void     sparse_matrix<mpq, numeric_pair<mpq>>::divide_row_by_constant(
 template void     sparse_matrix<mpq, numeric_pair<mpq>>::fill_eta_matrix(unsigned int, eta_matrix<mpq, numeric_pair<mpq> >**);
 template const mpq & sparse_matrix<mpq, numeric_pair<mpq>>::get(unsigned int, unsigned int) const;
 template unsigned sparse_matrix<mpq, numeric_pair<mpq>>::get_number_of_nonzeroes() const;
-template unsigned sparse_matrix<mpq, numeric_pair<mpq>>::get_number_of_nonzeroes_below_row(unsigned int) const;
 template bool sparse_matrix<mpq, numeric_pair<mpq>>::get_pivot_for_column(unsigned int&, unsigned int&, int, unsigned int);
 template unsigned sparse_matrix<mpq, numeric_pair<mpq>>::lowest_row_in_column(unsigned int);
 template bool sparse_matrix<mpq, numeric_pair<mpq>>::pivot_with_eta(unsigned int, eta_matrix<mpq, numeric_pair<mpq> >*, lp_settings&);

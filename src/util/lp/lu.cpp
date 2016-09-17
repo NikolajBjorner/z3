@@ -697,8 +697,7 @@ bool lu<T, X>::too_dense(unsigned j) const {
      // if (j * 5 < m_dim * 4) // start looking for dense only at the bottom  of the rows
      //    return false;
     //    return r * r * m_settings.density_threshold <= m_U.get_number_of_nonzeroes_below_row(j);
-    // it is not very precise but not quite so slow: todo - try to do it precisely and efficiently
-    return r * r * m_settings.density_threshold <= m_U.pivot_queue_size();
+    return r * r * m_settings.density_threshold <= m_U.get_n_of_active_elems();
 }
 template <typename T, typename X>
 void lu<T, X>::pivot_in_dense_mode(unsigned i) {
@@ -723,8 +722,9 @@ void lu<T, X>::create_initial_factorization(){
             set_status(LU_status::Degenerated);
             return;
         }
-        if (too_dense(j))
+        if (too_dense(j)) {
             break;
+        }
     }
     if (j == m_dim) {
         // TBD does not compile: lean_assert(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
