@@ -708,8 +708,9 @@ unsigned sparse_matrix<T, X>::get_number_of_nonzeroes() const {
 template <typename T, typename X>
 unsigned sparse_matrix<T, X>::get_number_of_nonzeroes_below_row(unsigned row) const {
     unsigned ret = 0;
-    for (unsigned i = dimension() - 1;
-         static_cast<int>(i) >= static_cast<int>(row); i--) {
+    if (dimension() == 0)
+        return ret;
+    for (unsigned i = dimension() - 1; i > row; i--) {
         ret += number_of_non_zeroes_in_row(adjust_row(i));
     }
     return ret;

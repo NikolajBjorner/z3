@@ -406,6 +406,7 @@ public:
             add_new_element(j, j, numeric_traits<T>::one());
         }
     }
+    unsigned pivot_queue_size() const { return m_pivot_queue.size(); }
 };
 };
 

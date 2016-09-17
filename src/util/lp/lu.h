@@ -109,9 +109,10 @@ public:
     static_matrix<T, X> const &m_A;
     permutation_matrix<T, X> m_Q;
     permutation_matrix<T, X> m_R;
+    permutation_matrix<T, X> m_r_wave;
     sparse_matrix<T, X> m_U;
     square_dense_submatrix<T, X>* m_dense_LU;
-
+    
     std::vector<tail_matrix<T, X> *> m_tail;
     lp_settings & m_settings;
     bool m_failure = false;

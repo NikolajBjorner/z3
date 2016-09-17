@@ -10,6 +10,8 @@
 #include "util/lp/numeric_pair.h"
 template void lean::permutation_matrix<double, double>::apply_from_right(std::vector<double, std::allocator<double> >&);
 template void lean::permutation_matrix<double, double>::init(unsigned int);
+template void lean::permutation_matrix<lean::mpq, lean::mpq>::init(unsigned int);
+template void lean::permutation_matrix<lean::mpq, lean::numeric_pair<lean::mpq>>::init(unsigned int);
 template bool lean::permutation_matrix<double, double>::is_identity() const;
 template void lean::permutation_matrix<double, double>::multiply_by_permutation_from_left(lean::permutation_matrix<double, double>&);
 template void lean::permutation_matrix<double, double>::multiply_by_permutation_reverse_from_left(lean::permutation_matrix<double, double>&);

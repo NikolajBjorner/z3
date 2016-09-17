@@ -126,6 +126,7 @@ lu<T, X>::lu(static_matrix<T, X> const & A,
     m_A(A),
     m_Q(m_dim),
     m_R(m_dim),
+    m_r_wave(m_dim),
     m_U(A, basis), // create the square matrix that eventually will be factorized
     m_settings(settings),
     m_row_eta_work_vector(A.row_count()){
@@ -693,7 +694,11 @@ bool lu<T, X>::too_dense(unsigned j) const {
     unsigned r = m_dim - j;
     if (r < 5)
         return false;
-    return r * r * m_settings.density_threshold <= m_U.get_number_of_nonzeroes_below_row(j);
+     // if (j * 5 < m_dim * 4) // start looking for dense only at the bottom  of the rows
+     //    return false;
+    //    return r * r * m_settings.density_threshold <= m_U.get_number_of_nonzeroes_below_row(j);
+    // it is not very precise but not quite so slow: todo - try to do it precisely and efficiently
+    return r * r * m_settings.density_threshold <= m_U.pivot_queue_size();
 }
 template <typename T, typename X>
 void lu<T, X>::pivot_in_dense_mode(unsigned i) {
@@ -714,13 +719,12 @@ void lu<T, X>::create_initial_factorization(){
     unsigned j;
     for (j = 0; j < m_dim; j++) {
         process_column(j);
-        if (m_failure || too_dense(j + 1)) {
-            break;
+        if (m_failure) {
+            set_status(LU_status::Degenerated);
+            return;
         }
-    }
-    if (m_failure) {
-        set_status(LU_status::Degenerated);
-        return;
+        if (too_dense(j))
+            break;
     }
     if (j == m_dim) {
         // TBD does not compile: lean_assert(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
@@ -860,15 +864,15 @@ void lu<T, X>::replace_column(T pivot_elem_for_checking, indexed_vector<T> & w, 
     m_refactor_counter++;
     unsigned replaced_column =  transform_U_to_V_by_replacing_column( w, leaving_column_of_U);
     unsigned lowest_row_of_the_bump = m_U.lowest_row_in_column(replaced_column);
-    permutation_matrix<T, X> r_wave(m_dim);
-    calculate_r_wave_and_update_U(replaced_column, lowest_row_of_the_bump, r_wave);
+    m_r_wave.init(m_dim);
+    calculate_r_wave_and_update_U(replaced_column, lowest_row_of_the_bump, m_r_wave);
     auto row_eta = get_row_eta_matrix_and_set_row_vector(replaced_column, lowest_row_of_the_bump, pivot_elem_for_checking);
     if (get_status() == LU_status::Degenerated) {
         m_row_eta_work_vector.clear_all();
         return;
     }
-    m_Q.multiply_by_permutation_from_right(r_wave);
-    m_R.multiply_by_permutation_reverse_from_left(r_wave);
+    m_Q.multiply_by_permutation_from_right(m_r_wave);
+    m_R.multiply_by_permutation_reverse_from_left(m_r_wave);
     if (row_eta != nullptr) {
         row_eta->conjugate_by_permutation(m_Q);
         push_matrix_to_tail(row_eta);

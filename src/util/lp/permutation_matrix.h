@@ -50,7 +50,6 @@ class permutation_matrix : public tail_matrix<T, X> {
         permutation_matrix(unsigned length, std::vector<unsigned> const & values);
         // create a unit permutation of the given length
         void init(unsigned length);
-
         unsigned get_rev(unsigned i) { return m_rev[i]; }
 
 #ifdef LEAN_DEBUG
