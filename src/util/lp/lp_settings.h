@@ -49,7 +49,7 @@ template <typename X>
 unsigned ratio_of_index_size_to_all_size() {
     if (numeric_traits<X>::precise())
         return 10;
-    return 120;
+    return 70;
 }
 
 const char* lp_status_to_string(lp_status status);
@@ -216,6 +216,8 @@ public:
     bool dense_deb;
     static unsigned ddd; // used for debugging
 #endif
+    static unsigned tr; // used for debugging
+
 }; // end of lp_settings class
 
 

@@ -136,4 +136,5 @@ bool vectors_are_equal(const std::vector<T> & a, const std::vector<T>  &b) {
 #ifdef LEAN_DEBUG
 unsigned lp_settings::ddd = 0;
 #endif
+unsigned lp_settings::tr = 0;
 }
