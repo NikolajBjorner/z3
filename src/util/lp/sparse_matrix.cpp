@@ -168,8 +168,7 @@ void sparse_matrix<T, X>::remove_element(std::vector<indexed_value<T>> & row_val
     // do nothing - just decrease the sizes
     column_vals.pop_back();
     row_vals.pop_back();
-    lean_assert(m_n_of_active_elems > 0);
-    m_n_of_active_elems--;
+    m_n_of_active_elems--; // the value is correct only when refactoring
 }
 
 template <typename T, typename X>
@@ -874,7 +873,7 @@ bool sparse_matrix<T, X>::remove_row_from_active_pivots_and_shorten_columns(unsi
     unsigned arow = adjust_row(row);
     for (auto & iv : m_rows[arow]) {
         m_pivot_queue.remove(arow, iv.m_index);
-        m_n_of_active_elems--;
+        m_n_of_active_elems--;  // the value is correct only when refactoring
         if (adjust_column_inverse(iv.m_index) <= row)
             continue; // this column will be removed anyway
         auto & col = m_columns[iv.m_index];
@@ -882,7 +881,6 @@ bool sparse_matrix<T, X>::remove_row_from_active_pivots_and_shorten_columns(unsi
         col.shorten_markovich_by_one();
         if (col.m_values.size() <= col.m_shortened_markovitz)
             return false; // got a zero column
-        lean_assert(m_n_of_active_elems > 0);
     }
     return true;
 }
