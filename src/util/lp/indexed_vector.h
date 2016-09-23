@@ -88,6 +88,7 @@ public:
     }
 
     void clean_up() {
+#if 0==1
         for (unsigned k = 0; k < m_index.size(); k++) {
             unsigned i = m_index[k];
             T & v = m_data[i];
@@ -96,6 +97,15 @@ public:
                 m_index.erase(m_index.begin() + k--);
             }
         }
+#endif
+       std::vector<unsigned> index_copy;
+       for (unsigned i : m_index) {
+           T & v = m_data[i];
+           if (!lp_settings::is_eps_small_general(v, 1e-14)) {
+               index_copy.push_back(i);
+           }
+       }
+       m_index = index_copy;
     }
 
     
