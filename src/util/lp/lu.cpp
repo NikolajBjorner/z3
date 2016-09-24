@@ -348,8 +348,7 @@ void lu<T, X>::add_delta_to_solution_indexed(indexed_vector<T>& y) {
     for (unsigned i : y.m_index)
         m_ii.set_value(i, i);
     for (unsigned i : m_y_copy.m_index) {
-        auto & v = y.m_data[i];
-        v += m_y_copy[i];
+        y.m_data[i] += m_y_copy[i];
         if (m_ii[i] == 0)
             m_ii.set_value(i, i);
     }
