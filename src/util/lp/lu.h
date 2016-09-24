@@ -119,6 +119,7 @@ public:
     indexed_vector<T> m_row_eta_work_vector;
     indexed_vector<T> m_w_for_extension;
     indexed_vector<T> m_y_copy;
+    indexed_vector<unsigned> m_ii; //to optimize the work with the m_index fields
     unsigned m_refactor_counter = 0;
     // constructor
     // if A is an m by n matrix then basis has length m and values in [0,n); the values are all different

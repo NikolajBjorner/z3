@@ -32,6 +32,14 @@ std::string T_to_string(const T & t); // forward definition
 #ifdef lp_for_z3
 template <typename T> class numeric_traits {};
 
+template <>  class numeric_traits<unsigned> {
+public:
+    static bool precise() { return true; }
+    static unsigned const zero() { return 0; }
+    static bool is_zero(unsigned v) { return v == 0; }
+    static double const get_double(unsigned const & d) { return d; }
+};
+
 template <>  class numeric_traits<double> {
     public:
         static bool precise() { return false; }

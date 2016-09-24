@@ -339,25 +339,27 @@ void lu<T, X>::add_delta_to_solution(const std::vector<T>& yc, std::vector<T>& y
 }
 
 template <typename T, typename X>
-void lu<T, X>::add_delta_to_solution_indexed(indexed_vector<T>& y) { // the delta sits in m_y_copy
+void lu<T, X>::add_delta_to_solution_indexed(indexed_vector<T>& y) {
+    // the delta sits in m_y_copy, put result into y
     lean_assert(y.is_OK());
     lean_assert(m_y_copy.is_OK());
+    m_ii.clear();
+    m_ii.resize(y.data_size());
+    for (unsigned i : y.m_index)
+        m_ii.set_value(i, i);
     for (unsigned i : m_y_copy.m_index) {
         auto & v = y.m_data[i];
-        bool was_zero = numeric_traits<T>::is_zero(v);
         v += m_y_copy[i];
-      
-        if (was_zero) {
-            if (!lp_settings::is_eps_small_general(v, 1e-14))
-                y.m_index.push_back(i);
-            else {
-                v = zero_of_type<T>();
-            }
-        } else if (lp_settings::is_eps_small_general(v, 1e-14)) {
-            v = zero_of_type<T>();
-            y.erase_from_index(i);
-        }
+        if (m_ii[i] == 0)
+            m_ii.set_value(i, i);
     }
+    y.m_index.clear();
+
+    for (unsigned i : m_ii.m_index) {
+        if (!lp_settings::is_eps_small_general(y.m_data[i], 1e-14))
+            y.m_index.push_back(i);
+    }
+        
     lean_assert(y.is_OK());
 }
 
@@ -396,9 +398,11 @@ void lu<T, X>::find_error_of_yB_indexed(const indexed_vector<T>& y, const std::v
         }
     }
 #endif
-
+    lean_assert(m_ii.is_OK());
+    m_ii.clear();
+    m_ii.resize(y.data_size());
     lean_assert(m_y_copy.is_OK());
-    // working with m_y_copy
+    // put the error into m_y_copy
     for (auto k : y.m_index) {
         auto & row = m_A.m_rows[k];
         const T & y_k = y.m_data[k];
@@ -406,9 +410,22 @@ void lu<T, X>::find_error_of_yB_indexed(const indexed_vector<T>& y, const std::v
             unsigned j = c.m_j;
             int hj = heading[j];
             if (hj < 0) continue;
-            m_y_copy.add_value_at_index_with_drop_tolerance(hj,- c.get_val() * y_k);        }
+            if (m_ii.m_data[hj] == 0)
+                m_ii.set_value(hj, hj);
+            m_y_copy.m_data[hj] -= c.get_val() * y_k;
+        }
     }
 
+    m_y_copy.m_index.clear();
+       // setup the index of m_y_copy
+    for (auto k : m_ii.m_index) {
+        auto v = m_y_copy.m_data[k];
+        if (settings.abs_val_is_smaller_than_drop_tolerance(v))
+            v = zero_of_type<T>();
+        else {
+            m_y_copy.set_value(v, k);
+        }
+    }
     lean_assert(m_y_copy.is_OK());
 
 }
