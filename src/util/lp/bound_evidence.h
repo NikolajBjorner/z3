@@ -11,7 +11,7 @@ namespace lean {
     struct bound_evidence {
         std::vector<std::pair<mpq, constraint_index>> m_evidence;
         unsigned m_j; // found var
-        lconstraint_kind m_bound_kind;
+        lconstraint_kind m_kind;
         mpq m_bound;
     };
 }
