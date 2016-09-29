@@ -1852,6 +1852,7 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_after_string_with_help("--filelist", "the file containing the list of files");
     parser.add_option_with_after_string_with_help("--file", "the input file name");
     parser.add_option_with_help_string("--tr", "cycle threshold");
+    parser.add_option_with_help_string("--bp", "bound propogation");
     parser.add_option_with_help_string("--min", "will look for the minimum for the given file if --file is used; the default is looking for the max");
     parser.add_option_with_help_string("--max", "will look for the maximum for the given file if --file is used; it is the default behavior");
     parser.add_option_with_after_string_with_help("--max_iters", "maximum total iterations in a core solver stage");
@@ -2784,6 +2785,20 @@ void test_term() {
     
 }
 
+void test_bound_propogation() {
+    lar_solver ls;
+    unsigned x0 = ls.add_var("x0");
+    unsigned x1 = ls.add_var("x1");
+    std::vector<std::pair<mpq, var_index>> c;
+    c.push_back(std::pair<mpq, var_index>(1, x0));
+    c.push_back(std::pair<mpq, var_index>(-1, x1));
+    constraint_index x0_min_x1 = ls.add_constraint(c, EQ, one_of_type<mpq>());
+    ls.solve();
+    std::vector<bound_evidence> ev;
+    ls.add_var_bound_with_bound_propagation(x0, LE, mpq(1), ev);
+
+}
+    
 void test_lp_local(int argn, char**argv) {
     // initialize_util_module();
     // initialize_numerics_module();
@@ -2799,6 +2814,12 @@ void test_lp_local(int argn, char**argv) {
 
     args_parser.print();
 
+    if (args_parser.option_is_used("--bp")) {
+        test_bound_propogation();
+        return finalize(0);
+    }
+        
+    
     std::string lufile = args_parser.get_option_value("--checklu");
     if (lufile.size()) {
         check_lu_from_file(lufile);

@@ -27,6 +27,7 @@
 #include "util/lp/stacked_value.h"
 #include "util/lp/stacked_vector.h"
 #include "util/lp/stacked_unordered_set.h"
+#include "util/lp/bound_propagator.h"
 namespace lean {
 template <typename V>
 struct conversion_helper {
@@ -112,11 +113,7 @@ class lar_solver : public column_namer {
     template <typename U, typename V>
     void copy_from_mpq_matrix(static_matrix<U,V> & matr);
     
-    void set_upper_bound_for_column_info(constraint_index i, const lar_normalized_constraint & norm_constr);
-
     bool try_to_set_fixed(column_info<mpq> & ci);
-
-    void set_low_bound_for_column_info(constraint_index i, const lar_normalized_constraint & norm_constr);
 
     column_type get_column_type(const column_info<mpq> & ci);
 
@@ -125,6 +122,7 @@ class lar_solver : public column_namer {
     template <typename V>
     void fill_bounds_for_core_solver(std::vector<V> & lb, std::vector<V> & ub);
 
+    
 
     template <typename V>
     void resize_and_init_x_with_zeros(std::vector<V> & x);
@@ -184,6 +182,197 @@ public:
             return add_constraint(left_side, kind, right_side);
         }
         // it is a term
+        return add_constraint(m_terms()[adjust_term_index(j)].m_coeffs, kind, right_side);
+    }
+
+    void propogate_bound_on_pivot_row_one_var_case_boxed_fixed(int i,
+                                                               const mpq & a,
+                                                               int & cand_minus,
+                                                               numeric_pair<mpq> & bound_minus,
+                                                               unsigned&  n_minus,
+                                                               bool & interested_in_minus,
+                                                               int& cand_plus,
+                                                               numeric_pair<mpq> & bound_plus,
+                                                               unsigned& n_plus,
+                                                               bool& interested_in_plus) {
+        if (interested_in_minus) {
+            bound_minus += a * (a.is_pos() ? m_upper_bounds()[i] : m_low_bounds()[i]); 
+            n_minus++;
+        }
+        if (interested_in_plus) {
+            bound_minus += a * (a.is_pos() ? m_low_bounds()[i] : m_upper_bounds()[i]); 
+            n_plus++;
+        }
+    }
+
+
+    numeric_pair<mpq> pivot_row_bound_term_low_or_upper(const mpq &a, unsigned j) {
+
+        if (m_mpq_lar_core_solver.m_column_type[j] == low_bound) {
+            return a * m_low_bounds()[j];
+        }
+        if (m_mpq_lar_core_solver.m_column_type[j] == upper_bound)
+            return a * m_upper_bounds()[j];
+        lean_assert(false);
+        return numeric_pair<mpq>(0, 0);
+    }
+
+    void propogate_bound_on_pivot_row_one_var_case_low_upper(const mpq& a,
+                                                             int sign, // sign > 0 means the term can grow, sign < 0 means term can decrease
+                                                             int i,
+                                                             int & cand_minus,
+                                                             numeric_pair<mpq> & bound_minus,
+                                                             unsigned&  n_minus,
+                                                             bool & interested_in_minus,
+                                                             int& cand_plus,
+                                                             numeric_pair<mpq> & bound_plus,
+                                                             unsigned& n_plus,
+                                                             bool& interested_in_plus) {
+        if (sign > 0){
+            if (interested_in_plus) {
+                bound_plus += a * (a.is_pos() ? m_low_bounds()[i] : m_upper_bounds()[i]); 
+                n_plus++;
+            }
+            if (interested_in_minus) {
+                if (cand_minus == -1)
+                    cand_minus = i;
+                else
+                    interested_in_minus = false; // it is the second growing term; cannot pin both
+            }
+        } else {
+            if (interested_in_minus) {
+                bound_minus += a * (a.is_pos() ? m_upper_bounds()[i] : m_low_bounds()[i]); 
+                n_minus++;
+            }
+            if (interested_in_plus) {
+                if (cand_plus == -1)
+                    cand_plus = i;
+                else
+                    interested_in_plus = false; // it is the second diminishing term; cannot pin both
+            }
+        }
+    }
+    
+    
+    void propogate_bound_on_var_on_coeff(int i,
+                                         const mpq &a,
+                                         int & cand_minus,
+                                         numeric_pair<mpq> & bound_minus,
+                                         unsigned & n_minus,
+                                         bool & interested_in_minus,
+                                         int & cand_plus,
+                                         numeric_pair<mpq> & bound_plus,
+                                         unsigned & n_plus,
+                                         bool& interested_in_plus) {
+        int  sign = 0;
+        switch (m_mpq_lar_core_solver.m_column_type[i]) {
+        case boxed:
+        case fixed:
+            propogate_bound_on_pivot_row_one_var_case_boxed_fixed(i,
+                                                                  a,
+                                                                  cand_minus,
+                                                                  bound_minus,
+                                                                  n_minus,
+                                                                  interested_in_minus,
+                                                                  cand_plus, 
+                                                                  bound_plus,
+                                                                  n_plus,
+                                                                  interested_in_plus); 
+            break;
+        case low_bound:
+            sign = a.is_pos();
+            break;
+        case upper_bound:
+            sign = !a.is_pos();
+            break;
+        case free_column:
+            if (interested_in_minus) {
+                if (cand_minus == -1)
+                    cand_minus = i; 
+                else
+                    interested_in_minus = false; // it is the second growing term; cannot pin both
+            }
+            if (interested_in_plus) {
+                if (cand_plus == -1)
+                    cand_plus = i; 
+                else
+                    interested_in_plus = false; // it is the second diminishing term; cannot pin both
+            }
+        }
+        if (sign) {
+            propogate_bound_on_pivot_row_one_var_case_low_upper(a,
+                                                                sign,
+                                                                i,
+                                                                cand_minus,
+                                                                bound_minus,
+                                                                n_minus,
+                                                                interested_in_minus,
+                                                                cand_plus,
+                                                                bound_plus,
+                                                                n_plus,
+                                                                interested_in_plus);
+        }
+    }
+
+
+    void propogate_for_minus(int cand_minus, unsigned n_minus, std::vector<bound_evidence> & bound_evidences, unsigned pivot_row_index, numeric_pair<mpq> & bound_minus) {
+        if (n_minus < m_mpq_lar_core_solver.m_pivot_row.m_index.size())
+            return; // cannot pin anything
+        if (n_minus == m_mpq_lar_core_solver.m_pivot_row.m_index.size()) {
+            lean_assert(cand_minus != -1);
+            std::cout << "good case min" << std::endl;
+        } else {
+            lean_assert(n_minus == m_mpq_lar_core_solver.m_pivot_row.m_index.size() + 1);
+            std::cout << "can try to pin everybody" << std::endl;
+            
+        }
+    }
+
+    void fill_bound_evidence_plus_on_coeff(unsigned j, const mpq & a, bound_evidence & be) {
+        std::cout << "fill_bound_evidence_plus_on_coeff\n";
+    }
+
+    void fill_bound_evidence_plus(bound_evidence & bnd_evid, unsigned row_index) {
+        auto bound_val = zero_of_type<numeric_pair<mpq>>();
+        for (unsigned i : m_mpq_lar_core_solver.m_pivot_row.m_index)
+            fill_bound_evidence_plus_on_coeff(i, m_mpq_lar_core_solver.m_pivot_row.m_data[i], bnd_evid);
+        fill_bound_evidence_plus_on_coeff(m_basis[row_index], one_of_type<mpq>(), bnd_evid);   
+    }
+    
+    void propogate_for_plus(int cand_plus, unsigned n_plus, std::vector<bound_evidence> & bound_evidences, unsigned row_index, numeric_pair<mpq> & bound_plus) {
+        if (n_plus < m_mpq_lar_core_solver.m_pivot_row.m_index.size())
+            return; // cannot pin anything
+        if (n_plus == m_mpq_lar_core_solver.m_pivot_row.m_index.size()) {
+            lean_assert(cand_plus != -1);
+            bound_evidence bnd_evid;
+            bnd_evid.m_j = cand_plus;
+            fill_bound_evidence_plus(bnd_evid, row_index);
+            bound_evidences.push_back(bnd_evid);
+        } else {
+            lean_assert(n_plus == m_mpq_lar_core_solver.m_pivot_row.m_index.size() + 1);
+            std::cout << "can try to pin everybody" << std::endl;
+            
+        }
+    }
+
+    void propogate_bound_on_pivot_row(std::vector<bound_evidence> & bound_evidences, unsigned pivot_row_index);
+    void propagate_bound_on_row(std::vector<bound_evidence> & bound_evidences, unsigned i);
+
+    void propogate_bound(var_index j, std::vector<bound_evidence> & bound_evidences) {
+        m_mpq_lar_core_solver.solve_Bd(j);
+        m_mpq_lar_core_solver.pretty_print(std::cout);
+        for (unsigned i : m_mpq_lar_core_solver.m_ed.m_index) {
+            propagate_bound_on_row(bound_evidences, i); 
+        }
+    }
+    
+    constraint_index add_var_bound_with_bound_propagation(var_index j, lconstraint_kind kind, mpq right_side, std::vector<bound_evidence> & bound_evidences)  {
+        if (j < m_A.column_count()) { // j is a var
+            constraint_index ret = add_var_bound(j, kind, right_side);
+            propogate_bound(j, bound_evidences);
+            return ret;
+        }
+        // j is a term
         return add_constraint(m_terms()[adjust_term_index(j)].m_coeffs, kind, right_side);
     }
 
@@ -883,5 +1072,6 @@ public:
     
     }
 
+    friend class bound_propagator;
 };
 }

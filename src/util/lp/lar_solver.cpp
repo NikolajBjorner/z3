@@ -10,6 +10,7 @@
 #include <utility>
 #include "util/lp/lar_solver.h"
 #include "util/lp/random_updater.h"
+#include "util/lp/bound_evidence.h"
 namespace lean {
 double conversion_helper <double>::get_low_bound(const column_info<mpq> & ci) {
     if (!ci.low_bound_is_strict())
@@ -98,38 +99,6 @@ void lar_solver::copy_from_mpq_matrix(static_matrix<U, V> & matr) {
     }
 }
 
-void lar_solver::set_upper_bound_for_column_info(constraint_index i, const lar_normalized_constraint & norm_constr) {/*
-    const mpq & v = norm_constr.m_right_side;
-    const canonic_left_side & ls = norm_constr.m_canonic_left_side;
-    ul_pair ul = m_map_of_canonic_left_sides_to_ul_pairs[ls];
-    var_index additional_var_index = ul.m_additional_var_index;
-    lean_assert(is_valid(additional_var_index));
-    column_info_with_cls ci_cls = m_vec_of_canonic_left_sides[additional_var_index];
-    column_info<mpq> & ci = ci_cls.m_column_info;
-    lean_assert(norm_constr.m_kind == LE || norm_constr.m_kind == LT || norm_constr.m_kind == EQ);
-    bool strict = norm_constr.m_kind == LT;
-    if (!ci.upper_bound_is_set()) {
-        ul.m_upper_bound_witness = i;
-        ci.set_upper_bound(v);
-        ci.set_upper_bound_strict(strict);
-    } else if (ci.get_upper_bound() > v) {
-        ci.set_upper_bound(v);
-        ul.m_upper_bound_witness = i;
-        ci.set_upper_bound_strict(strict);
-    } else if (ci.get_upper_bound() == v && strict && ci.upper_bound_is_strict() == false) {
-        ul.m_upper_bound_witness = i;
-        ci.set_upper_bound_strict(strict);
-    }
-    m_map_of_canonic_left_sides_to_ul_pairs[ls] = ul;
-    if (ci.is_infeasible()) {
-        m_status = INFEASIBLE;
-        m_infeasible_canonic_left_side = ls;
-        return;
-    }
-
-    try_to_set_fixed(ci);
-                                                                                                                     */
-}
 
 bool lar_solver::try_to_set_fixed(column_info<mpq> & ci) {
     if (ci.upper_bound_is_set() && ci.low_bound_is_set() && ci.get_upper_bound() == ci.get_low_bound() && !ci.is_fixed()) {
@@ -138,58 +107,6 @@ bool lar_solver::try_to_set_fixed(column_info<mpq> & ci) {
     }
     return false;
 }
-
-void lar_solver::set_low_bound_for_column_info(constraint_index i, const lar_normalized_constraint & norm_constr) {/*
-    const mpq & v = norm_constr.m_right_side;
-    const canonic_left_side & ls = norm_constr.m_canonic_left_side;
-    ul_pair ul =  m_map_of_canonic_left_sides_to_ul_pairs[ls];
-    column_info_with_cls ci_cls = m_vec_of_canonic_left_sides[ul.m_additional_var_index];
-    column_info<mpq> &ci = ci_cls.m_column_info;
-    lean_assert(norm_constr.m_kind == GE || norm_constr.m_kind == GT || norm_constr.m_kind == EQ);
-    bool strict = norm_constr.m_kind == GT;
-    if (!ci.low_bound_is_set()) {
-        ci.set_low_bound(v);
-        ul.m_low_bound_witness = i;
-        ci.set_low_bound_strict(strict);
-    } else if (ci.get_low_bound() < v) {
-        ci.set_low_bound(v);
-        ul.m_low_bound_witness = i;
-        ci.set_low_bound_strict(strict);
-    } else if (ci.get_low_bound() == v && strict && ci.low_bound_is_strict() == false) {
-        ul.m_low_bound_witness = i;
-        ci.set_low_bound_strict(strict);
-    }
-    m_map_of_canonic_left_sides_to_ul_pairs[ls] = ul;
-
-    if (ci.is_infeasible()) {
-        m_status = INFEASIBLE;
-        m_infeasible_canonic_left_side = ls;
-        return;
-    }
-
-    try_to_set_fixed(ci);
-                                                                                                                   */
-}
-
-// void lar_solver::update_column_info_of_normalized_constraint(constraint_index i, const lar_normalized_constraint & norm_constr) {
-//     lean_assert(norm_constr.size() > 0);
-//     switch (norm_constr.m_kind) {
-//     case LE:
-//     case LT:
-//         set_upper_bound_for_column_info(i, norm_constr);
-//         break;
-//     case GE:
-//     case GT:
-//         set_low_bound_for_column_info(i, norm_constr);
-//         break;
-//     case EQ:
-//         set_upper_bound_for_column_info(i, norm_constr);
-//         set_low_bound_for_column_info(i, norm_constr);
-//         break;
-//     default:
-//         lean_unreachable();
-//     }
-// }
 
 column_type lar_solver::get_column_type(const column_info<mpq> & ci) {
     auto ret = ci.get_column_type_no_flipping();
@@ -206,37 +123,6 @@ std::string lar_solver::get_column_name(unsigned j) const
         return std::string("_s") + T_to_string(j);
 
     return m_column_names[j];
-}
-
-//void lar_solver::fill_column_types() {
-    
-    // m_lar_core_solver_params.m_column_types.clear();
-    // m_lar_core_solver_params.m_column_types.resize(m_vec_of_canonic_left_sides.size(), free_column);
-    // for (auto & it : m_vec_of_canonic_left_sides()) {
-    //     const column_info<mpq> & ci = it.second.m_column_info;;
-    //     unsigned j = ci.get_column_index();
-    //     lean_assert(is_valid(j));
-    //     m_lar_core_solver_params.m_column_types[j] = get_column_type(ci);
-    // }
-//}
-
-template <typename V>
-void lar_solver::fill_bounds_for_core_solver(std::vector<V> & lb, std::vector<V> & ub) {
-
-    // unsigned n = A().column_count(); // this is the number of columns
-    // lb.resize(n);
-    // ub.resize(n);
-    // for (auto & t : m_vec_of_canonic_left_sides()) {
-    //     const column_info<mpq> & ci = t.second.m_column_info;
-    //     unsigned j = ci.get_column_index();
-    //     lean_assert(j < n);
-    //     if (ci.upper_bound_is_set()) {
-    //         ub[j] = conversion_helper<V>::get_upper_bound(ci);
-    //     }
-    //     if (ci.low_bound_is_set()) {
-    //         lb[j] = conversion_helper<V>::get_low_bound(ci);
-    //     }
-    // }
 }
 
 template <typename V>
@@ -319,7 +205,7 @@ constraint_index lar_solver::add_constraint(const std::vector<std::pair<mpq, var
     lean_assert(left_side.size() > 0);
     lean_assert(all_constrained_variables_are_registered(left_side));
     lar_constraint original_constr(left_side, kind_par, right_side_par);
-    unsigned j; // j i the index of the basic variables corresponding to the left side
+    unsigned j; // j is the index of the basic variables corresponding to the left side
     canonic_left_side ls = create_or_fetch_existing_left_side(left_side, j);
     mpq ratio = find_ratio_of_original_constraint_to_normalized(ls, original_constr);
     auto kind = ratio.is_neg() ? flip_kind(kind_par) : kind_par;
@@ -709,22 +595,6 @@ void lar_solver::print_left_side_of_constraint(const lar_base_constraint * c, st
     m_mpq_lar_core_solver.print_linear_combination_of_column_indices(c->get_left_side_coefficients(), out);
 }
 
-// void lar_solver::print_info_on_column(unsigned j, std::ostream & out) {
-//     for (auto ls : m_map_of_canonic_left_sides_to_ul_pairs) {
-//         if (static_cast<unsigned>(ls->get_ci()) == j) {
-//             auto & ci = ls->m_column_info;
-//             if (ci.low_bound_is_set()) {
-//                 out << "l = " << ci.get_low_bound();
-//             }
-//             if (ci.upper_bound_is_set()) {
-//                 out << "u = " << ci.get_upper_bound();
-//             }
-//             out << std::endl;
-//             m_mpq_lar_core_solver.print_column_info(j, out);
-//         }
-//     }
-// }
-
 void lar_solver::print_term(lar_term const& term, std::ostream & out) const {
     if (!numeric_traits<mpq>::is_zero(term.m_v)) {
         out << term.m_v << " + ";
@@ -857,5 +727,11 @@ void lar_solver::pop(unsigned k) {
     m_mpq_lar_core_solver.update_columns_out_of_bounds();
     m_touched_nb_columns.clear();
 }
+void lar_solver::propagate_bound_on_row(std::vector<bound_evidence> & bound_evidences, unsigned pivot_row_index) {
+    bound_propagator b(pivot_row_index, *this, bound_evidences);
+    b.propagate();
+}
+
+
 }
 

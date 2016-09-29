@@ -44,7 +44,7 @@ enum lp_status {
     UNSTABLE
 };
 
-// when the ratio is less than the return value we switch to solve_By_for_T_indexed_only , still needs tuning
+// when the ratio of the vector lenth to domain size to is greater than the return value we switch to solve_By_for_T_indexed_only
 template <typename X>
 unsigned ratio_of_index_size_to_all_size() {
     if (numeric_traits<X>::precise())

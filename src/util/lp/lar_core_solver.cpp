@@ -456,13 +456,13 @@ template <typename T, typename X>    void lar_core_solver<T, X>::change_slope_on
     }
 }
 
-template <typename T, typename X>    bool lar_core_solver<T, X>::row_is_infeasible(unsigned row) {
+template <typename T, typename X>  bool lar_core_solver<T, X>::row_is_infeasible(unsigned row) {
     unsigned j = this->m_basis[row];
     m_infeasible_row_sign = get_infeasibility_sign(j);
     return m_infeasible_row_sign != 0;
 }
 
-template <typename T, typename X>    bool lar_core_solver<T, X>::row_is_evidence(unsigned row) {
+template <typename T, typename X>  bool lar_core_solver<T, X>::row_is_evidence(unsigned row) {
     if (!row_is_infeasible(row)) return false;
     calculate_pivot_row(row);
     int entering = choose_entering_column_for_row_inf_strategy();
@@ -472,7 +472,7 @@ template <typename T, typename X>    bool lar_core_solver<T, X>::row_is_evidence
     return false;
 }
 
-template <typename T, typename X>    bool lar_core_solver<T, X>::find_evidence_row() {
+template <typename T, typename X>  bool lar_core_solver<T, X>::find_evidence_row() {
     for (unsigned i = this->m_m(); --i;) {
         if (row_is_evidence(i)) {
             fill_evidence(i);
@@ -504,7 +504,7 @@ template <typename T, typename X> bool lar_core_solver<T, X>::done() {
     return false;
 }
 
-template <typename T, typename X>    void lar_core_solver<T, X>::move_as_many_as_possible_fixed_columns_to_non_basis() {
+template <typename T, typename X>  void lar_core_solver<T, X>::move_as_many_as_possible_fixed_columns_to_non_basis() {
     unsigned i = 0; // points to basis
     auto& bs = this->m_basis;
     unsigned j = 0; // points to m_column_types
@@ -555,7 +555,7 @@ template <typename T, typename X> void lar_core_solver<T, X>::feasibility_loop()
     }
 }
 
-template <typename T, typename X>    unsigned lar_core_solver<T, X>::get_number_of_inf_rows() const {
+template <typename T, typename X> unsigned lar_core_solver<T, X>::get_number_of_inf_rows() const {
     unsigned r = 0;
     for (unsigned k = this->m_m(); --k;) {
         unsigned j = this->m_basis[k];
@@ -733,9 +733,11 @@ template <typename T, typename X>    void lar_core_solver<T, X>::update_delta_of
     }
 }
 
-template <typename T, typename X> X lar_core_solver<T, X>::find_initial_delta_and_its_sign(unsigned row, unsigned entering,
-                                                                                              int & entering_delta_sign,
-                                                                                              std::vector<unsigned> & leaving_candidates) {
+template <typename T, typename X> X
+lar_core_solver<T, X>::find_initial_delta_and_its_sign(
+                                                       unsigned row, unsigned entering,
+                                                       int & entering_delta_sign,
+                                                       std::vector<unsigned> & leaving_candidates) {
     lean_assert(m_infeasible_row_sign != 0);
     unsigned bj = this->m_basis[row]; // this is the infeasible basis column
     const X & x = this->m_x[bj];
