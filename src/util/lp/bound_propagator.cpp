@@ -153,15 +153,18 @@ void bound_propagator::fill_bound_kind_plus_on_pos(bound_evidence& be, unsigned 
     default:
         break;
     }
-    m_solver.m_upper_bounds[m_cand_plus] = u;
-    lean_assert(be.m_j = m_cand_plus);
     // got a new upper bound
+
+    lean_assert(be.m_j = m_cand_plus);
+
     if (is_zero(u.y)) {
         be.m_kind = LE;
     } else {
         be.m_kind = LT; // strict case
     }
     be.m_bound = u.x;
+    //register the new bound
+    m_solver.add_var_bound(m_cand_plus, be.m_kind, u.x); 
     reg_be = register_in_bound_evidences(m_improved_upper_bounds, m_cand_plus, be);
 }
 void bound_propagator::fill_bound_kind_plus_on_neg(bound_evidence& be, unsigned & reg_ev_index) {
@@ -179,7 +182,7 @@ void bound_propagator::fill_bound_kind_plus_on_neg(bound_evidence& be, unsigned 
         if (l <= m_core_solver.m_low_bounds[m_cand_plus]) return;
     default:
         break;
-    } // got a new upper bound
+    } // got a new low bound
     m_solver.m_low_bounds[m_cand_plus] = l;
     if (is_zero(l.y)) {
         be.m_kind = GE;
@@ -188,6 +191,8 @@ void bound_propagator::fill_bound_kind_plus_on_neg(bound_evidence& be, unsigned 
         be.m_kind = GT; // strict case
     }
     be.m_bound = l.x;
+    //register the new bound
+    m_solver.add_var_bound(m_cand_plus, be.m_kind, l.x); 
     reg_ev_index = register_in_bound_evidences(m_improved_low_bounds, m_cand_plus, be);
 }
     
@@ -272,6 +277,8 @@ void bound_propagator::propagate_bound_on_pivot_row_one_var_case_low_upper(const
         be.m_kind = GT; // strict case
     }
     be.m_bound = l.x;
+    //register the new bound
+    m_solver.add_var_bound(m_cand_minus, be.m_kind, l.x); 
     reg_ev_i = register_in_bound_evidences(m_improved_low_bounds, m_cand_minus, be);
 }
     void bound_propagator::fill_bound_kind_minus_on_neg(bound_evidence& be, unsigned & reg_i) {
@@ -298,6 +305,8 @@ void bound_propagator::propagate_bound_on_pivot_row_one_var_case_low_upper(const
         be.m_kind = LT; // strict case
     }
     be.m_bound = u.x;
+    //register the new bound
+    m_solver.add_var_bound(m_cand_minus, be.m_kind, u.x); 
     reg_i = register_in_bound_evidences(m_improved_upper_bounds, m_cand_minus, be);
 }
 
