@@ -2785,7 +2785,7 @@ void test_term() {
     
 }
 
-void test_bound_propogation() {
+void test_bound_propogation_one_row() {
     lar_solver ls;
     unsigned x0 = ls.add_var("x0");
     unsigned x1 = ls.add_var("x1");
@@ -2796,9 +2796,48 @@ void test_bound_propogation() {
     ls.solve();
     std::vector<bound_evidence> ev;
     ls.add_var_bound_with_bound_propagation(x0, LE, mpq(1), ev);
+} 
+void test_bound_propogation_one_row_mixed() {
+    lar_solver ls;
+    unsigned x0 = ls.add_var("x0");
+    unsigned x1 = ls.add_var("x1");
+    std::vector<std::pair<mpq, var_index>> c;
+    c.push_back(std::pair<mpq, var_index>(1, x0));
+    c.push_back(std::pair<mpq, var_index>(-1, x1));
+    constraint_index x0_min_x1 = ls.add_constraint(c, EQ, one_of_type<mpq>());
+    ls.solve();
+    std::vector<bound_evidence> ev;
+    ls.add_var_bound_with_bound_propagation(x1, LE, mpq(1), ev);
+} 
 
-}
+void test_bound_propogation_two_rows() {
+    lar_solver ls;
+    unsigned x = ls.add_var("x");
+    unsigned y = ls.add_var("y");
+    unsigned z = ls.add_var("z");
+    std::vector<std::pair<mpq, var_index>> c;
+    c.push_back(std::pair<mpq, var_index>(1, x));
+    c.push_back(std::pair<mpq, var_index>(2, y));
+    c.push_back(std::pair<mpq, var_index>(3, z));
+    constraint_index x2y3z_ge_1 = ls.add_constraint(c, GE, one_of_type<mpq>());
+    c.clear();
+    c.push_back(std::pair<mpq, var_index>(3, x));
+    c.push_back(std::pair<mpq, var_index>(2, y));
+    c.push_back(std::pair<mpq, var_index>(1, z));
+    x2y3z_ge_1 = ls.add_constraint(c, GE, one_of_type<mpq>());
+    ls.add_var_bound(x, LE, mpq(2));
+    ls.solve();
+    std::vector<bound_evidence> ev;
+    ls.add_var_bound_with_bound_propagation(y, LE, mpq(1), ev);
+} 
+
+void test_bound_propogation() {
+    test_bound_propogation_one_row();
+    test_bound_propogation_two_rows();
+    test_bound_propogation_one_row_mixed();
     
+}
+   
 void test_lp_local(int argn, char**argv) {
     // initialize_util_module();
     // initialize_numerics_module();

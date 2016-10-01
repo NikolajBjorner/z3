@@ -189,6 +189,7 @@ public:
     void propagate_bound_on_row(std::vector<bound_evidence> & bound_evidences, unsigned i);
 
     void print_bound_evidence(const bound_evidence& be) {
+        std::cout << "evidence\n";
         for (auto & p : be.m_evidence) {
             std::cout << p.first << std::endl;
             print_constraint(p.second, std::cout);

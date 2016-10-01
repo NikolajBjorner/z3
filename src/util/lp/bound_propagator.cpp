@@ -11,6 +11,8 @@ bound_propagator::bound_propagator(unsigned row_index, lar_solver & solver, std:
 
 void bound_propagator::propagate() {
         m_core_solver.calculate_pivot_row(m_row_index);
+        std::cout << "pivot row\n";
+        m_core_solver.m_pivot_row.print(std::cout);
                 // We have the equality, sum by j of pivot_row[j]*x[j] + x[basis[j]] = 0
         // We try to pin a var by pushing the total of the partial sum down, denoting the variable of this process by _minus.
         // In the same loop trying to pin a var by pushing the partial sum up, denoting it by _plus
@@ -35,10 +37,10 @@ void bound_propagator::propagate_bound_on_var_on_coeff(int j, const mpq &a) {
         propagate_bound_on_pivot_row_one_var_case_boxed_fixed(j, a); 
         break;
     case low_bound:
-        sign = a.is_pos();
+        sign = a.is_pos()? 1:-1;
         break;
     case upper_bound:
-        sign = !a.is_pos();
+        sign = -(a.is_pos() ? 1 : -1);
         break;
     case free_column:
         if (m_interested_in_minus) {
@@ -113,8 +115,8 @@ void bound_propagator::fill_bound_evidence_plus(bound_evidence & bnd_evid) {
 void bound_propagator::fill_bound_kind_plus_on_pos(bound_evidence& be) {
     lean_assert(m_a_plus.is_pos());
     // we have sum a[k]x[k] + m_a_plus * x[m_cand_plus] = 0;
-    // so a*x[m_cand_plus] = - a[k]x[k] >=  - m_bound_plus
-    // we have to have a * x[m_cand_plus] >= - m_bound_plus, or x[m_cand_plus] >= -m_bound_plus / a, since a is negative
+    // so a*x[m_cand_plus] = - a[k]x[k] <=  - m_bound_plus
+    // we have to have a * x[m_cand_plus] <= - m_bound_plus, or x[m_cand_plus] <= -m_bound_plus / a, sin
     // so we have a low bound
     auto l = -m_bound_plus / m_a_plus;
     switch (m_core_solver.m_column_type[m_cand_plus]) {
@@ -130,35 +132,35 @@ void bound_propagator::fill_bound_kind_plus_on_pos(bound_evidence& be) {
     lean_assert(be.m_j = m_cand_plus);
     // got a new upper bound
     if (is_zero(l.y)) {
-        be.m_kind = GE;
+        be.m_kind = LE;
     } else {
-        be.m_kind = GT; // strict case
+        be.m_kind = LT; // strict case
     }
     be.m_bound = l.x;
 }
 void bound_propagator::fill_bound_kind_plus_on_neg(bound_evidence& be) {
     lean_assert(m_a_plus.is_neg());
     // we have sum a[k]x[k] + m_a_plus * x[m_cand_plus] = 0;
-    // so m_a_plus *x[m_cand_plus] = - a[k]x[k] >=  - m_bound_plus
-    // we have to have m_a_plus * x[m_cand_plus] >= - m_bound_plus, or x[m_cand_plus] <= -m_bound_plus / m_a_plus, since m_a_plus is negative
+    // so m_a_plus *x[m_cand_plus] = - sum a[k]x[k] <=  - m_bound_plus
+    // we have to have m_a_plus * x[m_cand_plus] <= - m_bound_plus, or x[m_cand_plus] >= -m_bound_plus / m_a_plus, since m_a_plus is negative
     // so we have an upper bound
-    auto u = -m_bound_plus / m_a_plus;
+    auto l = -m_bound_plus / m_a_plus;
     switch (m_core_solver.m_column_type[m_cand_plus]) {
-    case upper_bound:
+    case low_bound:
     case fixed:
     case boxed:
         // in all these cases we have an upper bound for x[m_cand_plus] already
-        if (u >= m_core_solver.m_low_bounds[m_cand_plus]) return;
+        if (l <= m_core_solver.m_low_bounds[m_cand_plus]) return;
     default:
         break;
     } // got a new upper bound
-    if (is_zero(u.y)) {
-        be.m_kind = LE;
+    if (is_zero(l.y)) {
+        be.m_kind = GE;
     }
     else {
-        be.m_kind = LT; // strict case
+        be.m_kind = GT; // strict case
     }
-    be.m_bound = u.x;
+    be.m_bound = l.x;
 }
     
 void bound_propagator::fill_bound_evidence_sign_on_coeff(int sign, unsigned j, const mpq & a, bound_evidence & be) {
@@ -221,15 +223,15 @@ void bound_propagator::propagate_bound_on_pivot_row_one_var_case_low_upper(const
 void bound_propagator::fill_bound_kind_minus_on_pos(bound_evidence& be) {
     lean_assert(m_a_minus.is_pos());
     // we have sum a[k]x[k] + m_a_minus * x[m_cand_minus] = 0;
-    // so a*x[m_cand_minus] = - a[k]x[k] <=  - m_bound_minus
-    // we have to have a * x[m_cand_minus] <= - m_bound_minus, or x[m_cand_minus] <= -m_bound_minus / a, 
-    // so we have an upper bound
-    auto u = -m_bound_minus / m_a_minus;
+    // so a*x[m_cand_minus] = - sum a[k]x[k] >=  - m_bound_minus
+    // we have to have a * x[m_cand_minus] >= - m_bound_minus, or x[m_cand_minus] >= -m_bound_minus / a, 
+    // so we have a low bound
+    auto l = -m_bound_minus / m_a_minus;
     switch (m_core_solver.m_column_type[m_cand_minus]) {
     case boxed:
     case fixed:
     case upper_bound: // in all these cases we have an upper bound already
-        if (u >= m_core_solver.m_upper_bounds[m_cand_minus]) return; 
+        if (l >= m_core_solver.m_upper_bounds[m_cand_minus]) return; 
         break;
     default:
         break;
@@ -237,36 +239,36 @@ void bound_propagator::fill_bound_kind_minus_on_pos(bound_evidence& be) {
 
     lean_assert(be.m_j = m_cand_minus);
     // got a new upper bound
-    if (is_zero(u.y)) {
-        be.m_kind = LE;
+    if (is_zero(l.y)) {
+        be.m_kind = GE;
     } else {
-        be.m_kind = LT; // strict case
+        be.m_kind = GT; // strict case
     }
-    be.m_bound = u.x;
+    be.m_bound = l.x;
 }
 void bound_propagator::fill_bound_kind_minus_on_neg(bound_evidence& be) {
     lean_assert(m_a_minus.is_neg());
     // we have sum a[k]x[k] + m_a_minus * x[m_cand_minus] = 0;
-    // so m_a_minus *x[m_cand_minus] = - a[k]x[k] <=  - m_bound_minus
-    // we have to have m_a_minus * x[m_cand_minus] <= - m_bound_minus, or x[m_cand_minus] >= -m_bound_minus / m_a_minus, since m_a_minus is negative
+    // so m_a_minus *x[m_cand_minus] = - a[k]x[k] >=  - m_bound_minus
+    // we have to have m_a_minus * x[m_cand_minus] >= - m_bound_minus, or x[m_cand_minus] <= -m_bound_minus / m_a_minus, since m_a_minus is negative
     // so we have a lower bound
-    auto l = -m_bound_minus / m_a_minus;
+    auto u = -m_bound_minus / m_a_minus;
     switch (m_core_solver.m_column_type[m_cand_minus]) {
     case low_bound:
     case fixed:
     case boxed:
         // in all these cases we have an upper bound for x[m_cand_minus] already
-        if (l <= m_core_solver.m_low_bounds[m_cand_minus]) return;
+        if (u <= m_core_solver.m_low_bounds[m_cand_minus]) return;
     default:
         break;
     } // got a new upper bound
-    if (is_zero(l.y)) {
-        be.m_kind = GE;
+    if (is_zero(u.y)) {
+        be.m_kind = LE;
     }
     else {
-        be.m_kind = GT; // strict case
+        be.m_kind = LT; // strict case
     }
-    be.m_bound = l.x;
+    be.m_bound = u.x;
 }
 
 }
