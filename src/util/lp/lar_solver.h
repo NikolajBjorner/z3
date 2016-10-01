@@ -186,7 +186,10 @@ public:
         return add_constraint(m_terms()[adjust_term_index(j)].m_coeffs, kind, right_side);
     }
 
-    void propagate_bound_on_row(std::vector<bound_evidence> & bound_evidences, unsigned i);
+    void propagate_bound_on_row(std::vector<bound_evidence> & bound_evidences,
+                                unsigned i,
+                                std::unordered_map<unsigned, unsigned> & improved_low_bounds,
+                                std::unordered_map<unsigned, unsigned> & improved_upper_bounds);
 
     void print_bound_evidence(const bound_evidence& be) {
         std::cout << "evidence\n";
@@ -198,11 +201,11 @@ public:
             lconstraint_kind_string(be.m_kind) << " "  << be.m_bound << std::endl;
     }
     
-    void propogate_bound(var_index j, std::vector<bound_evidence> & bound_evidences) {
+    void propogate_bound(var_index j, std::vector<bound_evidence> & bound_evidences, std::unordered_map<unsigned, unsigned> & improved_low_bounds, std::unordered_map<unsigned, unsigned> & improved_upper_bounds) {
         m_mpq_lar_core_solver.solve_Bd(j);
         m_mpq_lar_core_solver.pretty_print(std::cout);
         for (unsigned i : m_mpq_lar_core_solver.m_ed.m_index) {
-            propagate_bound_on_row(bound_evidences, i); 
+            propagate_bound_on_row(bound_evidences, i, improved_low_bounds, improved_upper_bounds); 
         }
         for (auto & be: bound_evidences) {
             print_bound_evidence(be);
@@ -210,9 +213,12 @@ public:
     }
     
     constraint_index add_var_bound_with_bound_propagation(var_index j, lconstraint_kind kind, mpq right_side, std::vector<bound_evidence> & bound_evidences)  {
+        std::unordered_map<unsigned, unsigned> improved_low_bounds; // serves as a guard
+        std::unordered_map<unsigned, unsigned> improved_upper_bounds; // serves as a guard
+
         if (j < m_A.column_count()) { // j is a var
             constraint_index ret = add_var_bound(j, kind, right_side);
-            propogate_bound(j, bound_evidences);
+            propogate_bound(j, bound_evidences, improved_low_bounds, improved_upper_bounds);
             return ret;
         }
         // j is a term

@@ -727,8 +727,12 @@ void lar_solver::pop(unsigned k) {
     m_mpq_lar_core_solver.update_columns_out_of_bounds();
     m_touched_nb_columns.clear();
 }
-void lar_solver::propagate_bound_on_row(std::vector<bound_evidence> & bound_evidences, unsigned pivot_row_index) {
-    bound_propagator b(pivot_row_index, *this, bound_evidences);
+
+void lar_solver::propagate_bound_on_row(std::vector<bound_evidence> & bound_evidences,
+                                        unsigned pivot_row_index ,
+                                        std::unordered_map<unsigned, unsigned>& improved_low_bounds,
+                                        std::unordered_map<unsigned, unsigned>& improved_upper_bounds) {
+    bound_propagator b(pivot_row_index, *this, bound_evidences, improved_low_bounds, improved_upper_bounds);
     b.propagate();
 }
 

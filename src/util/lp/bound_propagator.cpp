@@ -7,7 +7,19 @@
 #include "util/lp/bound_propagator.h"
 #include "util/lp/lar_solver.h"
 namespace lean {
-bound_propagator::bound_propagator(unsigned row_index, lar_solver & solver, std::vector<bound_evidence> & bound_evidences) : m_row_index(row_index), m_solver(solver), m_bound_evidences(bound_evidences), m_core_solver(solver.m_mpq_lar_core_solver) {}
+    bound_propagator::bound_propagator(unsigned row_index,
+                                       lar_solver & solver,
+                                       std::vector<bound_evidence> & bound_evidences,
+                                       std::unordered_map<unsigned, unsigned>& improved_low_bounds,
+                                       std::unordered_map<unsigned, unsigned>& improved_upper_bounds
+) :
+    m_row_index(row_index),
+    m_solver(solver),
+    m_bound_evidences(bound_evidences),
+    m_core_solver(solver.m_mpq_lar_core_solver),
+    m_improved_low_bounds(improved_low_bounds),
+    m_improved_upper_bounds(improved_upper_bounds)
+{}
 
 void bound_propagator::propagate() {
         m_core_solver.calculate_pivot_row(m_row_index);
@@ -83,7 +95,6 @@ void bound_propagator::propagate_for_plus() {
         bound_evidence bnd_evid;
         bnd_evid.m_j = m_cand_plus;
         fill_bound_evidence_plus(bnd_evid);
-        m_bound_evidences.push_back(bnd_evid);
     } else {
         lean_assert(m_n_plus == m_core_solver.m_pivot_row.m_index.size() + 1);
         std::cout << "can try to pin everybody" << std::endl;
@@ -91,28 +102,42 @@ void bound_propagator::propagate_for_plus() {
     }
 }
 void bound_propagator::fill_bound_evidence_minus(bound_evidence & bnd_evid) {
+    unsigned ev_j;
     if (m_a_plus.is_pos() )
-        fill_bound_kind_minus_on_pos(bnd_evid);
+        fill_bound_kind_minus_on_pos(bnd_evid, ev_j);
     else
-        fill_bound_kind_minus_on_neg(bnd_evid);
+        fill_bound_kind_minus_on_neg(bnd_evid, ev_j);
+    bound_evidence & registered_be = m_bound_evidences[ev_j];
     for (unsigned i : m_core_solver.m_pivot_row.m_index)
-        fill_bound_evidence_sign_on_coeff(-1, i, m_core_solver.m_pivot_row.m_data[i], bnd_evid);
-    fill_bound_evidence_sign_on_coeff(-1, m_solver.m_basis[m_row_index], one_of_type<mpq>(), bnd_evid);   
+        fill_bound_evidence_sign_on_coeff(-1, i, m_core_solver.m_pivot_row.m_data[i], registered_be);
+    fill_bound_evidence_sign_on_coeff(-1, m_solver.m_basis[m_row_index], one_of_type<mpq>(), registered_be);   
 }
 
 void bound_propagator::fill_bound_evidence_plus(bound_evidence & bnd_evid) {
+    unsigned ev_j;
     if (m_a_plus.is_pos() )
-        fill_bound_kind_plus_on_pos(bnd_evid);
+        fill_bound_kind_plus_on_pos(bnd_evid, ev_j);
     else
-        fill_bound_kind_plus_on_neg(bnd_evid);
+        fill_bound_kind_plus_on_neg(bnd_evid, ev_j);
+    bound_evidence &registered_be = m_bound_evidences[ev_j];
     for (unsigned i : m_core_solver.m_pivot_row.m_index)
-        fill_bound_evidence_sign_on_coeff(1, i, m_core_solver.m_pivot_row.m_data[i], bnd_evid);
-    fill_bound_evidence_sign_on_coeff(1, m_solver.m_basis[m_row_index], one_of_type<mpq>(), bnd_evid);   
+        fill_bound_evidence_sign_on_coeff(1, i, m_core_solver.m_pivot_row.m_data[i], registered_be);
+    fill_bound_evidence_sign_on_coeff(1, m_solver.m_basis[m_row_index], one_of_type<mpq>(), registered_be);   
 }
 
-
+unsigned bound_propagator::register_in_bound_evidences(std::unordered_map<unsigned, unsigned> & m, unsigned j, bound_evidence & be) { 
+    auto it = m.find(j);
+    if (it == m.end()) {
+        m[j] = m_bound_evidences.size();
+        m_bound_evidences.push_back(be);
+        return m_bound_evidences.size() - 1;
+    } else { // replace the bound that was improved even more
+        m_bound_evidences[it->second] = be;
+        return it->second;
+    }
+}
     
-void bound_propagator::fill_bound_kind_plus_on_pos(bound_evidence& be) {
+void bound_propagator::fill_bound_kind_plus_on_pos(bound_evidence& be, unsigned & reg_be) {
     lean_assert(m_a_plus.is_pos());
     // we have sum a[k]x[k] + m_a_plus * x[m_cand_plus] = 0;
     // so a*x[m_cand_plus] = - a[k]x[k] <=  - m_bound_plus
@@ -137,8 +162,9 @@ void bound_propagator::fill_bound_kind_plus_on_pos(bound_evidence& be) {
         be.m_kind = LT; // strict case
     }
     be.m_bound = u.x;
+    reg_be = register_in_bound_evidences(m_improved_upper_bounds, m_cand_plus, be);
 }
-void bound_propagator::fill_bound_kind_plus_on_neg(bound_evidence& be) {
+void bound_propagator::fill_bound_kind_plus_on_neg(bound_evidence& be, unsigned & reg_ev_index) {
     lean_assert(m_a_plus.is_neg());
     // we have sum a[k]x[k] + m_a_plus * x[m_cand_plus] = 0;
     // so m_a_plus *x[m_cand_plus] = - sum a[k]x[k] <=  - m_bound_plus
@@ -162,6 +188,7 @@ void bound_propagator::fill_bound_kind_plus_on_neg(bound_evidence& be) {
         be.m_kind = GT; // strict case
     }
     be.m_bound = l.x;
+    reg_ev_index = register_in_bound_evidences(m_improved_low_bounds, m_cand_plus, be);
 }
     
 void bound_propagator::fill_bound_evidence_sign_on_coeff(int sign, unsigned j, const mpq & a, bound_evidence & be) {
@@ -182,7 +209,6 @@ void bound_propagator::propagate_for_minus() {
         bound_evidence bnd_evid;
         bnd_evid.m_j = m_cand_minus;
         fill_bound_evidence_minus(bnd_evid);
-        m_bound_evidences.push_back(bnd_evid);
     } else {
         lean_assert(m_n_minus == m_core_solver.m_pivot_row.m_index.size() + 1);
         std::cout << "can try to pin everybody" << std::endl;
@@ -220,7 +246,7 @@ void bound_propagator::propagate_bound_on_pivot_row_one_var_case_low_upper(const
             }
         }
     }
-void bound_propagator::fill_bound_kind_minus_on_pos(bound_evidence& be) {
+    void bound_propagator::fill_bound_kind_minus_on_pos(bound_evidence& be, unsigned & reg_ev_i) {
     lean_assert(m_a_minus.is_pos());
     // we have sum a[k]x[k] + m_a_minus * x[m_cand_minus] = 0;
     // so a*x[m_cand_minus] = - sum a[k]x[k] >=  - m_bound_minus
@@ -236,19 +262,19 @@ void bound_propagator::fill_bound_kind_minus_on_pos(bound_evidence& be) {
     default:
         break;
     }
+    // got a new low bound
 
     m_solver.m_low_bounds[m_cand_minus] = l;
-    
     lean_assert(be.m_j = m_cand_minus);
-    // got a new upper bound
     if (is_zero(l.y)) {
         be.m_kind = GE;
     } else {
         be.m_kind = GT; // strict case
     }
     be.m_bound = l.x;
+    reg_ev_i = register_in_bound_evidences(m_improved_low_bounds, m_cand_minus, be);
 }
-void bound_propagator::fill_bound_kind_minus_on_neg(bound_evidence& be) {
+    void bound_propagator::fill_bound_kind_minus_on_neg(bound_evidence& be, unsigned & reg_i) {
     lean_assert(m_a_minus.is_neg());
     // we have sum a[k]x[k] + m_a_minus * x[m_cand_minus] = 0;
     // so m_a_minus *x[m_cand_minus] = - a[k]x[k] >=  - m_bound_minus
@@ -268,11 +294,11 @@ void bound_propagator::fill_bound_kind_minus_on_neg(bound_evidence& be) {
     m_solver.m_upper_bounds[m_cand_minus] = u;
     if (is_zero(u.y)) {
         be.m_kind = LE;
-    }
-    else {
+    } else {
         be.m_kind = LT; // strict case
     }
     be.m_bound = u.x;
+    reg_i = register_in_bound_evidences(m_improved_upper_bounds, m_cand_minus, be);
 }
 
 }

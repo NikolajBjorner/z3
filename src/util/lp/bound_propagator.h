@@ -16,6 +16,7 @@ class bound_propagator {
     lar_solver & m_solver;
     lar_core_solver<mpq, numeric_pair<mpq>>& m_core_solver;
     std::vector<bound_evidence> & m_bound_evidences;
+    // the maps point from the column index to the index of its entry in m_bound_evidences
         // We have the equality, sum by j of pivot_row[j]*x[j] + x[basis[j]] = 0
         // We try to pin a var by pushing the total of the partial sum down, denoting the variable of this process by _minus.
         // In the same loop trying to pin a var by pushing the partial sum up, denoting it by _plus
@@ -29,9 +30,11 @@ class bound_propagator {
     unsigned m_n_plus = 0; // the number of terms limiting, active, from below found so far
     numeric_pair<mpq> m_bound_plus = numeric_pair<mpq>(0, 0); // the partial sum for plus, seen so far
     bool m_interested_in_plus = true;
+    std::unordered_map<unsigned, unsigned>& m_improved_low_bounds;
+    std::unordered_map<unsigned, unsigned>& m_improved_upper_bounds;
 public :
     // constructor
-    bound_propagator(unsigned row_index, lar_solver & solver, std::vector<bound_evidence> & bound_evidences);// : m_row_index(row_index), m_solver(solver), m_bound_evidences(bound_evidences), m_core_solver(solver.m_mpq_lar_core_solver) {}
+    bound_propagator(unsigned row_index, lar_solver & solver, std::vector<bound_evidence> & bound_evidences, std::unordered_map<unsigned, unsigned> & improved_low_bounds, std::unordered_map<unsigned, unsigned> & improved_upper_bounds);
 
     void propagate();
     void propagate_bound_on_var_on_coeff(int j, const mpq &a);
@@ -45,9 +48,12 @@ public :
     void fill_bound_evidence_plus(bound_evidence & bnd_evid);
     void fill_bound_evidence_minus(bound_evidence & bnd_evid);
     void fill_bound_evidence_sign_on_coeff(int sign, unsigned j, const mpq & a, bound_evidence & be);
-    void fill_bound_kind_plus_on_pos(bound_evidence & be);
-    void fill_bound_kind_plus_on_neg(bound_evidence & be);
-    void fill_bound_kind_minus_on_pos(bound_evidence & be);
-    void fill_bound_kind_minus_on_neg(bound_evidence & be);
+    void fill_bound_kind_plus_on_pos(bound_evidence & be, unsigned & ev_j);
+    void fill_bound_kind_plus_on_neg(bound_evidence & be, unsigned & ev_j );
+    void fill_bound_kind_minus_on_pos(bound_evidence & be, unsigned & ev_j);
+    void fill_bound_kind_minus_on_neg(bound_evidence & be, unsigned & ev_j);
+    unsigned register_in_bound_evidences(std::unordered_map<unsigned, unsigned> & m,
+                                     unsigned j,
+                                     bound_evidence & be);
 };
 }
