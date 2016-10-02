@@ -15,8 +15,8 @@ namespace lean {
 ) :
     m_row_index(row_index),
     m_solver(solver),
-    m_bound_evidences(bound_evidences),
     m_core_solver(solver.m_mpq_lar_core_solver),
+    m_bound_evidences(bound_evidences),
     m_improved_low_bounds(improved_low_bounds),
     m_improved_upper_bounds(improved_upper_bounds)
 {}
@@ -153,7 +153,7 @@ void bound_propagator::fill_bound_kind_plus_on_pos(bound_evidence& be, unsigned 
     }
     // got a new upper bound
 
-    lean_assert(be.m_j = m_cand_plus);
+    lean_assert(be.m_j == static_cast<unsigned>(m_cand_plus));
 
     if (is_zero(u.y)) {
         be.m_kind = LE;
@@ -195,7 +195,7 @@ void bound_propagator::fill_bound_kind_plus_on_neg(bound_evidence& be, unsigned 
 }
     
 void bound_propagator::fill_bound_evidence_sign_on_coeff(int sign, unsigned j, const mpq & a, bound_evidence & be) {
-    if (j == m_cand_plus) return;
+    if (j == static_cast<unsigned>(m_cand_plus)) return;
     int a_sign = a.is_pos()? 1: -1;
     sign *= a_sign;
     const canonic_left_side & cls = m_solver.m_vec_of_canonic_left_sides[j];
