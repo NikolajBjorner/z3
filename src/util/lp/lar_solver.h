@@ -201,15 +201,50 @@ public:
             lconstraint_kind_string(be.m_kind) << " "  << be.m_bound << std::endl;
     }
     
+    void check_bound_evidence(bound_evidence & be) {
+        std::unordered_map<unsigned, mpq> coeff_map;
+        auto rs = zero_of_type<mpq>();
+        unsigned n_of_G = 0, n_of_L = 0;
+        bool strict = false;
+        for (auto & it : be.m_evidence) {
+            mpq coeff = it.first;
+            constraint_index con_ind = it.second;
+            const lar_normalized_constraint & norm_constr = m_normalized_constraints()[con_ind];
+            const lar_constraint & constr = norm_constr.m_origin_constraint;
+            lconstraint_kind kind = coeff.is_pos() ? constr.m_kind : flip_kind(constr.m_kind);
+            register_in_map(coeff_map, constr, coeff);
+            if (kind == GT || kind == LT)
+                strict = true;
+            if (kind == GE || kind == GT) n_of_G++;
+            else if (kind == LE || kind == LT) n_of_L++;
+            rs += coeff*constr.m_right_side;
+        }
+        lean_assert(n_of_G == 0 || n_of_L == 0);
+        lconstraint_kind kind = n_of_G ? GE : (n_of_L ? LE : EQ);
+        if (strict)
+            kind = static_cast<lconstraint_kind>((static_cast<int>(kind) / 2));
+      
+        lean_assert(coeff_map.size() == 1);
+        auto it = coeff_map.find(be.m_j);
+        lean_assert(it != coeff_map.end());
+        mpq c = it->second;
+        if (c.is_neg())
+            kind = flip_kind(kind);
+        lean_assert(kind == be.m_kind);
+        lean_assert(be.m_bound == rs / c);
+    }
+
     void propogate_bound(var_index j, std::vector<bound_evidence> & bound_evidences, std::unordered_map<unsigned, unsigned> & improved_low_bounds, std::unordered_map<unsigned, unsigned> & improved_upper_bounds) {
         m_mpq_lar_core_solver.solve_Bd(j);
-        m_mpq_lar_core_solver.pretty_print(std::cout);
         for (unsigned i : m_mpq_lar_core_solver.m_ed.m_index) {
             propagate_bound_on_row(bound_evidences, i, improved_low_bounds, improved_upper_bounds); 
         }
+#if LEAN_DEBUG
         for (auto & be: bound_evidences) {
-            print_bound_evidence(be);
+            // print_bound_evidence(be);
+            check_bound_evidence(be);
         }
+#endif
     }
     
     constraint_index add_var_bound_with_bound_propagation(var_index j, lconstraint_kind kind, mpq right_side, std::vector<bound_evidence> & bound_evidences)  {

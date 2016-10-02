@@ -23,9 +23,7 @@ namespace lean {
 
 void bound_propagator::propagate() {
         m_core_solver.calculate_pivot_row(m_row_index);
-        std::cout << "pivot row\n";
-        m_core_solver.m_pivot_row.print(std::cout);
-                // We have the equality, sum by j of pivot_row[j]*x[j] + x[basis[j]] = 0
+        // We have the equality, sum by j of pivot_row[j]*x[j] + x[basis[j]] = 0
         // We try to pin a var by pushing the total of the partial sum down, denoting the variable of this process by _minus.
         // In the same loop trying to pin a var by pushing the partial sum up, denoting it by _plus
         

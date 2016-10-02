@@ -282,7 +282,12 @@ void lar_solver::register_in_map(std::unordered_map<var_index, mpq> & coeffs, co
         unsigned j = it.first;
         auto p = coeffs.find(j);
         if (p == coeffs.end()) coeffs[j] = it.second * a;
-        else p->second += it.second * a;
+        else {
+            p->second += it.second * a;
+            if (p->second.is_zero())
+                coeffs.erase(p);
+        }
+        
     }
 }
 bool lar_solver::the_left_sides_sum_to_zero(const std::vector<std::pair<mpq, unsigned>> & evidence) {
@@ -727,6 +732,7 @@ void lar_solver::pop(unsigned k) {
     m_mpq_lar_core_solver.update_columns_out_of_bounds();
     m_touched_nb_columns.clear();
 }
+
 
 void lar_solver::propagate_bound_on_row(std::vector<bound_evidence> & bound_evidences,
                                         unsigned pivot_row_index ,
