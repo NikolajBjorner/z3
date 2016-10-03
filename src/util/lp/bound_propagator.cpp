@@ -22,6 +22,7 @@ namespace lean {
 {}
 
 void bound_propagator::propagate() {
+    m_core_solver.pretty_print(std::cout);
         m_core_solver.calculate_pivot_row(m_row_index);
         // We have the equality, sum by j of pivot_row[j]*x[j] + x[basis[j]] = 0
         // We try to pin a var by pushing the total of the partial sum down, denoting the variable of this process by _minus.
@@ -84,6 +85,26 @@ void bound_propagator::propagate_bound_on_pivot_row_one_var_case_boxed_fixed(int
         m_n_plus++;
     }
 }
+void bound_propagator::pin_for_total_case_plus(const mpq & a, unsigned j) {
+    bound_evidence be;
+    be.m_j = j;
+    m_cand_plus = j;
+    m_a_plus = a;
+    auto bound_correction = a.is_pos() ? m_core_solver.m_low_bounds[j]: m_core_solver.m_upper_bounds[j];
+    m_bound_plus -= bound_correction;
+    fill_bound_evidence_plus(be);
+    m_bound_plus+= bound_correction;
+}
+void bound_propagator::pin_for_total_case_minus(const mpq & a, unsigned j) {
+    bound_evidence be;
+    be.m_j = j;
+    m_cand_minus = j;
+    m_a_minus = a;
+    auto bound_correction = (!a.is_pos()) ? m_core_solver.m_low_bounds[j] : m_core_solver.m_upper_bounds[j];
+    m_bound_minus -= bound_correction;
+    fill_bound_evidence_minus(be);
+    m_bound_minus += bound_correction;
+}
 
 void bound_propagator::propagate_for_plus() {
     if (m_n_plus < m_core_solver.m_pivot_row.m_index.size())
@@ -95,20 +116,24 @@ void bound_propagator::propagate_for_plus() {
         fill_bound_evidence_plus(bnd_evid);
     } else {
         lean_assert(m_n_plus == m_core_solver.m_pivot_row.m_index.size() + 1);
-        std::cout << "can try to pin everybody" << std::endl;
-        
+        for (unsigned j : m_core_solver.m_pivot_row.m_index) {
+            pin_for_total_case_plus(m_core_solver.m_pivot_row[j], j);
+        }
+        pin_for_total_case_plus(one_of_type<mpq>(), m_core_solver.m_basis[m_row_index]);
     }
 }
 void bound_propagator::fill_bound_evidence_minus(bound_evidence & bnd_evid) {
+    std::cout << "fill_bound_evidence_minus\n";
     unsigned ev_j;
-    if (m_a_plus.is_pos() )
+    if (m_a_minus.is_pos() )
         fill_bound_kind_minus_on_pos(bnd_evid, ev_j);
     else
         fill_bound_kind_minus_on_neg(bnd_evid, ev_j);
     bound_evidence & registered_be = m_bound_evidences[ev_j];
     for (unsigned i : m_core_solver.m_pivot_row.m_index)
         fill_bound_evidence_sign_on_coeff(-1, i, m_core_solver.m_pivot_row.m_data[i], registered_be);
-    fill_bound_evidence_sign_on_coeff(-1, m_solver.m_basis[m_row_index], one_of_type<mpq>(), registered_be);   
+    fill_bound_evidence_sign_on_coeff(-1, m_solver.m_basis[m_row_index], one_of_type<mpq>(), registered_be);
+    m_solver.print_bound_evidence(registered_be);
 }
 
 void bound_propagator::fill_bound_evidence_plus(bound_evidence & bnd_evid) {
@@ -195,7 +220,7 @@ void bound_propagator::fill_bound_kind_plus_on_neg(bound_evidence& be, unsigned 
 }
     
 void bound_propagator::fill_bound_evidence_sign_on_coeff(int sign, unsigned j, const mpq & a, bound_evidence & be) {
-    if (j == static_cast<unsigned>(m_cand_plus)) return;
+    if (j == static_cast<unsigned>(be.m_j)) return;
     int a_sign = a.is_pos()? 1: -1;
     sign *= a_sign;
     const canonic_left_side & cls = m_solver.m_vec_of_canonic_left_sides[j];
@@ -214,7 +239,10 @@ void bound_propagator::propagate_for_minus() {
         fill_bound_evidence_minus(bnd_evid);
     } else {
         lean_assert(m_n_minus == m_core_solver.m_pivot_row.m_index.size() + 1);
-        std::cout << "can try to pin everybody" << std::endl;
+        for (unsigned j : m_core_solver.m_pivot_row.m_index) {
+            pin_for_total_case_minus(m_core_solver.m_pivot_row[j], j);
+        }
+        pin_for_total_case_minus(one_of_type<mpq>(), m_core_solver.m_basis[m_row_index]);
     }
 }
 

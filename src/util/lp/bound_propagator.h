@@ -55,5 +55,7 @@ public :
     unsigned register_in_bound_evidences(std::unordered_map<unsigned, unsigned> & m,
                                      unsigned j,
                                      bound_evidence & be);
+    void pin_for_total_case_plus(const mpq & a, unsigned j);
+    void pin_for_total_case_minus(const mpq & a, unsigned j);
 };
 }

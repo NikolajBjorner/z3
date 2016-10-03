@@ -178,9 +178,9 @@ public:
     
     constraint_index add_var_bound(var_index j, lconstraint_kind kind, mpq right_side)  {
         if (j < m_A.column_count()) { // j is a var
-            std::vector<std::pair<mpq, var_index>> left_side;
-            left_side.emplace_back(1, j);
-            return add_constraint(left_side, kind, right_side);
+            const canonic_left_side& cls = m_vec_of_canonic_left_sides[j];
+            // todo - create a shortcut method to use canonic_left_side
+            return add_constraint(cls.m_coeffs, kind, right_side);
         }
         // it is a term
         return add_constraint(m_terms()[adjust_term_index(j)].m_coeffs, kind, right_side);
@@ -241,8 +241,7 @@ public:
         }
 #if LEAN_DEBUG
         for (auto & be: bound_evidences) {
-            // print_bound_evidence(be);
-            check_bound_evidence(be);
+             check_bound_evidence(be);
         }
 #endif
     }
@@ -956,6 +955,16 @@ public:
     
     }
 
+    bool var_is_registered(var_index vj) const {
+        if (vj >= m_terms_start_index) {
+            if (vj - m_terms_start_index >= m_terms.size())
+                return false;
+        } else if ( vj >= m_vec_of_canonic_left_sides.size()) {
+            return false;
+        }
+        return true;
+    }
+    
     friend class bound_propagator;
 };
 }

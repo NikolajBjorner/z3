@@ -81,7 +81,7 @@ public:
         return it->second;
     }
 
-    bool try_get_value(A& key, B& val) const  {
+    bool try_get_value(const A& key, B& val) const  {
         auto it = m_map.find(key);
         if (it == m_map.end())
             return false;
@@ -89,7 +89,7 @@ public:
         val = it->second;
         return true;
     }
-    bool try_get_value(A&& key, B& val) const  {
+    bool try_get_value(const A&& key, B& val) const  {
         auto it = m_map.find(std::move(key));
         if (it == m_map.end())
             return false;

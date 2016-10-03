@@ -183,16 +183,12 @@ var_index lar_solver::add_var(std::string s) {
     return i;
 }
 
+
+
 bool lar_solver::all_constrained_variables_are_registered(const std::vector<std::pair<mpq, var_index>>& left_side) {
     for (auto it : left_side) {
-        var_index vj = it.second;
-        if (vj >= m_terms_start_index) {
-            if (vj - m_terms_start_index >= m_terms.size())
-                return false;
-        } else  if ( vj >= m_vec_of_canonic_left_sides.size()) {
-            LP_OUT(settings(), "the variable " << vj << " is not registered in its constraint" << std::endl);
+        if (! var_is_registered(it.second))
             return false;
-        }
     }
     return true;
 }
