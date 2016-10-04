@@ -36,7 +36,7 @@ inline   bool compare(const std::pair<mpq, var_index> & a, const std::pair<mpq, 
 struct ul_pair {
     constraint_index m_low_bound_witness = static_cast<constraint_index>(-1);
     constraint_index m_upper_bound_witness = static_cast<constraint_index>(-1);
-    var_index m_additional_var_index = static_cast<var_index>(-1); // this is the index of the additional variable created for the constraint
+    var_index m_j = static_cast<var_index>(-1); // this is the index of the additional variable created for the constraint
     bool operator!=(const ul_pair & p) const {
         return !(*this == p);
     }
@@ -44,13 +44,13 @@ struct ul_pair {
     bool operator==(const ul_pair & p) const {
         return m_low_bound_witness == p.m_low_bound_witness
             && m_upper_bound_witness == p.m_upper_bound_witness
-            && m_additional_var_index == p.m_additional_var_index;
+            && m_j == p.m_j;
     }
     
     
     ul_pair(){}
-    ul_pair(var_index vi) : m_additional_var_index(vi) {}
-    ul_pair(const ul_pair & o): m_low_bound_witness(o.m_low_bound_witness), m_upper_bound_witness(o.m_upper_bound_witness), m_additional_var_index(o.m_additional_var_index) {}
+    ul_pair(var_index vi) : m_j(vi) {}
+    ul_pair(const ul_pair & o): m_low_bound_witness(o.m_low_bound_witness), m_upper_bound_witness(o.m_upper_bound_witness), m_j(o.m_j) {}
 };
 
 class canonic_left_side {

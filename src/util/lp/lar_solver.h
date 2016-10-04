@@ -179,8 +179,7 @@ public:
     constraint_index add_var_bound(var_index j, lconstraint_kind kind, mpq right_side)  {
         if (j < m_A.column_count()) { // j is a var
             const canonic_left_side& cls = m_vec_of_canonic_left_sides[j];
-            // todo - create a shortcut method to use canonic_left_side
-            return add_constraint(cls.m_coeffs, kind, right_side);
+            return add_constraint(cls, kind, right_side);
         }
         // it is a term
         return add_constraint(m_terms()[adjust_term_index(j)].m_coeffs, kind, right_side);
@@ -197,13 +196,12 @@ public:
             std::cout << p.first << std::endl;
             print_constraint(p.second, std::cout);
         }
-        std::cout << m_column_names[be.m_j] << " " <<
-            lconstraint_kind_string(be.m_kind) << " "  << be.m_bound << std::endl;
+        std::cout << "after summing up the constraints we get\n";
+        m_mpq_lar_core_solver.print_linear_combination_of_column_indices(m_vec_of_canonic_left_sides()[be.m_j].m_coeffs, std::cout);
+        std::cout << " " << lconstraint_kind_string(be.m_kind) << " "  << be.m_bound << std::endl;
     }
     
-    void check_bound_evidence(bound_evidence & be) {
-        return;
-        
+    void bound_evidence_is_correct(bound_evidence & be) {
         std::unordered_map<unsigned, mpq> coeff_map;
         auto rs = zero_of_type<mpq>();
         unsigned n_of_G = 0, n_of_L = 0;
@@ -226,10 +224,15 @@ public:
         if (strict)
             kind = static_cast<lconstraint_kind>((static_cast<int>(kind) / 2));
       
-        lean_assert(coeff_map.size() == 1);
-        auto it = coeff_map.find(be.m_j);
-        lean_assert(it != coeff_map.end());
-        mpq c = it->second;
+        std::vector<std::pair<mpq, var_index>> coeffs;
+        for (auto & p : coeff_map) {
+            coeffs.emplace_back(p.second, p.first);
+        }
+        canonic_left_side cls(coeffs);
+        lean_assert(cls.size() > 0);
+        lean_assert(cls == m_vec_of_canonic_left_sides[be.m_j]);
+        
+        mpq c = coeff_map[coeffs[0].second];
         if (c.is_neg())
             kind = flip_kind(kind);
         lean_assert(kind == be.m_kind);
@@ -244,7 +247,7 @@ public:
         }
 #if LEAN_DEBUG
         for (auto & be: bound_evidences) {
-             check_bound_evidence(be);
+             bound_evidence_is_correct(be);
         }
 #endif
     }
@@ -263,6 +266,7 @@ public:
     }
 
     constraint_index add_constraint(const std::vector<std::pair<mpq, var_index>>& left_side, lconstraint_kind kind_par, mpq right_side_par);
+    constraint_index add_constraint(const canonic_left_side& cls, lconstraint_kind kind_par, mpq right_side_par);
 
     bool get_constraint(constraint_index ci, lar_constraint& ci_constr) const  {
         if (ci < m_normalized_constraints().size()) {
@@ -380,7 +384,7 @@ public:
         b.clear();
         for (auto & t : m_map_of_canonic_left_sides_to_ul_pairs()) {
             if (t.first.size() > 1)
-                b.push_back(t.second.m_additional_var_index);
+                b.push_back(t.second.m_j);
         }
     }
     var_index add_term(const std::vector<std::pair<mpq, var_index>> & m_coeffs,

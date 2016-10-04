@@ -102,11 +102,11 @@ public:
         return m_map.size();
     }
 
-    bool contains(A & key) const {
+    bool contains(const A & key) const {
         return m_map.find(key) != m_map.end();
     }
 
-    bool contains(A && key) const {
+    bool contains(const A && key) const {
         return m_map.find(std::move(key)) != m_map.end();
     }
     

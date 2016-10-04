@@ -47,7 +47,7 @@ canonic_left_side lar_solver::create_or_fetch_existing_left_side(const std::vect
         fill_last_row_of_A(m_A, left_side);
         register_new_var_name(get_column_name(j)); // it will create a default name
     } else {
-        j= it->second.m_additional_var_index;
+        j= it->second.m_j;
     }
     return left_side;
 }
@@ -214,6 +214,23 @@ constraint_index lar_solver::add_constraint(const std::vector<std::pair<mpq, var
     return constr_ind;
 }
 
+constraint_index lar_solver::add_constraint(const canonic_left_side& cls, lconstraint_kind kind, mpq right_side) {    
+    lean_assert(m_map_of_canonic_left_sides_to_ul_pairs.contains(cls));
+    const auto & left_side = cls.m_coeffs;
+    lar_constraint original_constr(left_side, kind, right_side);
+    ul_pair ul;
+    bool b = m_map_of_canonic_left_sides_to_ul_pairs.try_get_value(cls, ul);
+    lean_assert(b);
+    
+    unsigned j = ul.m_j; // j is the index of the basic variables corresponding to the left side
+    lar_normalized_constraint normalized_constraint(cls, one_of_type<mpq>(), kind, right_side, original_constr);
+    m_normalized_constraints.push_back(normalized_constraint);
+    constraint_index constr_ind = m_normalized_constraints.size() - 1;
+    update_column_type_and_bound(j, kind, right_side, constr_ind);
+    return constr_ind;
+}
+
+    
 bool lar_solver::all_constraints_hold() const {
     std::unordered_map<var_index, mpq> var_map;
     get_model(var_map);
