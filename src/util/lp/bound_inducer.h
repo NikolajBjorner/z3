@@ -11,7 +11,7 @@ namespace lean {
     class lar_solver; // forward definition;
     template <typename T, typename X> class lar_core_solver; // forward definition
 
-class bound_propagator {
+class bound_inducer {
     unsigned m_row_index;
     lar_solver & m_solver;
     lar_core_solver<mpq, numeric_pair<mpq>>& m_core_solver;
@@ -34,14 +34,14 @@ class bound_propagator {
     std::unordered_map<unsigned, unsigned>& m_improved_upper_bounds;
 public :
     // constructor
-    bound_propagator(unsigned row_index, lar_solver & solver, std::vector<bound_evidence> & bound_evidences, std::unordered_map<unsigned, unsigned> & improved_low_bounds, std::unordered_map<unsigned, unsigned> & improved_upper_bounds);
+    bound_inducer(unsigned row_index, lar_solver & solver, std::vector<bound_evidence> & bound_evidences, std::unordered_map<unsigned, unsigned> & improved_low_bounds, std::unordered_map<unsigned, unsigned> & improved_upper_bounds);
 
-    void propagate();
-    void propagate_bound_on_var_on_coeff(int j, const mpq &a);
-    void propagate_for_minus();
-    void propagate_for_plus();
-    void propagate_bound_on_pivot_row_one_var_case_boxed_fixed(int j, const mpq & a);
-    void propagate_bound_on_pivot_row_one_var_case_low_upper(const mpq& a,
+    void induce();
+    void induce_bound_on_var_on_coeff(int j, const mpq &a);
+    void induce_for_minus();
+    void induce_for_plus();
+    void induce_bound_on_pivot_row_one_var_case_boxed_fixed(int j, const mpq & a);
+    void induce_bound_on_pivot_row_one_var_case_low_upper(const mpq& a,
                                                              int sign, // sign > 0 means the term can grow, sign < 0 means term can decrease
                                                              int j);
 

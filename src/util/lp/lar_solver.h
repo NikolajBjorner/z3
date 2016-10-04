@@ -27,7 +27,7 @@
 #include "util/lp/stacked_value.h"
 #include "util/lp/stacked_vector.h"
 #include "util/lp/stacked_unordered_set.h"
-#include "util/lp/bound_propagator.h"
+#include "util/lp/bound_inducer.h"
 namespace lean {
 template <typename V>
 struct conversion_helper {
@@ -186,7 +186,7 @@ public:
         return add_constraint(m_terms()[adjust_term_index(j)].m_coeffs, kind, right_side);
     }
 
-    void propagate_bound_on_row(std::vector<bound_evidence> & bound_evidences,
+    void induce_bound_on_row(std::vector<bound_evidence> & bound_evidences,
                                 unsigned i,
                                 std::unordered_map<unsigned, unsigned> & improved_low_bounds,
                                 std::unordered_map<unsigned, unsigned> & improved_upper_bounds);
@@ -202,6 +202,8 @@ public:
     }
     
     void check_bound_evidence(bound_evidence & be) {
+        return;
+        
         std::unordered_map<unsigned, mpq> coeff_map;
         auto rs = zero_of_type<mpq>();
         unsigned n_of_G = 0, n_of_L = 0;
@@ -237,7 +239,7 @@ public:
     void propogate_bound(var_index j, std::vector<bound_evidence> & bound_evidences, std::unordered_map<unsigned, unsigned> & improved_low_bounds, std::unordered_map<unsigned, unsigned> & improved_upper_bounds) {
         m_mpq_lar_core_solver.solve_Bd(j);
         for (unsigned i : m_mpq_lar_core_solver.m_ed.m_index) {
-            propagate_bound_on_row(bound_evidences, i, improved_low_bounds, improved_upper_bounds); 
+            induce_bound_on_row(bound_evidences, i, improved_low_bounds, improved_upper_bounds); 
         }
 #if LEAN_DEBUG
         for (auto & be: bound_evidences) {
@@ -965,6 +967,6 @@ public:
         return true;
     }
     
-    friend class bound_propagator;
+    friend class bound_inducer;
 };
 }

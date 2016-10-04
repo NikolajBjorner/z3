@@ -730,12 +730,12 @@ void lar_solver::pop(unsigned k) {
 }
 
 
-void lar_solver::propagate_bound_on_row(std::vector<bound_evidence> & bound_evidences,
+void lar_solver::induce_bound_on_row(std::vector<bound_evidence> & bound_evidences,
                                         unsigned pivot_row_index ,
                                         std::unordered_map<unsigned, unsigned>& improved_low_bounds,
                                         std::unordered_map<unsigned, unsigned>& improved_upper_bounds) {
-    bound_propagator b(pivot_row_index, *this, bound_evidences, improved_low_bounds, improved_upper_bounds);
-    b.propagate();
+    bound_inducer b(pivot_row_index, *this, bound_evidences, improved_low_bounds, improved_upper_bounds);
+    b.induce();
 }
 
 

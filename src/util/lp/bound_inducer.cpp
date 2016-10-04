@@ -4,10 +4,10 @@
 
   Author: Lev Nachmanson
 */
-#include "util/lp/bound_propagator.h"
+#include "util/lp/bound_inducer.h"
 #include "util/lp/lar_solver.h"
 namespace lean {
-    bound_propagator::bound_propagator(unsigned row_index,
+    bound_inducer::bound_inducer(unsigned row_index,
                                        lar_solver & solver,
                                        std::vector<bound_evidence> & bound_evidences,
                                        std::unordered_map<unsigned, unsigned>& improved_low_bounds,
@@ -21,7 +21,7 @@ namespace lean {
     m_improved_upper_bounds(improved_upper_bounds)
 {}
 
-void bound_propagator::propagate() {
+void bound_inducer::induce() {
     m_core_solver.pretty_print(std::cout);
         m_core_solver.calculate_pivot_row(m_row_index);
         // We have the equality, sum by j of pivot_row[j]*x[j] + x[basis[j]] = 0
@@ -29,23 +29,23 @@ void bound_propagator::propagate() {
         // In the same loop trying to pin a var by pushing the partial sum up, denoting it by _plus
         
         for (unsigned i : m_core_solver.m_pivot_row.m_index) {
-            propagate_bound_on_var_on_coeff(i,
+            induce_bound_on_var_on_coeff(i,
                                             m_core_solver.m_pivot_row[i]);
         }
-        propagate_bound_on_var_on_coeff(m_solver.m_basis[m_row_index],
+        induce_bound_on_var_on_coeff(m_solver.m_basis[m_row_index],
                                         one_of_type<mpq>());
         if (m_interested_in_minus)
-            propagate_for_minus();
+            induce_for_minus();
         if (m_interested_in_plus)
-            propagate_for_plus();
+            induce_for_plus();
 }
 
-void bound_propagator::propagate_bound_on_var_on_coeff(int j, const mpq &a) {
+void bound_inducer::induce_bound_on_var_on_coeff(int j, const mpq &a) {
     int  sign = 0;
     switch (m_core_solver.m_column_type[j]) {
     case boxed:
     case fixed:
-        propagate_bound_on_pivot_row_one_var_case_boxed_fixed(j, a); 
+        induce_bound_on_pivot_row_one_var_case_boxed_fixed(j, a); 
         break;
     case low_bound:
         sign = a.is_pos()? 1:-1;
@@ -72,10 +72,10 @@ void bound_propagator::propagate_bound_on_var_on_coeff(int j, const mpq &a) {
         }
     }
     if (sign) {
-        propagate_bound_on_pivot_row_one_var_case_low_upper(a, sign, j);
+        induce_bound_on_pivot_row_one_var_case_low_upper(a, sign, j);
     }
 }
-void bound_propagator::propagate_bound_on_pivot_row_one_var_case_boxed_fixed(int j, const mpq & a) {
+void bound_inducer::induce_bound_on_pivot_row_one_var_case_boxed_fixed(int j, const mpq & a) {
     if (m_interested_in_minus) {
         m_bound_minus += a * (a.is_pos() ? m_solver.m_upper_bounds()[j] : m_solver.m_low_bounds()[j]); 
         m_n_minus++;
@@ -85,7 +85,7 @@ void bound_propagator::propagate_bound_on_pivot_row_one_var_case_boxed_fixed(int
         m_n_plus++;
     }
 }
-void bound_propagator::pin_for_total_case_plus(const mpq & a, unsigned j) {
+void bound_inducer::pin_for_total_case_plus(const mpq & a, unsigned j) {
     bound_evidence be;
     be.m_j = j;
     m_cand_plus = j;
@@ -95,7 +95,7 @@ void bound_propagator::pin_for_total_case_plus(const mpq & a, unsigned j) {
     fill_bound_evidence_plus(be);
     m_bound_plus+= bound_correction;
 }
-void bound_propagator::pin_for_total_case_minus(const mpq & a, unsigned j) {
+void bound_inducer::pin_for_total_case_minus(const mpq & a, unsigned j) {
     bound_evidence be;
     be.m_j = j;
     m_cand_minus = j;
@@ -106,7 +106,7 @@ void bound_propagator::pin_for_total_case_minus(const mpq & a, unsigned j) {
     m_bound_minus += bound_correction;
 }
 
-void bound_propagator::propagate_for_plus() {
+void bound_inducer::induce_for_plus() {
     if (m_n_plus < m_core_solver.m_pivot_row.m_index.size())
         return; // cannot pin anything
     if (m_n_plus == m_core_solver.m_pivot_row.m_index.size()) {
@@ -122,8 +122,7 @@ void bound_propagator::propagate_for_plus() {
         pin_for_total_case_plus(one_of_type<mpq>(), m_core_solver.m_basis[m_row_index]);
     }
 }
-void bound_propagator::fill_bound_evidence_minus(bound_evidence & bnd_evid) {
-    std::cout << "fill_bound_evidence_minus\n";
+void bound_inducer::fill_bound_evidence_minus(bound_evidence & bnd_evid) {
     unsigned ev_j;
     if (m_a_minus.is_pos() )
         fill_bound_kind_minus_on_pos(bnd_evid, ev_j);
@@ -136,7 +135,7 @@ void bound_propagator::fill_bound_evidence_minus(bound_evidence & bnd_evid) {
     m_solver.print_bound_evidence(registered_be);
 }
 
-void bound_propagator::fill_bound_evidence_plus(bound_evidence & bnd_evid) {
+void bound_inducer::fill_bound_evidence_plus(bound_evidence & bnd_evid) {
     unsigned ev_j;
     if (m_a_plus.is_pos() )
         fill_bound_kind_plus_on_pos(bnd_evid, ev_j);
@@ -148,7 +147,7 @@ void bound_propagator::fill_bound_evidence_plus(bound_evidence & bnd_evid) {
     fill_bound_evidence_sign_on_coeff(1, m_solver.m_basis[m_row_index], one_of_type<mpq>(), registered_be);   
 }
 
-unsigned bound_propagator::register_in_bound_evidences(std::unordered_map<unsigned, unsigned> & m, unsigned j, bound_evidence & be) { 
+unsigned bound_inducer::register_in_bound_evidences(std::unordered_map<unsigned, unsigned> & m, unsigned j, bound_evidence & be) { 
     auto it = m.find(j);
     if (it == m.end()) {
         m[j] = m_bound_evidences.size();
@@ -160,7 +159,7 @@ unsigned bound_propagator::register_in_bound_evidences(std::unordered_map<unsign
     }
 }
     
-void bound_propagator::fill_bound_kind_plus_on_pos(bound_evidence& be, unsigned & reg_be) {
+void bound_inducer::fill_bound_kind_plus_on_pos(bound_evidence& be, unsigned & reg_be) {
     lean_assert(m_a_plus.is_pos());
     // we have sum a[k]x[k] + m_a_plus * x[m_cand_plus] = 0;
     // so a*x[m_cand_plus] = - a[k]x[k] <=  - m_bound_plus
@@ -190,7 +189,7 @@ void bound_propagator::fill_bound_kind_plus_on_pos(bound_evidence& be, unsigned 
     m_solver.add_var_bound(m_cand_plus, be.m_kind, u.x); 
     reg_be = register_in_bound_evidences(m_improved_upper_bounds, m_cand_plus, be);
 }
-void bound_propagator::fill_bound_kind_plus_on_neg(bound_evidence& be, unsigned & reg_ev_index) {
+void bound_inducer::fill_bound_kind_plus_on_neg(bound_evidence& be, unsigned & reg_ev_index) {
     lean_assert(m_a_plus.is_neg());
     // we have sum a[k]x[k] + m_a_plus * x[m_cand_plus] = 0;
     // so m_a_plus *x[m_cand_plus] = - sum a[k]x[k] <=  - m_bound_plus
@@ -219,7 +218,7 @@ void bound_propagator::fill_bound_kind_plus_on_neg(bound_evidence& be, unsigned 
     reg_ev_index = register_in_bound_evidences(m_improved_low_bounds, m_cand_plus, be);
 }
     
-void bound_propagator::fill_bound_evidence_sign_on_coeff(int sign, unsigned j, const mpq & a, bound_evidence & be) {
+void bound_inducer::fill_bound_evidence_sign_on_coeff(int sign, unsigned j, const mpq & a, bound_evidence & be) {
     if (j == static_cast<unsigned>(be.m_j)) return;
     int a_sign = a.is_pos()? 1: -1;
     sign *= a_sign;
@@ -229,7 +228,7 @@ void bound_propagator::fill_bound_evidence_sign_on_coeff(int sign, unsigned j, c
     be.m_evidence.emplace_back(a, witness);
 }
 
-void bound_propagator::propagate_for_minus() {
+void bound_inducer::induce_for_minus() {
     if (m_n_minus < m_core_solver.m_pivot_row.m_index.size())
         return; // cannot pin anything
     if (m_n_minus == m_core_solver.m_pivot_row.m_index.size()) {
@@ -246,7 +245,7 @@ void bound_propagator::propagate_for_minus() {
     }
 }
 
-void bound_propagator::propagate_bound_on_pivot_row_one_var_case_low_upper(const mpq& a,
+void bound_inducer::induce_bound_on_pivot_row_one_var_case_low_upper(const mpq& a,
                                                              int sign, // sign > 0 means the term can grow, sign < 0 means term can decrease
                                                              int j) {
         if (sign > 0){
@@ -277,7 +276,7 @@ void bound_propagator::propagate_bound_on_pivot_row_one_var_case_low_upper(const
             }
         }
     }
-    void bound_propagator::fill_bound_kind_minus_on_pos(bound_evidence& be, unsigned & reg_ev_i) {
+    void bound_inducer::fill_bound_kind_minus_on_pos(bound_evidence& be, unsigned & reg_ev_i) {
     lean_assert(m_a_minus.is_pos());
     // we have sum a[k]x[k] + m_a_minus * x[m_cand_minus] = 0;
     // so a*x[m_cand_minus] = - sum a[k]x[k] >=  - m_bound_minus
@@ -307,7 +306,7 @@ void bound_propagator::propagate_bound_on_pivot_row_one_var_case_low_upper(const
     m_solver.add_var_bound(m_cand_minus, be.m_kind, l.x); 
     reg_ev_i = register_in_bound_evidences(m_improved_low_bounds, m_cand_minus, be);
 }
-    void bound_propagator::fill_bound_kind_minus_on_neg(bound_evidence& be, unsigned & reg_i) {
+    void bound_inducer::fill_bound_kind_minus_on_neg(bound_evidence& be, unsigned & reg_i) {
     lean_assert(m_a_minus.is_neg());
     // we have sum a[k]x[k] + m_a_minus * x[m_cand_minus] = 0;
     // so m_a_minus *x[m_cand_minus] = - a[k]x[k] >=  - m_bound_minus
