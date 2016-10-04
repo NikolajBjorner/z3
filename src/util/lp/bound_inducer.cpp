@@ -22,9 +22,8 @@ namespace lean {
 {}
 
 void bound_inducer::induce() {
-    m_core_solver.pretty_print(std::cout);
     m_core_solver.calculate_pivot_row(m_row_index);
-    // We have the equality, sum by j of pivot_row[j]*x[j] + x[basis[j]] = 0
+    // We have the equality sum by j of pivot_row[j]*x[j] + x[basis[j]] = 0
     // We try to pin a var by pushing the total of the partial sum down, denoting the variable of this process by _minus.
     // In the same loop trying to pin a var by pushing the partial sum up, denoting it by _plus
      
@@ -130,7 +129,7 @@ void bound_inducer::fill_bound_evidence_minus(bound_evidence & bnd_evid) {
     for (unsigned i : m_core_solver.m_pivot_row.m_index)
         fill_bound_evidence_sign_on_coeff(-1, i, m_core_solver.m_pivot_row.m_data[i], registered_be);
     fill_bound_evidence_sign_on_coeff(-1, m_solver.m_basis[m_row_index], one_of_type<mpq>(), registered_be);
-    m_solver.print_bound_evidence(registered_be);
+    // m_solver.print_bound_evidence(registered_be);
 }
 
 void bound_inducer::fill_bound_evidence_plus(bound_evidence & bnd_evid) {
