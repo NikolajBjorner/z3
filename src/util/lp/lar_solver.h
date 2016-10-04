@@ -238,8 +238,9 @@ public:
 
     void propogate_bound(var_index j, std::vector<bound_evidence> & bound_evidences, std::unordered_map<unsigned, unsigned> & improved_low_bounds, std::unordered_map<unsigned, unsigned> & improved_upper_bounds) {
         m_mpq_lar_core_solver.solve_Bd(j);
-        for (unsigned i : m_mpq_lar_core_solver.m_ed.m_index) {
-            induce_bound_on_row(bound_evidences, i, improved_low_bounds, improved_upper_bounds); 
+        for (unsigned i = 0; i < m_mpq_lar_core_solver.m_ed.m_index.size();i++) {
+            induce_bound_on_row(bound_evidences, m_mpq_lar_core_solver.m_ed.m_index[i],
+                improved_low_bounds, improved_upper_bounds);
         }
 #if LEAN_DEBUG
         for (auto & be: bound_evidences) {

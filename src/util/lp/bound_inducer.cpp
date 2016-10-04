@@ -23,22 +23,20 @@ namespace lean {
 
 void bound_inducer::induce() {
     m_core_solver.pretty_print(std::cout);
-        m_core_solver.calculate_pivot_row(m_row_index);
-        // We have the equality, sum by j of pivot_row[j]*x[j] + x[basis[j]] = 0
-        // We try to pin a var by pushing the total of the partial sum down, denoting the variable of this process by _minus.
-        // In the same loop trying to pin a var by pushing the partial sum up, denoting it by _plus
-        
-        for (unsigned i : m_core_solver.m_pivot_row.m_index) {
-            induce_bound_on_var_on_coeff(i,
-                                            m_core_solver.m_pivot_row[i]);
-        }
-        induce_bound_on_var_on_coeff(m_solver.m_basis[m_row_index],
-                                        one_of_type<mpq>());
-        if (m_interested_in_minus)
-            induce_for_minus();
-        if (m_interested_in_plus)
-            induce_for_plus();
-}
+    m_core_solver.calculate_pivot_row(m_row_index);
+    // We have the equality, sum by j of pivot_row[j]*x[j] + x[basis[j]] = 0
+    // We try to pin a var by pushing the total of the partial sum down, denoting the variable of this process by _minus.
+    // In the same loop trying to pin a var by pushing the partial sum up, denoting it by _plus
+     
+    for (unsigned k = 0; k < m_core_solver.m_pivot_row.m_index.size();k++) {
+        unsigned i = m_core_solver.m_pivot_row.m_index[k];
+        induce_bound_on_var_on_coeff(i, m_core_solver.m_pivot_row[i]);
+    }
+    induce_bound_on_var_on_coeff(m_solver.m_basis[m_row_index],
+                                 one_of_type<mpq>());
+    if (m_interested_in_minus)
+        induce_for_minus();
+ }
 
 void bound_inducer::induce_bound_on_var_on_coeff(int j, const mpq &a) {
     int  sign = 0;
