@@ -54,7 +54,7 @@ int lp_primal_core_solver<T, X>::choose_entering_column(unsigned number_of_benef
             continue;
         }
         T dj = this->m_d[j];
-        switch (this->m_column_type[j]) {
+        switch (this->m_column_types[j]) {
         case fixed:  continue;
         case free_column:
             if (dj > m_epsilon_of_reduced_cost || dj < -m_epsilon_of_reduced_cost) break;
@@ -169,7 +169,7 @@ template <typename T, typename X>    int lp_primal_core_solver<T, X>::find_leavi
 
 
 template <typename T, typename X>    bool lp_primal_core_solver<T, X>::try_jump_to_another_bound_on_entering(unsigned entering, const X & theta, X & t) {
-    if (this->m_column_type[entering] != boxed)
+    if (this->m_column_types[entering] != boxed)
         return false;
 
     if (m_sign_of_entering_delta > 0) {
@@ -327,13 +327,13 @@ template <typename T, typename X> bool lp_primal_core_solver<T, X>::initial_x_is
         }
 
         if (basis_set.find(j) != basis_set.end()) continue;
-        if (this->m_column_type[j] == low_bound)  {
+        if (this->m_column_types[j] == low_bound)  {
             if (numeric_traits<T>::zero() != this->m_x[j]) {
                 LP_OUT(this->m_settings, "only low bound is set for " << j << " but low bound value " << numeric_traits<T>::zero() << " is not equal to " << this->m_x[j] << std::endl);
                 return false;
             }
         }
-        if (this->m_column_type[j] == boxed) {
+        if (this->m_column_types[j] == boxed) {
             if (this->m_upper_bounds[j] != this->m_x[j] && !numeric_traits<T>::is_zero(this->m_x[j])) {
                 return false;
             }
@@ -691,7 +691,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::update_co
         T s = this->m_A.dot_product_with_column(m_beta.m_data, j);
         T k = -2 / pivot;
         T tp = t/pivot;
-        if (this->m_column_type[j] == fixed) {
+        if (this->m_column_types[j] == fixed) {
             this->m_column_norms[j] = T(1); // We would like to kick out fixed vars from the basis, so making the norm small increases this chance since the steepest edge expression will be large
         } else {
             this->m_column_norms[j] = std::max(this->m_column_norms[j] + t * (t * g_ent + k * s), // see Achim Koberstein dissertation (8.1)
@@ -920,7 +920,7 @@ template <typename T, typename X> bool lp_primal_core_solver<T, X>::done() {
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::init_infeasibility_costs() {
     lean_assert(this->m_x.size() >= this->m_n());
-    lean_assert(this->m_column_type.size() >= this->m_n());
+    lean_assert(this->m_column_types.size() >= this->m_n());
     //        X inf = m_infeasibility;
     m_infeasibility = zero_of_type<X>();
     for (unsigned j = this->m_n(); j--;)
@@ -962,7 +962,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::init_infe
     }
 
     // j is a basis column
-    switch (this->m_column_type[j]) {
+    switch (this->m_column_types[j]) {
     case fixed:
     case boxed:
         if (this->above_bound(x, this->m_upper_bounds[j])) {

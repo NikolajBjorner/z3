@@ -172,6 +172,10 @@ struct numeric_pair {
     static bool precize() { return lean::numeric_traits<T>::precize();}
 
     bool is_zero() const { return x.is_zero() && y.is_zero(); }
+
+    bool is_pos() const { return x.is_pos() || (x.is_zero() && y.is_pos());}
+
+    bool is_neg() const { return x.is_neg() || (x.is_zero() && y.is_neg());}
     
     std::string to_string() const {
         return std::string("(") + T_to_string(x) + ", "  + T_to_string(y) + ")";

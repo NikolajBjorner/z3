@@ -155,7 +155,7 @@ template <typename T, typename X> T lp_dual_core_solver<T, X>::get_edge_steepnes
 
 template <typename T, typename X> T lp_dual_core_solver<T, X>::pricing_for_row(unsigned i) {
     unsigned p = this->m_basis[i];
-    switch (this->m_column_type[p]) {
+    switch (this->m_column_types[p]) {
     case fixed:
     case boxed:
         if (this->x_below_low_bound(p)) {
@@ -266,7 +266,7 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::advance_on_kno
 }
 
 template <typename T, typename X> int lp_dual_core_solver<T, X>::define_sign_of_alpha_r() {
-    switch (this->m_column_type[m_p]) {
+    switch (this->m_column_types[m_p]) {
     case boxed:
     case fixed:
         if (this->x_below_low_bound(m_p)) {
@@ -295,7 +295,7 @@ template <typename T, typename X> int lp_dual_core_solver<T, X>::define_sign_of_
 
 template <typename T, typename X> bool lp_dual_core_solver<T, X>::can_be_breakpoint(unsigned j) {
     if (this->pivot_row_element_is_too_small_for_ratio_test(j)) return false;
-    switch (this->m_column_type[j]) {
+    switch (this->m_column_types[j]) {
     case low_bound:
         lean_assert(this->m_settings.abs_val_is_smaller_than_harris_tolerance(this->m_x[j] - this->m_low_bounds[j]));
         return m_sign_of_alpha_r * this->m_pivot_row[j]  > 0;
@@ -331,7 +331,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::fill_breakpoin
 // }
 
 template <typename T, typename X> T lp_dual_core_solver<T, X>::get_delta() {
-    switch (this->m_column_type[m_p]) {
+    switch (this->m_column_types[m_p]) {
     case boxed:
         if (this->x_below_low_bound(m_p)) {
             return this->m_x[m_p] - this->m_low_bounds[m_p];
@@ -526,7 +526,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::revert_to_prev
 
 // returns true if the column has been snapped
 template <typename T, typename X> bool lp_dual_core_solver<T, X>::snap_runaway_nonbasic_column(unsigned j) {
-    switch (this->m_column_type[j]) {
+    switch (this->m_column_types[j]) {
     case fixed:
     case low_bound:
         if (!this->x_is_at_low_bound(j)) {
@@ -620,9 +620,9 @@ template <typename T, typename X> T lp_dual_core_solver<T, X>::delta_lost_on_fli
 }
 
 template <typename T, typename X> bool lp_dual_core_solver<T, X>::tight_breakpoinst_are_all_boxed() {
-    if (this->m_column_type[m_q] != boxed) return false;
+    if (this->m_column_types[m_q] != boxed) return false;
     for (auto j : m_tight_set) {
-        if (this->m_column_type[j] != boxed) return false;
+        if (this->m_column_types[j] != boxed) return false;
     }
     return true;
 }

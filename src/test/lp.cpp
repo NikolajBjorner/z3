@@ -2849,12 +2849,11 @@ void test_total_case_plus() {
 }
 void test_total_case_minus(){}
 void test_bound_propogation() {
-    test_total_case_plus();
-    test_total_case_minus();
     test_bound_propogation_one_row();
     test_bound_propogation_two_rows();
     test_bound_propogation_one_row_mixed();
-    
+    test_total_case_plus();
+    test_total_case_minus();
 }
    
 void test_lp_local(int argn, char**argv) {

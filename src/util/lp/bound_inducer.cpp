@@ -35,11 +35,13 @@ void bound_inducer::induce() {
                                  one_of_type<mpq>());
     if (m_interested_in_minus)
         induce_for_minus();
+    if (m_interested_in_plus)
+        induce_for_plus();
  }
 
 void bound_inducer::induce_bound_on_var_on_coeff(int j, const mpq &a) {
     int  sign = 0;
-    switch (m_core_solver.m_column_type[j]) {
+    switch (m_core_solver.m_column_types[j]) {
     case boxed:
     case fixed:
         induce_bound_on_pivot_row_one_var_case_boxed_fixed(j, a); 
@@ -163,7 +165,7 @@ void bound_inducer::fill_bound_kind_plus_on_pos(bound_evidence& be, unsigned & r
     // we have to have a * x[m_cand_plus] <= - m_bound_plus, or x[m_cand_plus] <= -m_bound_plus / a, sin
     // so we have an upper bound
     auto u = -m_bound_plus / m_a_plus;
-    switch (m_core_solver.m_column_type[m_cand_plus]) {
+    switch (m_core_solver.m_column_types[m_cand_plus]) {
     case boxed:
     case fixed:
     case upper_bound: // in all these cases we have an upper bound already
@@ -193,7 +195,7 @@ void bound_inducer::fill_bound_kind_plus_on_neg(bound_evidence& be, unsigned & r
     // we have to have m_a_plus * x[m_cand_plus] <= - m_bound_plus, or x[m_cand_plus] >= -m_bound_plus / m_a_plus, since m_a_plus is negative
     // so we have a low bound
     auto l = -m_bound_plus / m_a_plus;
-    switch (m_core_solver.m_column_type[m_cand_plus]) {
+    switch (m_core_solver.m_column_types[m_cand_plus]) {
     case low_bound:
     case fixed:
     case boxed:
@@ -280,7 +282,7 @@ void bound_inducer::induce_bound_on_pivot_row_one_var_case_low_upper(const mpq& 
     // we have to have a * x[m_cand_minus] >= - m_bound_minus, or x[m_cand_minus] >= -m_bound_minus / a, 
     // so we have a low bound
     auto l = -m_bound_minus / m_a_minus;
-    switch (m_core_solver.m_column_type[m_cand_minus]) {
+    switch (m_core_solver.m_column_types[m_cand_minus]) {
     case boxed:
     case fixed:
     case low_bound: // in all these cases we have an upper bound already
@@ -310,7 +312,7 @@ void bound_inducer::induce_bound_on_pivot_row_one_var_case_low_upper(const mpq& 
     // we have to have m_a_minus * x[m_cand_minus] >= - m_bound_minus, or x[m_cand_minus] <= -m_bound_minus / m_a_minus, since m_a_minus is negative
     // so we have an upper bound
     auto u = -m_bound_minus / m_a_minus;
-    switch (m_core_solver.m_column_type[m_cand_minus]) {
+    switch (m_core_solver.m_column_types[m_cand_minus]) {
     case upper_bound:
     case fixed:
     case boxed:

@@ -28,6 +28,9 @@
 #include "util/lp/stacked_vector.h"
 #include "util/lp/stacked_unordered_set.h"
 #include "util/lp/bound_inducer.h"
+#include "util/lp/iterator_on_pivot_row.h"
+#include "util/lp/implied_bound_evidence_signature.h"
+#include "util/lp/bound_analizer_on_row.h"
 namespace lean {
 template <typename V>
 struct conversion_helper {
@@ -239,7 +242,94 @@ public:
         lean_assert(be.m_bound == rs / c);
     }
 
-    void propogate_bound(var_index j, std::vector<bound_evidence> & bound_evidences, std::unordered_map<unsigned, unsigned> & improved_low_bounds, std::unordered_map<unsigned, unsigned> & improved_upper_bounds) {
+    void analyze_new_bounds_on_row(std::vector<implied_bound_evidence_signature<numeric_pair<mpq>>>& evidence_vector, unsigned row_index) {
+        iterator_on_pivot_row<mpq> it(m_mpq_lar_core_solver.m_pivot_row, m_basis[row_index]); 
+        bound_analizer_on_row<mpq, numeric_pair<mpq>> ra_pos(it,
+            m_mpq_lar_core_solver.m_low_bounds,
+            m_mpq_lar_core_solver.m_upper_bounds,
+            m_mpq_lar_core_solver.m_column_types,
+            zero_of_type<numeric_pair<mpq>>(),
+            1,
+            evidence_vector);
+        ra_pos.analyze();
+        bound_analizer_on_row<mpq, numeric_pair<mpq>> ra_neg(it,
+            m_mpq_lar_core_solver.m_low_bounds,
+            m_mpq_lar_core_solver.m_upper_bounds,
+            m_mpq_lar_core_solver.m_column_types,
+            zero_of_type<numeric_pair<mpq>>(),
+            -1,
+            evidence_vector);
+        ra_neg.analyze();
+    }
+
+    void calculate_implied_bound_evidences(unsigned i, std::vector<implied_bound_evidence_signature<numeric_pair<mpq>>>& evidence_vector) {
+        m_mpq_lar_core_solver.calculate_pivot_row(i);
+        std::cout << "pivot row ";
+        m_mpq_lar_core_solver.m_pivot_row.print(std::cout);
+        iterator_on_pivot_row<mpq> it(m_mpq_lar_core_solver.m_pivot_row, m_basis[i]);
+        analyze_new_bounds_on_row(evidence_vector, i);
+    }
+    void process_new_implied_evidence_for_low_bound(
+        implied_bound_evidence_signature<numeric_pair<mpq>>& implied_evidence, // not pushed yet
+        std::vector<bound_evidence> & bound_evidences,
+        std::unordered_map<unsigned, unsigned> & improved_low_bounds) {
+        auto it = improved_low_bounds.find(implied_evidence.m_j);
+        unsigned be_index;
+        if (it == improved_low_bounds.end()) {
+            bound_evidence b_ev;
+            b_ev.m_bound = implied_evidence.m_bound.x;
+            b_ev.m_j = implied_evidence.m_j;
+            b_ev.m_kind = implied_evidence.m_low_bound ? (implied_evidence.m_bound.y.is_zero() ? GE : GT) : (implied_evidence.m_bound.y.is_zero() ? LE : LT);
+            bound_evidences.push_back(b_ev);
+            
+            be_index = bound_evidences.size() - 1;
+        }
+        else {
+            be_index = it->second;            
+        }
+        bound_evidence& be = bound_evidences[be_index];
+        std::cout << "need to find the constraints\n";
+    }
+
+    void process_new_implied_evidence_for_upper_bound(
+        implied_bound_evidence_signature<numeric_pair<mpq>>& implied_evidence, // not pushed yet
+        std::vector<bound_evidence> & bound_evidences,
+        std::unordered_map<unsigned, unsigned> & improved_upper_bounds) {
+        std::cout << "not impl\n";
+    }
+
+    void process_new_implied_evidence(
+        implied_bound_evidence_signature<numeric_pair<mpq>>& implied_evidence, // not pushed yet
+        std::vector<bound_evidence> & bound_evidences,
+        std::unordered_map<unsigned, unsigned> & improved_low_bounds,
+        std::unordered_map<unsigned, unsigned> & improved_upper_bounds) {
+        if (implied_evidence.m_low_bound)
+            process_new_implied_evidence_for_low_bound(implied_evidence, bound_evidences, improved_low_bounds);
+        else 
+            process_new_implied_evidence_for_upper_bound(implied_evidence, bound_evidences, improved_upper_bounds);
+    }
+    void process_new_implied_evidences(
+        std::vector<implied_bound_evidence_signature<numeric_pair<mpq>>>& evidence_vector,
+        std::vector<bound_evidence> & bound_evidences,
+        std::unordered_map<unsigned, unsigned> & improved_low_bounds,
+        std::unordered_map<unsigned, unsigned> & improved_upper_bounds) {
+        for (auto & ibs : evidence_vector)
+            process_new_implied_evidence(ibs, bound_evidences, improved_low_bounds, improved_upper_bounds);
+    }
+
+    void propagate_bound(var_index j, std::vector<bound_evidence> & bound_evidences, 
+        std::unordered_map<unsigned, unsigned> & improved_low_bounds, 
+        std::unordered_map<unsigned, unsigned> & improved_upper_bounds) {
+        m_mpq_lar_core_solver.pretty_print(std::cout);
+        m_mpq_lar_core_solver.solve_Bd(j);
+        for (unsigned i = 0; i < m_mpq_lar_core_solver.m_ed.m_index.size();i++) {
+            std::vector<implied_bound_evidence_signature<numeric_pair<mpq>>> evidence_vector;
+            calculate_implied_bound_evidences(m_mpq_lar_core_solver.m_ed.m_index[i], evidence_vector);
+            process_new_implied_evidences(evidence_vector, bound_evidences, improved_low_bounds, improved_upper_bounds);
+        }
+
+        
+        /*
         m_mpq_lar_core_solver.solve_Bd(j);
         for (unsigned i = 0; i < m_mpq_lar_core_solver.m_ed.m_index.size();i++) {
             induce_bound_on_row(bound_evidences, m_mpq_lar_core_solver.m_ed.m_index[i],
@@ -250,15 +340,15 @@ public:
              bound_evidence_is_correct(be);
         }
 #endif
+        */
     }
     
     constraint_index add_var_bound_with_bound_propagation(var_index j, lconstraint_kind kind, mpq right_side, std::vector<bound_evidence> & bound_evidences)  {
         std::unordered_map<unsigned, unsigned> improved_low_bounds; // serves as a guard
         std::unordered_map<unsigned, unsigned> improved_upper_bounds; // serves as a guard
-
         if (j < m_A.column_count()) { // j is a var
             constraint_index ret = add_var_bound(j, kind, right_side);
-            propogate_bound(j, bound_evidences, improved_low_bounds, improved_upper_bounds);
+            propagate_bound(j, bound_evidences, improved_low_bounds, improved_upper_bounds);
             return ret;
         }
         // j is a term
@@ -962,6 +1052,7 @@ public:
     
     }
 
+    // returns true even for vars created for canonic_left_sides
     bool var_is_registered(var_index vj) const {
         if (vj >= m_terms_start_index) {
             if (vj - m_terms_start_index >= m_terms.size())

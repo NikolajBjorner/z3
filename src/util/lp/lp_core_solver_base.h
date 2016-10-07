@@ -47,7 +47,7 @@ public:
     std::vector<T> m_d; // the vector of reduced costs
     indexed_vector<T> m_ed; // the solution of B*m_ed = a
     unsigned m_iters_with_no_cost_growing = 0;
-    const std::vector<column_type> & m_column_type;
+    const std::vector<column_type> & m_column_types;
     std::vector<X> & m_low_bounds;
     std::vector<X> & m_upper_bounds;
     std::vector<T> m_column_norms; // the approximate squares of column norms that help choosing a profitable column
@@ -231,7 +231,7 @@ public:
     X low_bound_value(unsigned j) const { return m_low_bounds[j]; }
     X upper_bound_value(unsigned j) const { return m_upper_bounds[j]; }
 
-    column_type get_column_type(unsigned j) const {return m_column_type[j]; }
+    column_type get_column_type(unsigned j) const {return m_column_types[j]; }
 
     bool pivot_row_element_is_too_small_for_ratio_test(unsigned j) {
         return m_settings.abs_val_is_smaller_than_pivot_tolerance(m_pivot_row[j]);
@@ -253,7 +253,7 @@ public:
     void solve_Ax_eq_b();
 
     void snap_column_to_bound(unsigned j) {
-        switch (m_column_type[j]) {
+        switch (m_column_types[j]) {
         case fixed:
         case boxed:
             if (x_is_at_bound(j))

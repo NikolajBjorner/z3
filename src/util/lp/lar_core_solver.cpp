@@ -41,7 +41,7 @@ lar_core_solver<T, X>::lar_core_solver(std::vector<X> & x, const std::vector<col
 
 template <typename T, typename X> void lar_core_solver<T, X>::init_costs() {
     lean_assert(this->m_x.size() >= this->m_n());
-    lean_assert(this->m_column_type.size() >= this->m_n());
+    lean_assert(this->m_column_types.size() >= this->m_n());
     X inf = m_infeasibility;
     m_infeasibility = zero_of_type<X>();
     for (unsigned j = this->m_n(); j--;)
@@ -65,7 +65,7 @@ template <typename T, typename X> void lar_core_solver<T, X>::init_cost_for_colu
         return;
     }
     // j is a basis column
-    switch (this->m_column_type[j]) {
+    switch (this->m_column_types[j]) {
     case fixed:
     case boxed:
         if (x > this->m_upper_bounds[j]) {
@@ -145,7 +145,7 @@ template <typename T, typename X>    int lar_core_solver<T, X>::column_is_out_of
 }
 
 template <typename T, typename X>    bool lar_core_solver<T, X>::can_enter_basis_mpq(unsigned j) {
-    switch (this->m_column_type[j]) {
+    switch (this->m_column_types[j]) {
     case low_bound:
         lean_assert(this->x_is_at_low_bound(j));
         return this->m_d[j] < numeric_traits<T>::zero();
@@ -177,7 +177,7 @@ template <typename T, typename X>    void lar_core_solver<T, X>::calculate_pivot
 #ifdef LEAN_DEBUG
 template <typename T, typename X>    X lar_core_solver<T, X>::get_deb_inf_column(unsigned j) {
     const X & x = this->m_x[j];
-    switch (this->m_column_type[j]) {
+    switch (this->m_column_types[j]) {
     case low_bound:
         if (x < this->m_low_bounds[j])
             return this->m_low_bounds[j] - x;
@@ -302,7 +302,7 @@ template <typename T, typename X>    void lar_core_solver<T, X>::try_add_breakpo
     if (d == 0) return; // the change of x[m_entering] will not change the corresponding basis x
     unsigned j = this->m_basis[i];
     const X & x = this->m_x[j];
-    switch (this->m_column_type[j]) {
+    switch (this->m_column_types[j]) {
     case fixed:
         try_add_breakpoint(j, x, d, fixed_break, this->m_low_bounds[j]);
         break;
@@ -374,7 +374,7 @@ template <typename T, typename X>    void lar_core_solver<T, X>::fill_breakpoint
     for (unsigned i = this->m_m(); i--;)
         try_add_breakpoint_in_row(i);
 
-    if (this->m_column_type[entering] == boxed) {
+    if (this->m_column_types[entering] == boxed) {
         if (m_sign_of_entering_delta < 0)
             add_breakpoint(entering, - this->bound_span(entering), low_break);
         else
@@ -613,7 +613,7 @@ template <typename T, typename X> int lar_core_solver<T, X>::find_infeasible_row
 
 template <typename T, typename X>    int lar_core_solver<T, X>::get_infeasibility_sign(unsigned j) const {
     const auto & x = this->m_x[j];
-    switch (this->m_column_type[j]) {
+    switch (this->m_column_types[j]) {
     case fixed:
     case boxed:
         if (x < this->m_low_bounds[j]) return 1;
@@ -632,7 +632,7 @@ template <typename T, typename X>    bool lar_core_solver<T, X>::improves_pivot_
     lean_assert(this->m_basis_heading[j] < 0);
     // we have x[basis[i]] = sum (mj*x[j]), where mj = -m_pivot_row[j]
 
-    switch (this->m_column_type[j]) {
+    switch (this->m_column_types[j]) {
     case fixed:
         return false;
     case boxed:
@@ -712,7 +712,7 @@ template <typename T, typename X>    void lar_core_solver<T, X>::update_delta_of
     // adjusted sign
     int adj_sign = ed < zero_of_type<T>() ? delta_sign : - delta_sign;
 
-    switch (this->m_column_type[bj]) {
+    switch (this->m_column_types[bj]) {
     case fixed:
     case boxed:
         if (adj_sign > 0 && x <= this->m_upper_bounds[bj])
@@ -745,7 +745,7 @@ lar_core_solver<T, X>::find_initial_delta_and_its_sign(
     lean_assert(entering_delta_sign != 0);
     X delta = (m_infeasible_row_sign > 0? (this->m_low_bounds[bj] - x) : (x - this->m_upper_bounds[bj])) / abs(this->m_pivot_row[entering]);
     lean_assert(delta > zero_of_type<X>());
-    if (this->m_column_type[entering] == boxed) {
+    if (this->m_column_types[entering] == boxed) {
         X span = this->bound_span(entering);
         if (span < delta) {
             delta = span;
@@ -809,8 +809,8 @@ template <typename T, typename X> void lar_core_solver<T, X>::solve() {
 }
 
 template <typename T, typename X> void lar_core_solver<T, X>::print_column_info(unsigned j, std::ostream & out) const {
-    out << "type = " << column_type_to_string(this->m_column_type[j]) << std::endl;
-    switch (this->m_column_type[j]) {
+    out << "type = " << column_type_to_string(this->m_column_types[j]) << std::endl;
+    switch (this->m_column_types[j]) {
     case fixed:
     case boxed:
         out << "(" << this->m_low_bounds[j] << ", " << this->m_upper_bounds[j] << ")" << std::endl;

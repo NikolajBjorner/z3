@@ -66,7 +66,7 @@ lp_core_solver_base(static_matrix<T, X> & A,
     m_w(m_m()),
     m_d(m_n()),
     m_ed(m_m()),
-    m_column_type(column_types),
+    m_column_types(column_types),
     m_low_bounds(low_bound_values),
     m_upper_bounds(upper_bound_values),
     m_column_norms(m_n(), T(1)),
@@ -357,7 +357,7 @@ print_statistics_with_cost_and_check_that_the_time_is_over(X cost) {
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 set_non_basic_x_to_correct_bounds() {
     for (unsigned j : non_basis()) {
-        switch (m_column_type[j]) {
+        switch (m_column_types[j]) {
         case boxed:
             m_x[j] = m_d[j] < 0? m_upper_bounds[j]: m_low_bounds[j];
             break;
@@ -376,7 +376,7 @@ set_non_basic_x_to_correct_bounds() {
 }
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 column_is_dual_feasible(unsigned j) const {
-    switch (m_column_type[j]) {
+    switch (m_column_types[j]) {
     case fixed:
     case boxed:
         return (x_is_at_low_bound(j) && d_is_not_negative(j)) ||
@@ -390,7 +390,7 @@ column_is_dual_feasible(unsigned j) const {
         return numeric_traits<X>::is_zero(m_d[j]);
     default:
         LP_OUT(m_settings,  "column = " << j << std::endl);
-        LP_OUT(m_settings,  "unexpected column type = " << column_type_to_string(m_column_type[j]) << std::endl);
+        LP_OUT(m_settings,  "unexpected column type = " << column_type_to_string(m_column_types[j]) << std::endl);
         lean_unreachable();
     }
     lean_unreachable();
@@ -447,7 +447,7 @@ find_x_by_solving() {
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::column_is_feasible(unsigned j) const {
     const X& x = this->m_x[j];
-    switch (this->m_column_type[j]) {
+    switch (this->m_column_types[j]) {
     case fixed:
     case boxed:
         if (this->above_bound(x, this->m_upper_bounds[j])) {
@@ -729,7 +729,7 @@ template <typename T, typename X> void lp_core_solver_base<T, X>::
 snap_non_basic_x_to_bound_and_free_to_zeroes() {
     for (unsigned j : non_basis()) {
         lean_assert(j < m_x.size());
-        switch (m_column_type[j]) {
+        switch (m_column_types[j]) {
         case fixed:
         case boxed:
         case low_bound:
@@ -764,7 +764,7 @@ init_reduced_costs_for_one_iteration() {
 
 template <typename T, typename X> non_basic_column_value_position lp_core_solver_base<T, X>::
 get_non_basic_column_value_position(unsigned j) {
-    switch (m_column_type[j]) {
+    switch (m_column_types[j]) {
     case fixed:
         return at_fixed;
     case free_column:
