@@ -8,16 +8,18 @@
 #include "util/lp/lp_settings.h"
 #include "util/lp/lar_constraints.h"
 namespace lean {
+template <typename T>
 struct bound_signature {
+    T m_coeff;
     unsigned m_i;
     bool m_at_low;
-    bound_signature(unsigned i, bool at_low) :m_i(i), m_at_low(at_low) {}
+    bound_signature(const T& coeff, unsigned i, bool at_low) : m_coeff(coeff), m_i(i), m_at_low(at_low) {}
     bool at_upper_bound() const { return !m_at_low; }
     bool at_low_bound() const { return m_at_low; }
 };
-template <typename X> 
+template <typename T, typename X> 
 struct implied_bound_evidence_signature {
-    std::vector<bound_signature> m_evidence;
+    std::vector<bound_signature<T>> m_evidence;
     unsigned m_j; // found new bound
     bool m_low_bound;    
     X m_bound;

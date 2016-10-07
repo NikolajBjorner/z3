@@ -16,7 +16,7 @@ class bound_analizer_on_row {
     const std::vector<X> & m_upper_bounds;
     const std::vector<column_type> & m_column_types;
     const X & m_rs; // the right side
-    std::vector<implied_bound_evidence_signature<X>>& m_implied_bound_signatures;
+    std::vector<implied_bound_evidence_signature<T, X>>& m_implied_bound_signatures;
     
     // We have equality - sum by it**x[j] = rs
 
@@ -38,7 +38,7 @@ public:
                           const std::vector<column_type> & column_type,
                           const X &rs,
                           int direction,   
-                          std::vector<implied_bound_evidence_signature<X>> &signatures  ) :
+                          std::vector<implied_bound_evidence_signature<T, X>> &signatures  ) :
         m_it(it),
         m_low_bounds(low_bounds),
         m_upper_bounds(upper_bounds),
@@ -73,7 +73,7 @@ public:
             } else
                 m_interested = false; // it is the second growing term; cannot pin both
         } else {
-            m_bound += a * (is_pos(a) ? upper_bound_val(j) : low_bound_val(j)); 
+            m_bound += a * (is_pos(a) ? low_bound_val(j) : upper_bound_val(j)); 
             m_n++;
         }
     }
@@ -131,7 +131,7 @@ public:
     }
 
     void  total_case(const T & a, unsigned j) {
-        implied_bound_evidence_signature<X> be;
+        implied_bound_evidence_signature<T, X> be;
         be.m_j = m_cand = j;
         m_a = a;
         auto bound_correction = a * (is_pos(a) ? low_bound_val(j): upper_bound_val(j));
@@ -140,7 +140,7 @@ public:
         m_bound += bound_correction;
     }
 
-    void fill_bound_evidence_on_pos(implied_bound_evidence_signature<X> & be) {
+    void fill_bound_evidence_on_pos(implied_bound_evidence_signature<T, X> & be) {
     // we have sum a[k]x[k] + m_a * x[m_cand] = 0;
     // so a*x[m_cand_plus] = - a[k]x[k] <=  - m_bound_plus
     // we have to have a * x[m_cand_plus] <= - m_bound_plus, or x[m_cand_plus] <= -m_bound_plus / a, sin
@@ -168,13 +168,13 @@ public:
             bool at_low = is_pos(a);
             if (m_dir == -1)
                 at_low = !at_low;
-            bound_signature bound_sg(i, at_low);
+            bound_signature<T> bound_sg(a, i, at_low);
             be.m_evidence.push_back(bound_sg);
         }
         delete it;
     }
 
-    void fill_bound_evidence_on_neg(implied_bound_evidence_signature<X> & be) {
+    void fill_bound_evidence_on_neg(implied_bound_evidence_signature<T, X> & be) {
      // we have sum a[k]x[k] + m_a * x[m_cand] = 0;
     // so a*x[m_cand_plus] = - a[k]x[k] <=  - m_bound
     // we have to have a * x[m_cand_plus] <= - m_bound_plus, or x[m_cand_plus] >= -m_bound_plus / a, sinnce a is negative
@@ -202,13 +202,13 @@ public:
             bool at_low = is_neg(a);
             if (m_dir == -1)
                 at_low = !at_low;
-            bound_signature bound_sg(i, at_low);
+            bound_signature<T> bound_sg(a, i, at_low);
             be.m_evidence.push_back(bound_sg);
         }
         delete it;
     }
     
-    void fill_bound_evidence(implied_bound_evidence_signature<X> & be) {
+    void fill_bound_evidence(implied_bound_evidence_signature<T, X> & be) {
         if (is_pos(m_a) )
             fill_bound_evidence_on_pos(be);
         else
@@ -220,7 +220,7 @@ public:
             return; // cannot pin anything
         if (m_n == m_row_length -1) {
             lean_assert(m_cand != -1);
-            implied_bound_evidence_signature<X> bnd_evid;
+            implied_bound_evidence_signature<T, X> bnd_evid;
             bnd_evid.m_j = m_cand;
             fill_bound_evidence(bnd_evid);
             this->m_implied_bound_signatures.push_back(bnd_evid);
