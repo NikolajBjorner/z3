@@ -239,7 +239,12 @@ public:
             coeffs.emplace_back(p.second, p.first);
         }
         canonic_left_side cls(coeffs);
+        std::cout << "cls from bound_evidence_is_correct()\n";
+        print_canonic_left_side(cls, std::cout); std::cout << "\n";
         lean_assert(cls.size() > 0);
+        std::cout << "comparing with\n";
+        print_canonic_left_side(m_vec_of_canonic_left_sides[be.m_j], std::cout);
+        std::cout << "\n";
         lean_assert(cls == m_vec_of_canonic_left_sides[be.m_j]);
         
         mpq c = coeff_map[coeffs[0].second];
@@ -274,7 +279,6 @@ public:
         m_mpq_lar_core_solver.calculate_pivot_row(i);
         std::cout << "pivot row ";
         m_mpq_lar_core_solver.m_pivot_row.print(std::cout);
-        iterator_on_pivot_row<mpq> it(m_mpq_lar_core_solver.m_pivot_row, m_basis[i]);
         analyze_new_bounds_on_row(evidence_vector, i);
     }
     void process_new_implied_evidence_for_low_bound(
@@ -285,6 +289,7 @@ public:
         unsigned existing_index;
         if (try_get_val(improved_low_bounds, implied_evidence.m_j, existing_index)) {
             bound_evidence & be = bound_evidences[existing_index];
+            be.m_evidence.clear();
             // we are improving the existent bound improve the existing bound
             fill_bound_evidence_for_low_bound(implied_evidence, be);
         } else {
@@ -304,6 +309,7 @@ public:
             const canonic_left_side & cls = m_vec_of_canonic_left_sides[t.m_i];
             const ul_pair & ul = m_map_of_canonic_left_sides_to_ul_pairs[cls];
             constraint_index witness = t.m_at_low ? ul.m_low_bound_witness : ul.m_upper_bound_witness;
+            lean_assert(is_valid(witness));
             be.m_evidence.emplace_back(t.m_coeff, witness);
         }
     }
@@ -328,6 +334,7 @@ public:
         unsigned existing_index;
         if (try_get_val(improved_upper_bounds, implied_evidence.m_j, existing_index)) {
             bound_evidence & be = bound_evidences[existing_index];
+            be.m_evidence.clear();
             // we are improving the existent bound improve the existing bound
             fill_bound_evidence_for_upper_bound(implied_evidence, be);
         } else {
@@ -342,6 +349,7 @@ public:
         std::vector<bound_evidence> & bound_evidences,
         std::unordered_map<unsigned, unsigned> & improved_low_bounds,
         std::unordered_map<unsigned, unsigned> & improved_upper_bounds) {
+        lean_assert(implied_evidence.m_evidence.size() > 0);
         if (implied_evidence.m_low_bound)
             process_new_implied_evidence_for_low_bound(implied_evidence, bound_evidences, improved_low_bounds);
         else 
@@ -366,14 +374,6 @@ public:
             calculate_implied_bound_evidences(m_mpq_lar_core_solver.m_ed.m_index[i], evidence_vector);
             process_new_implied_evidences(evidence_vector, bound_evidences, improved_low_bounds, improved_upper_bounds);
         }
-
-        
-#if LEAN_DEBUG
-        for (auto & be: bound_evidences) {
-            print_bound_evidence(be);
-            bound_evidence_is_correct(be);
-        }
-#endif
     }
     
     constraint_index add_var_bound_with_bound_propagation(var_index j, lconstraint_kind kind, mpq right_side, std::vector<bound_evidence> & bound_evidences)  {

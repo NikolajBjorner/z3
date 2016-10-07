@@ -65,8 +65,8 @@ public:
 
     void analyze_on_elem_low_upper(const T & a, int sign, unsigned j) {
         lean_assert(m_interested);
-        // sign > 0 means the term can provide a low bound, sign < 0 means term can decrease
-        if (sign < 0){
+        // sign * m_dir > 0 means the term can provide a low bound
+        if (sign * m_dir < 0){
             if (m_cand == -1){
                 m_cand = j;
                 m_a = a;
@@ -109,16 +109,16 @@ public:
     
     void analyze_on_elem(const T & a, unsigned j) {
         m_row_length++;
-        switch (m_column_types[j]) {
+        switch (corrected_column_type(j)) {
         case boxed:
         case fixed:
             analyze_on_elem_boxed_fixed(a, j); 
             break;
         case low_bound:
-            analyze_on_elem_low_upper(a, is_pos(a)? 1:-1, j);
+            analyze_on_elem_low_upper(a, is_pos(a)? 1 : -1, j);
             break;
         case upper_bound:
-            analyze_on_elem_low_upper(a, is_pos(a)? -1:1, j);
+            analyze_on_elem_low_upper(a, is_neg(a)? 1 : -1, j);
             break;
         case free_column:
             if (m_cand == -1) {
@@ -165,13 +165,12 @@ public:
         while (it->next(a, i)) {
             if (i == be.m_j)
                 continue;
-            bool at_low = is_pos(a);
-            if (m_dir == -1)
-                at_low = !at_low;
+            bool at_low = m_dir == 1 ? a.is_pos() : a.is_neg();
             bound_signature<T> bound_sg(a, i, at_low);
             be.m_evidence.push_back(bound_sg);
         }
         delete it;
+        lean_assert(be.m_evidence.size() == m_n);
     }
 
     void fill_bound_evidence_on_neg(implied_bound_evidence_signature<T, X> & be) {
@@ -199,12 +198,11 @@ public:
         while (it->next(a, i)) {
             if (i == be.m_j)
                 continue;
-            bool at_low = is_neg(a);
-            if (m_dir == -1)
-                at_low = !at_low;
+            bool at_low = m_dir == 1 ? a.is_pos() : a.is_neg();
             bound_signature<T> bound_sg(a, i, at_low);
             be.m_evidence.push_back(bound_sg);
         }
+        lean_assert(be.m_evidence.size() == m_n);
         delete it;
     }
     
@@ -223,7 +221,8 @@ public:
             implied_bound_evidence_signature<T, X> bnd_evid;
             bnd_evid.m_j = m_cand;
             fill_bound_evidence(bnd_evid);
-            this->m_implied_bound_signatures.push_back(bnd_evid);
+            if (bnd_evid.m_evidence.size() > 0) 
+                this->m_implied_bound_signatures.push_back(bnd_evid);
         } else {
             lean_assert(m_n == m_row_length);
             auto local_it = m_it.clone();
@@ -241,7 +240,7 @@ public:
         m_it.reset();
         while (m_it.next(a, j) && m_interested)
             analyze_on_elem(a, j);
-        if (m_interested)
+        if (m_interested) 
             analyze_if_interested();
     }
 };
