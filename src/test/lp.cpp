@@ -2797,6 +2797,20 @@ void test_bound_propogation_one_row() {
     std::vector<bound_evidence> ev;
     ls.add_var_bound_with_bound_propagation(x0, LE, mpq(1), ev);
 } 
+void test_bound_propogation_one_row_with_bounded_vars() {
+    lar_solver ls;
+    unsigned x0 = ls.add_var("x0");
+    unsigned x1 = ls.add_var("x1");
+    std::vector<std::pair<mpq, var_index>> c;
+    c.push_back(std::pair<mpq, var_index>(1, x0));
+    c.push_back(std::pair<mpq, var_index>(-1, x1));
+    ls.add_constraint(c, EQ, one_of_type<mpq>());
+    ls.solve();
+    std::vector<bound_evidence> ev;
+    ls.add_var_bound(x0, GE, mpq(-3));
+    ls.add_var_bound(x0, LE, mpq(3));
+    ls.add_var_bound_with_bound_propagation(x0, LE, mpq(1), ev);
+}
 void test_bound_propogation_one_row_mixed() {
     lar_solver ls;
     unsigned x0 = ls.add_var("x0");
@@ -2850,6 +2864,7 @@ void test_total_case_plus() {
 void test_total_case_minus(){}
 void test_bound_propogation() {
     test_bound_propogation_one_row();
+    test_bound_propogation_one_row_with_bounded_vars();
     test_bound_propogation_two_rows();
     test_bound_propogation_one_row_mixed();
     test_total_case_plus();

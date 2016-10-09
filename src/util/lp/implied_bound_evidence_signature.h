@@ -12,10 +12,10 @@ template <typename T>
 struct bound_signature {
     T m_coeff;
     unsigned m_i;
-    bool m_at_low;
-    bound_signature(const T& coeff, unsigned i, bool at_low) : m_coeff(coeff), m_i(i), m_at_low(at_low) {}
-    bool at_upper_bound() const { return !m_at_low; }
-    bool at_low_bound() const { return m_at_low; }
+    bool m_low_bound;
+    bound_signature(const T& coeff, unsigned i, bool at_low) : m_coeff(coeff), m_i(i), m_low_bound(at_low) {}
+    bool at_upper_bound() const { return !m_low_bound; }
+    bool at_low_bound() const { return m_low_bound; }
 };
 template <typename T, typename X> 
 struct implied_bound_evidence_signature {
