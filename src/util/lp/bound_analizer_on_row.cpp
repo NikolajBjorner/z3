@@ -9,7 +9,7 @@
 namespace lean {
 template <typename T, typename X>    
 void bound_analizer_on_row<T, X>::analyze() {
-      // We have the equality sum by j of row[j]*x[j] = 0
+      // We have the equality sum by j of row[j]*x[j] = m_rs
     // We try to pin a var by pushing the total of the partial sum down, denoting the variable of this process by _minus.
     // In the same loop trying to pin a var by pushing the partial sum up, denoting it by _plus
 
@@ -150,11 +150,11 @@ void bound_analizer_on_row<T, X>::fill_bound_evidence_plus(implied_bound_evidenc
 template <typename T, typename X>    
 bool bound_analizer_on_row<T, X>::fill_bound_kind_plus_on_pos(implied_bound_evidence_signature<T, X>& be) {
     lean_assert(m_a_plus.is_pos());
-    // we have sum a[k]x[k] + m_a_plus * x[m_cand_plus] = 0;
-    // so a*x[m_cand_plus] = - a[k]x[k] <=  - m_bound_plus
+    // we have sum a[k]x[k] + m_a_plus * x[m_cand_plus] = m_rs;
+    // so a*x[m_cand_plus] = m_rs - a[k]x[k] <=  - m_bound_plus
     // we have to have a * x[m_cand_plus] <= - m_bound_plus, or x[m_cand_plus] <= -m_bound_plus / a, sin
     // so we have an upper bound
-    auto u = -m_bound_plus / m_a_plus;
+    auto u = (m_rs - m_bound_plus) / m_a_plus;
     switch (m_column_types[m_cand_plus]) {
     case boxed:
     case fixed:
@@ -176,11 +176,11 @@ bool bound_analizer_on_row<T, X>::fill_bound_kind_plus_on_pos(implied_bound_evid
 template <typename T, typename X>    
 bool bound_analizer_on_row<T, X>::fill_bound_kind_plus_on_neg(implied_bound_evidence_signature<T, X>& be) {
     lean_assert(m_a_plus.is_neg());
-    // we have sum a[k]x[k] + m_a_plus * x[m_cand_plus] = 0;
-    // so m_a_plus *x[m_cand_plus] = - sum a[k]x[k] <=  - m_bound_plus
-    // we have to have m_a_plus * x[m_cand_plus] <= - m_bound_plus, or x[m_cand_plus] >= -m_bound_plus / m_a_plus, since m_a_plus is negative
+    // we have sum a[k]x[k] + m_a_plus * x[m_cand_plus] = m_rs;
+    // so m_a_plus *x[m_cand_plus] = m_rs - sum a[k]x[k] <= m_rs - m_bound_plus
+    // we have to have m_a_plus * x[m_cand_plus] <= m_rs - m_bound_plus, or x[m_cand_plus] >= (m_rs -m_bound_plus) / m_a_plus, since m_a_plus is negative
     // so we have a low bound
-    auto l = -m_bound_plus / m_a_plus;
+    auto l = (m_rs - m_bound_plus) / m_a_plus;
     switch (m_column_types[m_cand_plus]) {
     case low_bound:
     case fixed:
@@ -264,11 +264,11 @@ void bound_analizer_on_row<T, X>::analyze_bound_on_pivot_row_one_var_case_low_up
 template <typename T, typename X>    
 bool bound_analizer_on_row<T, X>::fill_bound_kind_minus_on_pos(implied_bound_evidence_signature<T, X>& be) {
     lean_assert(m_a_minus.is_pos());
-    // we have sum a[k]x[k] + m_a_minus * x[m_cand_minus] = 0;
-    // so a*x[m_cand_minus] = - sum a[k]x[k] >=  - m_bound_minus
-    // we have to have a * x[m_cand_minus] >= - m_bound_minus, or x[m_cand_minus] >= -m_bound_minus / a, 
+    // we have sum a[k]x[k] + m_a_minus * x[m_cand_minus] = m_rs;
+    // so a*x[m_cand_minus] = m_rs - sum a[k]x[k] >= m_rs - m_bound_minus
+    // we have to have a * x[m_cand_minus] >= m_rs - m_bound_minus, or x[m_cand_minus] >= (m_rs-m_bound_minus) / a, 
     // so we have a low bound
-    auto l = -m_bound_minus / m_a_minus;
+    auto l = (m_rs - m_bound_minus) / m_a_minus;
     switch (m_column_types[m_cand_minus]) {
     case boxed:
     case fixed:
@@ -289,11 +289,11 @@ bool bound_analizer_on_row<T, X>::fill_bound_kind_minus_on_pos(implied_bound_evi
 template <typename T, typename X>    
 bool bound_analizer_on_row<T, X>::fill_bound_kind_minus_on_neg(implied_bound_evidence_signature<T, X>& be) {
     lean_assert(m_a_minus.is_neg());
-    // we have sum a[k]x[k] + m_a_minus * x[m_cand_minus] = 0;
-    // so m_a_minus *x[m_cand_minus] = - a[k]x[k] >=  - m_bound_minus
-    // we have to have m_a_minus * x[m_cand_minus] >= - m_bound_minus, or x[m_cand_minus] <= -m_bound_minus / m_a_minus, since m_a_minus is negative
+    // we have sum a[k]x[k] + m_a_minus * x[m_cand_minus] = m_rs;
+    // so m_a_minus *x[m_cand_minus] = m_rs - a[k]x[k] >= m_rs - m_bound_minus
+    // we have to have m_a_minus * x[m_cand_minus] >= m_rs- m_bound_minus, or x[m_cand_minus] <= (m_rs - m_bound_minus) / m_a_minus, since m_a_minus is negative
     // so we have an upper bound
-    auto u = -m_bound_minus / m_a_minus;
+    auto u = (m_rs - m_bound_minus) / m_a_minus;
     switch (m_column_types[m_cand_minus]) {
     case upper_bound:
     case fixed:
