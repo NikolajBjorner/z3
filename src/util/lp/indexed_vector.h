@@ -77,6 +77,15 @@ public:
     }
 
     void set_value(const T& value, unsigned index);
+    void set_value_with_check(const T& value, unsigned index) {
+        T & loc = m_data[index];
+        if (is_zero(loc)) {
+            m_index.push_back(index);
+        }
+        loc = value;
+    }
+    
+
     void clear();
     void clear_all();
     const T& operator[] (unsigned i) const {

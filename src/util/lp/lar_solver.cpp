@@ -740,6 +740,7 @@ void lar_solver::pop(unsigned k) {
     unsigned n = m_var_names_to_var_index.size();
     m_column_names.resize(n);
     m_x.resize(n);
+    m_touched_nb_columns.resize(n);
     pop_basis(k);
     lean_assert(m_mpq_lar_core_solver.basis_heading_is_correct());
     m_mpq_lar_core_solver.update_columns_out_of_bounds();

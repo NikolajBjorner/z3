@@ -92,7 +92,7 @@ class lar_solver : public column_namer {
     stacked_vector<canonic_left_side> m_vec_of_canonic_left_sides;
     // the set of column indices j such that m_x[j] does not satisfy one of its bounds
     std::unordered_set<var_index> m_basic_columns_out_of_bounds;
-    std::unordered_set<var_index> m_touched_nb_columns;
+    indexed_vector<var_index> m_touched_nb_columns;
     lar_core_solver<mpq, numeric_pair<mpq>> m_mpq_lar_core_solver;
     stacked_value<canonic_left_side> m_infeasible_canonic_left_side; // such can be found at the initialization step
     stacked_vector<lar_term> m_terms;
@@ -561,6 +561,7 @@ public:
         m_low_bounds.push_back(zero_of_type<numeric_pair<mpq>>());
         m_upper_bounds.push_back(zero_of_type<numeric_pair<mpq>>());
         m_x.push_back(val);
+        m_touched_nb_columns.resize(i + 1);
 
         lean_assert(m_heading.size() == i); // as m_A.column_count() on the entry to the method
         lean_assert(m_nbasis.size() == i - m_A.row_count());
@@ -616,7 +617,7 @@ public:
                 auto up = numeric_pair<mpq>(right_side, y_of_bound);
                 m_upper_bounds[j] = up;
                 if (m_heading[j] < 0) {
-                    m_touched_nb_columns.insert(j);
+                    m_touched_nb_columns.set_value_with_check(1, j);
                 }
             }
             set_upper_bound_witness(constr_ind);
@@ -630,7 +631,7 @@ public:
                 auto low = numeric_pair<mpq>(right_side, y_of_bound);
                 m_low_bounds[j] = low;
                 if (m_heading[j] < 0) {
-                    m_touched_nb_columns.insert(j);
+                    m_touched_nb_columns.set_value_with_check(1, j);
                 }
             }
             set_low_bound_witness(constr_ind);
@@ -639,7 +640,7 @@ public:
             m_column_types[j] = fixed;
             m_low_bounds[j] = m_upper_bounds[j] = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
             if (m_heading[j] < 0) {
-                    m_touched_nb_columns.insert(j);
+                m_touched_nb_columns.set_value_with_check(1, j);
             }
             set_upper_bound_witness(constr_ind);
             set_low_bound_witness(constr_ind);
@@ -664,7 +665,7 @@ public:
                     m_upper_bounds[j] = up;
                     set_upper_bound_witness(ci);
                     if (m_heading[j] < 0) {
-                        m_touched_nb_columns.insert(j);
+                        m_touched_nb_columns.set_value_with_check(1, j);
                     }
                 }
             }
@@ -678,7 +679,7 @@ public:
                 m_low_bounds[j] = low;
                 set_low_bound_witness(ci);
                 if (m_heading[j] < 0) {
-                    m_touched_nb_columns.insert(j);
+                    m_touched_nb_columns.set_value_with_check(1, j);
                 }
                 if (low > m_upper_bounds[j]) {
                     m_status = INFEASIBLE;
@@ -698,7 +699,7 @@ public:
                 } else {
                     m_low_bounds[j] = m_upper_bounds[j] = v;
                     if (m_heading[j] < 0) {
-                        m_touched_nb_columns.insert(j);
+                        m_touched_nb_columns.set_value_with_check(1, j);
                     }
                     set_low_bound_witness(ci);
                     set_upper_bound_witness(ci);
@@ -728,7 +729,7 @@ public:
                     set_upper_bound_witness(ci);
                 }
                 if (m_heading[j] < 0) {
-                    m_touched_nb_columns.insert(j);
+                    m_touched_nb_columns.set_value_with_check(1, j);
                 }
 
                 if (up < m_low_bounds[j]) {
@@ -748,7 +749,7 @@ public:
                 if (low > m_low_bounds[j]) {
                     m_low_bounds[j] = low;
                     if (m_heading[j] < 0) {
-                        m_touched_nb_columns.insert(j);
+                        m_touched_nb_columns.set_value_with_check(1, j);
                     }
                     set_low_bound_witness(ci);
                 }
@@ -778,7 +779,7 @@ public:
                     m_column_types[j] = fixed;
                 }
                 if (m_heading[j] < 0) {
-                    m_touched_nb_columns.insert(j);
+                    m_touched_nb_columns.set_value_with_check(1, j);
                 }
                 
                 break;
@@ -801,7 +802,7 @@ public:
                 m_upper_bounds[j] = up;
                 set_upper_bound_witness(ci);
                 if (m_heading[j] < 0) {
-                    m_touched_nb_columns.insert(j);
+                    m_touched_nb_columns.set_value_with_check(1, j);
                 }
 
                 if (up < m_low_bounds[j]) {
@@ -820,7 +821,7 @@ public:
                 if (low > m_low_bounds[j]) {
                     m_low_bounds[j] = low;
                     if (m_heading[j] < 0) {
-                        m_touched_nb_columns.insert(j);
+                        m_touched_nb_columns.set_value_with_check(1, j);
                     }
                     set_low_bound_witness(ci);
                 }
@@ -840,7 +841,7 @@ public:
                     m_column_types[j] = fixed;
                 }
                 if (m_heading[j] < 0) {
-                    m_touched_nb_columns.insert(j);
+                    m_touched_nb_columns.set_value_with_check(1, j);
                 }
                 break;
             }
@@ -1036,7 +1037,7 @@ public:
     void find_more_touched_columns() { // todo. can it be optimized during pop() ?
         for (unsigned j : m_nbasis) {
             if (!m_mpq_lar_core_solver.non_basis_column_is_set_correctly(j))
-                m_touched_nb_columns.insert(j);
+                m_touched_nb_columns.set_value_with_check(1, j);
         }
     }
     
@@ -1044,7 +1045,7 @@ public:
     void fix_touched_columns() {
         lean_assert(x_is_correct());
         find_more_touched_columns();
-        for (unsigned j : m_touched_nb_columns)
+        for (unsigned j : m_touched_nb_columns.m_index)
             fix_touched_nb_column(j);
         m_touched_nb_columns.clear();
         lean_assert(x_is_correct());
