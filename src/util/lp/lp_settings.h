@@ -79,6 +79,7 @@ struct stats {
     unsigned m_total_iterations;
     unsigned m_iters_with_no_cost_growing;
     unsigned m_num_factorizations;
+    unsigned m_num_of_implied_bounds;
     stats() { reset(); }
     void reset() { memset(this, 0, sizeof(*this)); }
 };

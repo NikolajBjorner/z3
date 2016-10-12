@@ -219,9 +219,12 @@ constraint_index lar_solver::add_constraint(const canonic_left_side& cls, lconst
     const auto & left_side = cls.m_coeffs;
     lar_constraint original_constr(left_side, kind, right_side);
     ul_pair ul;
-    bool b = m_map_of_canonic_left_sides_to_ul_pairs.try_get_value(cls, ul);
+#if LEAN_DEBUG
+    bool b =
+#endif
+    m_map_of_canonic_left_sides_to_ul_pairs.try_get_value(cls, ul);
     lean_assert(b);
-    
+
     unsigned j = ul.m_j; // j is the index of the basic variables corresponding to the left side
     lar_normalized_constraint normalized_constraint(cls, one_of_type<mpq>(), kind, right_side, original_constr);
     m_normalized_constraints.push_back(normalized_constraint);
@@ -740,13 +743,13 @@ void lar_solver::pop(unsigned k) {
     unsigned n = m_var_names_to_var_index.size();
     m_column_names.resize(n);
     m_x.resize(n);
-    m_touched_nb_columns.resize(n);
+    m_touched_columns.resize(n);
     pop_basis(k);
     lean_assert(m_mpq_lar_core_solver.basis_heading_is_correct());
     m_mpq_lar_core_solver.update_columns_out_of_bounds();
-    m_touched_nb_columns.clear();
+    m_touched_columns.clear();
+    m_touched_rows.resize(m_A.row_count());
+    m_touched_rows.clear();
 }
-
-
 }
 

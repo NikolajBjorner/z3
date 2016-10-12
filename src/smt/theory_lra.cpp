@@ -1219,7 +1219,11 @@ namespace smt {
             if (m_delay_constraints || ctx().inconsistent()) {
                 return;
             }
-            switch (make_feasible()) {
+            lbool lbl = make_feasible();
+            
+            if (lbl  == l_true)
+                lbl = propagate_bounds_with_lp_solver();
+            switch(lbl) {
             case l_false:
                 TRACE("arith", tout << "propagation conflict\n";);
                 set_conflict();
@@ -1229,8 +1233,22 @@ namespace smt {
             case l_undef:
                 break;
             }
+            
         }
 
+        lbool propagate_bounds_with_lp_solver() {
+            std::vector<lean::bound_evidence> bound_evidences;
+            int num_of_p = m_solver->settings().st().m_num_of_implied_bounds;
+            m_solver->propagate_bounds_for_touched_rows(bound_evidences);
+            int new_num_of_p = m_solver->settings().st().m_num_of_implied_bounds;
+            if (new_num_of_p > num_of_p) 
+                TRACE("arith", tout << "found " << new_num_of_p << " implied bounds\n";);
+            if (m_solver->get_status() == lean::lp_status::INFEASIBLE)
+                return l_false;
+            // todo : use "bound_evidences"!
+            return l_true;
+        }
+        
         // for glb lo': lo' < lo:
         //   lo <= x -> lo' <= x 
         //   lo <= x -> ~(x <= lo')

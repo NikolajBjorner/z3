@@ -166,7 +166,6 @@ bool bound_analizer_on_row<T, X>::fill_bound_kind_plus_on_pos(implied_bound_evid
     }
     // got a new upper bound
     be.m_low_bound = false;
-
     lean_assert(be.m_j == static_cast<unsigned>(m_cand_plus));
     be.m_bound = u;
     m_evidence_vector.push_back(be);
@@ -280,7 +279,7 @@ bool bound_analizer_on_row<T, X>::fill_bound_kind_minus_on_pos(implied_bound_evi
     }
     // got a new low bound
     be.m_low_bound = true;
-    lean_assert(be.m_j = m_cand_minus);
+    lean_assert(be.m_j == m_cand_minus);
     be.m_bound = l;
     m_evidence_vector.push_back(be);
     return true;
@@ -305,6 +304,7 @@ bool bound_analizer_on_row<T, X>::fill_bound_kind_minus_on_neg(implied_bound_evi
     }
     // got a new upper bound
     be.m_low_bound = false;
+    lean_assert(be.m_j == m_cand_minus);
     be.m_bound = u;
     m_evidence_vector.push_back(be);
     return true;

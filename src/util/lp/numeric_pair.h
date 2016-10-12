@@ -36,6 +36,7 @@ template <>  class numeric_traits<unsigned> {
 public:
     static bool precise() { return true; }
     static unsigned const zero() { return 0; }
+    static unsigned const one() { return 1; }
     static bool is_zero(unsigned v) { return v == 0; }
     static double const get_double(unsigned const & d) { return d; }
 };
