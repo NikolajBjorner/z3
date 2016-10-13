@@ -224,7 +224,6 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::solve_with_total
     }
     m_low_bounds.clear();
     m_low_bounds.resize(total_vars, zero_of_type<X>());  // low bounds are shifted ot zero
-    tighten_bounds();
     this->m_x.resize(total_vars, numeric_traits<T>::zero());
     this->m_basis.resize(this->row_count());
     this->m_costs.clear();
