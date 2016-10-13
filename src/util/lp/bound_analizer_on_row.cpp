@@ -8,7 +8,7 @@
 #include "util/lp/lar_solver.h"
 namespace lean {
 template <typename T, typename X>    
-void bound_analizer_on_row<T, X>::analyze() {
+void bound_analyzer_on_row<T, X>::analyze() {
       // We have the equality sum by j of row[j]*x[j] = m_rs
     // We try to pin a var by pushing the total of the partial sum down, denoting the variable of this process by _minus.
     // In the same loop trying to pin a var by pushing the partial sum up, denoting it by _plus
@@ -28,18 +28,18 @@ void bound_analizer_on_row<T, X>::analyze() {
  }
 
 template <typename T, typename X>    
-void bound_analizer_on_row<T, X>::analyze_bound_on_var_on_coeff(int j, const T &a) {
+void bound_analyzer_on_row<T, X>::analyze_bound_on_var_on_coeff(int j, const T &a) {
     int  sign = 0;
     switch (m_column_types[j]) {
     case boxed:
     case fixed:
-        analyze_bound_on_pivot_row_one_var_case_boxed_fixed(j, a); 
+        analyze_bound_on_row_one_var_case_boxed_fixed(j, a); 
         break;
     case low_bound:
-        sign = a.is_pos()? 1:-1;
+        sign = numeric_traits<T>::is_pos(a)? 1:-1;
         break;
     case upper_bound:
-        sign = -(a.is_pos() ? 1 : -1);
+        sign = -(numeric_traits<T>::is_pos(a) ? 1 : -1);
         break;
     case free_column:
         if (m_interested_in_minus) {
@@ -60,46 +60,46 @@ void bound_analizer_on_row<T, X>::analyze_bound_on_var_on_coeff(int j, const T &
         }
     }
     if (sign) {
-        analyze_bound_on_pivot_row_one_var_case_low_upper(a, sign, j);
+        analyze_bound_on_row_one_var_case_low_upper(a, sign, j);
     }
 }
 template <typename T, typename X>    
-void bound_analizer_on_row<T, X>::analyze_bound_on_pivot_row_one_var_case_boxed_fixed(int j, const T & a) {
+void bound_analyzer_on_row<T, X>::analyze_bound_on_row_one_var_case_boxed_fixed(int j, const T & a) {
     if (m_interested_in_minus) {
-        m_bound_minus += a * (a.is_pos() ? m_upper_bounds[j] : m_low_bounds[j]); 
+        m_bound_minus += a * (numeric_traits<T>::is_pos(a) ? m_upper_bounds[j] : m_low_bounds[j]); 
         m_n_minus++;
     }
     if (m_interested_in_plus) {
-        m_bound_plus += a * (a.is_pos() ? m_low_bounds[j] : m_upper_bounds[j]); 
+        m_bound_plus += a * (numeric_traits<T>::is_pos(a) ? m_low_bounds[j] : m_upper_bounds[j]); 
         m_n_plus++;
     }
 }
 
 template <typename T, typename X>    
-void bound_analizer_on_row<T, X>::pin_for_total_case_plus(const T & a, unsigned j) {
+void bound_analyzer_on_row<T, X>::pin_for_total_case_plus(const T & a, unsigned j) {
     implied_bound_evidence_signature<T, X> be;
     be.m_j = j;
     m_cand_plus = j;
     m_a_plus = a;
-    auto bound_correction = a.is_pos() ? m_low_bounds[j]: m_upper_bounds[j];
+    auto bound_correction = numeric_traits<T>::is_pos(a) ? m_low_bounds[j]: m_upper_bounds[j];
     m_bound_plus -= bound_correction;
     fill_bound_evidence_plus(be);
     m_bound_plus+= bound_correction;
 }
 template <typename T, typename X>    
-void bound_analizer_on_row<T, X>::pin_for_total_case_minus(const T & a, unsigned j) {
+void bound_analyzer_on_row<T, X>::pin_for_total_case_minus(const T & a, unsigned j) {
     implied_bound_evidence_signature<T, X> be;
     be.m_j = j;
     m_cand_minus = j;
     m_a_minus = a;
-    auto bound_correction = (!a.is_pos()) ? m_low_bounds[j] : m_upper_bounds[j];
+    auto bound_correction = (!numeric_traits<T>::is_pos(a)) ? m_low_bounds[j] : m_upper_bounds[j];
     m_bound_minus -= bound_correction;
     fill_bound_evidence_minus(be);
     m_bound_minus += bound_correction;
 }
 
 template <typename T, typename X>    
-void bound_analizer_on_row<T, X>::analyze_for_plus() {
+void bound_analyzer_on_row<T, X>::analyze_for_plus() {
     if (m_n_plus < m_n_total - 1)
         return; // cannot pin anything
     if (m_n_plus == m_n_total - 1) {
@@ -119,8 +119,8 @@ void bound_analizer_on_row<T, X>::analyze_for_plus() {
 }
 
 template <typename T, typename X>    
-void bound_analizer_on_row<T, X>::fill_bound_evidence_minus(implied_bound_evidence_signature<T, X> & bnd_evid) {
-    bool found = m_a_minus.is_pos()?  fill_bound_kind_minus_on_pos(bnd_evid) :
+void bound_analyzer_on_row<T, X>::fill_bound_evidence_minus(implied_bound_evidence_signature<T, X> & bnd_evid) {
+    bool found = numeric_traits<T>::is_pos(m_a_minus)?  fill_bound_kind_minus_on_pos(bnd_evid) :
         fill_bound_kind_minus_on_neg(bnd_evid);
     if (!found)
         return;
@@ -134,8 +134,8 @@ void bound_analizer_on_row<T, X>::fill_bound_evidence_minus(implied_bound_eviden
 }
 
 template <typename T, typename X>    
-void bound_analizer_on_row<T, X>::fill_bound_evidence_plus(implied_bound_evidence_signature<T, X> & bnd_evid) {
-    bool found = m_a_plus.is_pos()? fill_bound_kind_plus_on_pos(bnd_evid)
+void bound_analyzer_on_row<T, X>::fill_bound_evidence_plus(implied_bound_evidence_signature<T, X> & bnd_evid) {
+    bool found = numeric_traits<T>::is_pos(m_a_plus)? fill_bound_kind_plus_on_pos(bnd_evid)
         : fill_bound_kind_plus_on_neg(bnd_evid);
     if (!found )
         return;
@@ -148,13 +148,13 @@ void bound_analizer_on_row<T, X>::fill_bound_evidence_plus(implied_bound_evidenc
 }
     
 template <typename T, typename X>    
-bool bound_analizer_on_row<T, X>::fill_bound_kind_plus_on_pos(implied_bound_evidence_signature<T, X>& be) {
-    lean_assert(m_a_plus.is_pos());
+bool bound_analyzer_on_row<T, X>::fill_bound_kind_plus_on_pos(implied_bound_evidence_signature<T, X>& be) {
+    lean_assert(numeric_traits<T>::is_pos(m_a_plus));
     // we have sum a[k]x[k] + m_a_plus * x[m_cand_plus] = m_rs;
     // so a*x[m_cand_plus] = m_rs - a[k]x[k] <=  - m_bound_plus
     // we have to have a * x[m_cand_plus] <= - m_bound_plus, or x[m_cand_plus] <= -m_bound_plus / a, sin
     // so we have an upper bound
-    auto u = (m_rs - m_bound_plus) / m_a_plus;
+    auto u = - m_bound_plus / m_a_plus;
     switch (m_column_types[m_cand_plus]) {
     case boxed:
     case fixed:
@@ -173,13 +173,13 @@ bool bound_analizer_on_row<T, X>::fill_bound_kind_plus_on_pos(implied_bound_evid
 }
 
 template <typename T, typename X>    
-bool bound_analizer_on_row<T, X>::fill_bound_kind_plus_on_neg(implied_bound_evidence_signature<T, X>& be) {
-    lean_assert(m_a_plus.is_neg());
+bool bound_analyzer_on_row<T, X>::fill_bound_kind_plus_on_neg(implied_bound_evidence_signature<T, X>& be) {
+    lean_assert(numeric_traits<T>::is_neg(m_a_plus));
     // we have sum a[k]x[k] + m_a_plus * x[m_cand_plus] = m_rs;
     // so m_a_plus *x[m_cand_plus] = m_rs - sum a[k]x[k] <= m_rs - m_bound_plus
     // we have to have m_a_plus * x[m_cand_plus] <= m_rs - m_bound_plus, or x[m_cand_plus] >= (m_rs -m_bound_plus) / m_a_plus, since m_a_plus is negative
     // so we have a low bound
-    auto l = (m_rs - m_bound_plus) / m_a_plus;
+    auto l = - m_bound_plus / m_a_plus;
     switch (m_column_types[m_cand_plus]) {
     case low_bound:
     case fixed:
@@ -198,16 +198,16 @@ bool bound_analizer_on_row<T, X>::fill_bound_kind_plus_on_neg(implied_bound_evid
 }
     
 template <typename T, typename X>    
-void bound_analizer_on_row<T, X>::fill_bound_evidence_sign_on_coeff(int sign, unsigned j, const T & a, implied_bound_evidence_signature<T, X> & be) {
+void bound_analyzer_on_row<T, X>::fill_bound_evidence_sign_on_coeff(int sign, unsigned j, const T & a, implied_bound_evidence_signature<T, X> & be) {
     if (j == static_cast<unsigned>(be.m_j)) return;
-    int a_sign = a.is_pos()? 1: -1;
+    int a_sign = numeric_traits<T>::is_pos(a)? 1: -1;
     sign *= a_sign;
     bound_signature<T> bsig(a, j, sign > 0);
     be.m_evidence.emplace_back(bsig);
 }
 
 template <typename T, typename X>    
-void bound_analizer_on_row<T, X>::analyze_for_minus() {
+void bound_analyzer_on_row<T, X>::analyze_for_minus() {
     if (m_n_minus < m_n_total - 1)
         return; // cannot pin anything
     if (m_n_minus == m_n_total - 1) {
@@ -228,12 +228,12 @@ void bound_analizer_on_row<T, X>::analyze_for_minus() {
 }
 
 template <typename T, typename X>    
-void bound_analizer_on_row<T, X>::analyze_bound_on_pivot_row_one_var_case_low_upper(const T& a,
+void bound_analyzer_on_row<T, X>::analyze_bound_on_row_one_var_case_low_upper(const T& a,
                                                                                     int sign, // sign > 0 means the term can grow, sign < 0 means term can decrease
                                                                                     int j) {
     if (sign > 0){
         if (m_interested_in_plus) {
-            m_bound_plus += a * (a.is_pos() ? m_low_bounds[j] : m_upper_bounds[j]); 
+            m_bound_plus += a * (numeric_traits<T>::is_pos(a) ? m_low_bounds[j] : m_upper_bounds[j]); 
             m_n_plus++;
         }
         if (m_interested_in_minus) {
@@ -246,7 +246,7 @@ void bound_analizer_on_row<T, X>::analyze_bound_on_pivot_row_one_var_case_low_up
         }
     } else {
         if (m_interested_in_minus) {
-            m_bound_minus += a * (a.is_pos() ? m_upper_bounds[j] : m_low_bounds[j]); 
+            m_bound_minus += a * (numeric_traits<T>::is_pos(a) ? m_upper_bounds[j] : m_low_bounds[j]); 
             m_n_minus++;
         }
         if (m_interested_in_plus) {
@@ -261,18 +261,18 @@ void bound_analizer_on_row<T, X>::analyze_bound_on_pivot_row_one_var_case_low_up
 }
 
 template <typename T, typename X>    
-bool bound_analizer_on_row<T, X>::fill_bound_kind_minus_on_pos(implied_bound_evidence_signature<T, X>& be) {
-    lean_assert(m_a_minus.is_pos());
+bool bound_analyzer_on_row<T, X>::fill_bound_kind_minus_on_pos(implied_bound_evidence_signature<T, X>& be) {
+    lean_assert(numeric_traits<T>::is_pos(m_a_minus));
     // we have sum a[k]x[k] + m_a_minus * x[m_cand_minus] = m_rs;
     // so a*x[m_cand_minus] = m_rs - sum a[k]x[k] >= m_rs - m_bound_minus
     // we have to have a * x[m_cand_minus] >= m_rs - m_bound_minus, or x[m_cand_minus] >= (m_rs-m_bound_minus) / a, 
     // so we have a low bound
-    auto l = (m_rs - m_bound_minus) / m_a_minus;
+    auto l =  - m_bound_minus / m_a_minus;
     switch (m_column_types[m_cand_minus]) {
     case boxed:
     case fixed:
-    case low_bound: // in all these cases we have an upper bound already
-        if (l >= m_low_bounds[m_cand_minus]) return false; 
+    case low_bound: // in all these cases we have a low bound already
+        if (l <= m_low_bounds[m_cand_minus]) return false; 
         break;
     default:
         break;
@@ -286,13 +286,13 @@ bool bound_analizer_on_row<T, X>::fill_bound_kind_minus_on_pos(implied_bound_evi
 }
 
 template <typename T, typename X>    
-bool bound_analizer_on_row<T, X>::fill_bound_kind_minus_on_neg(implied_bound_evidence_signature<T, X>& be) {
-    lean_assert(m_a_minus.is_neg());
+bool bound_analyzer_on_row<T, X>::fill_bound_kind_minus_on_neg(implied_bound_evidence_signature<T, X>& be) {
+    lean_assert(numeric_traits<T>::is_neg(m_a_minus));
     // we have sum a[k]x[k] + m_a_minus * x[m_cand_minus] = m_rs;
     // so m_a_minus *x[m_cand_minus] = m_rs - a[k]x[k] >= m_rs - m_bound_minus
     // we have to have m_a_minus * x[m_cand_minus] >= m_rs- m_bound_minus, or x[m_cand_minus] <= (m_rs - m_bound_minus) / m_a_minus, since m_a_minus is negative
     // so we have an upper bound
-    auto u = (m_rs - m_bound_minus) / m_a_minus;
+    auto u = - m_bound_minus / m_a_minus;
     switch (m_column_types[m_cand_minus]) {
     case upper_bound:
     case fixed:
@@ -310,6 +310,7 @@ bool bound_analizer_on_row<T, X>::fill_bound_kind_minus_on_neg(implied_bound_evi
     return true;
 }
 
-template void bound_analizer_on_row<mpq, numeric_pair<mpq> >::analyze();
-
+template void bound_analyzer_on_row<mpq, numeric_pair<mpq> >::analyze();
+template void bound_analyzer_on_row<mpq, mpq>::analyze(void);
+template void bound_analyzer_on_row<double, double>::analyze(void);
 }

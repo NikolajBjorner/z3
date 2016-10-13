@@ -840,26 +840,6 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_v
         lean_assert(m_factorization->get_status()== LU_status::OK)
     }
 }
-template <typename T, typename X> void lp_core_solver_base<T, X>::
-print_linear_combination_of_column_indices(const std::vector<std::pair<T, unsigned>> & coeffs, std::ostream & out) const {
-    bool first = true;
-    for (const auto & it : coeffs) {
-        auto val = it.first;
-        if (first) {
-            first = false;
-        } else {
-            if (val.is_pos()) {
-                out << " + ";
-            } else {
-                out << " - ";
-                val = -val;
-            }
-        }
-        if (val != numeric_traits<mpq>::one())
-            out << T_to_string(val);
-        out << column_name(it.second);
-    }
-}
 
 void change_basis(unsigned entering, unsigned leaving, std::vector<unsigned>& basis, std::vector<unsigned>& nbasis, std::vector<int> & basis_heading) {
     int place_in_basis =  basis_heading[leaving];

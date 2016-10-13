@@ -204,7 +204,7 @@ public:
             print_constraint(p.second, std::cout);
         }
         std::cout << "after summing up the constraints we get\n";
-        m_mpq_lar_core_solver.print_linear_combination_of_column_indices(m_vec_of_canonic_left_sides()[be.m_j].m_coeffs, std::cout);
+        print_linear_combination_of_column_indices(m_vec_of_canonic_left_sides()[be.m_j].m_coeffs, std::cout);
         std::cout << " " << lconstraint_kind_string(be.m_kind) << " "  << be.m_bound << std::endl;
     }
     
@@ -248,7 +248,7 @@ public:
 
     void analyze_new_bounds_on_row(std::vector<implied_bound_evidence_signature<mpq, numeric_pair<mpq>>>& evidence_vector, unsigned row_index) {
         iterator_on_pivot_row<mpq> it(m_mpq_lar_core_solver.m_pivot_row, m_basis[row_index]); 
-        bound_analizer_on_row<mpq, numeric_pair<mpq>> ra_pos(it,
+        bound_analyzer_on_row<mpq, numeric_pair<mpq>> ra_pos(it,
             m_mpq_lar_core_solver.m_low_bounds,
             m_mpq_lar_core_solver.m_upper_bounds,
             zero_of_type<numeric_pair<mpq>>(),

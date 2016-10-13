@@ -15,6 +15,8 @@
 #include "util/lp/static_matrix.h"
 #include "util/lp/lp_core_solver_base.h"
 #include "util/lp/scaler.h"
+#include "util/lp/linear_combination_iterator.h"
+#include "util/lp/bound_analizer_on_row.h"
 namespace lean {
 enum lp_relation  {
     Less_or_equal,

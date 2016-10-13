@@ -161,7 +161,7 @@ public:
 
     template <typename T>
     bool abs_val_is_smaller_than_primal_feasibility_tolerance(T const & t) {
-        return is_eps_small_general<T>(t, dual_feasibility_tolerance);
+        return is_eps_small_general<T>(t, primal_feasibility_tolerance);
     }
 
     template <typename T>
