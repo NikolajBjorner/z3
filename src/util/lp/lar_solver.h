@@ -29,7 +29,7 @@
 #include "util/lp/stacked_unordered_set.h"
 #include "util/lp/iterator_on_pivot_row.h"
 #include "util/lp/implied_bound_evidence_signature.h"
-#include "util/lp/bound_analizer_on_row.h"
+#include "util/lp/bound_analyzer_on_row.h"
 #include "util/lp/bound_evidence.h"
 namespace lean {
 template <typename A, typename B>

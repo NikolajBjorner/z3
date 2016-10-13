@@ -4,7 +4,7 @@
 
   Author: Lev Nachmanson
 */
-#include "util/lp/bound_analizer_on_row.h"
+#include "util/lp/bound_analyzer_on_row.h"
 #include "util/lp/lar_solver.h"
 namespace lean {
 template <typename T, typename X>    
