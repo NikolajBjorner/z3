@@ -81,10 +81,11 @@ void bound_analyzer_on_row<T, X>::pin_for_total_case_plus(const T & a, unsigned 
     be.m_j = j;
     m_cand_plus = j;
     m_a_plus = a;
-    auto bound_correction = numeric_traits<T>::is_pos(a) ? m_low_bounds[j]: m_upper_bounds[j];
+    auto bound_correction = a * (numeric_traits<T>::is_pos(a) ? m_low_bounds[j]: m_upper_bounds[j]);
+    X saved_bound = m_bound_plus;
     m_bound_plus -= bound_correction;
     fill_bound_evidence_plus(be);
-    m_bound_plus+= bound_correction;
+    m_bound_plus = saved_bound;
 }
 template <typename T, typename X>    
 void bound_analyzer_on_row<T, X>::pin_for_total_case_minus(const T & a, unsigned j) {
@@ -92,10 +93,11 @@ void bound_analyzer_on_row<T, X>::pin_for_total_case_minus(const T & a, unsigned
     be.m_j = j;
     m_cand_minus = j;
     m_a_minus = a;
-    auto bound_correction = (!numeric_traits<T>::is_pos(a)) ? m_low_bounds[j] : m_upper_bounds[j];
+    auto bound_correction = a * ((!numeric_traits<T>::is_pos(a)) ? m_low_bounds[j] : m_upper_bounds[j]);
+    X saved_bound = m_bound_minus; 
     m_bound_minus -= bound_correction;
     fill_bound_evidence_minus(be);
-    m_bound_minus += bound_correction;
+    m_bound_minus = saved_bound;
 }
 
 template <typename T, typename X>    

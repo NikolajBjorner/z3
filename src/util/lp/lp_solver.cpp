@@ -18,11 +18,11 @@ template <typename T, typename X>
 std::string lp_solver<T, X>::get_column_name(unsigned j) const { // j here is the core solver index
     auto it = this->m_core_solver_columns_to_external_columns.find(j);
     if (it == this->m_core_solver_columns_to_external_columns.end())
-        return std::string("name_not_found");
+        return std::string("x")+T_to_string(j);
     unsigned external_j = it->second;
     auto t = this->m_map_from_var_index_to_column_info.find(external_j);
     if (t == this->m_map_from_var_index_to_column_info.end()) {
-        return std::string("name_not_found");
+        return std::string("x") +T_to_string(external_j);
     }
     return t->second->get_name();
 }
@@ -155,7 +155,6 @@ template <typename T, typename X> void lp_solver<T, X>::get_max_abs_in_row(std::
 }
 
 template <typename T, typename X> void lp_solver<T, X>::pin_vars_on_row_with_sign(std::unordered_map<unsigned, T> & row, T sign ) {
-    std::unordered_map<unsigned, T> pinned;
     for (auto t : row) {
         unsigned j = t.first;
         column_info<T> * ci = m_map_from_var_index_to_column_info[j];
@@ -385,15 +384,7 @@ template <typename T, typename X> unsigned lp_solver<T, X>::try_to_remove_some_r
 }
 
 template <typename T, typename X> void lp_solver<T, X>::cleanup() {
-    int n = 0; // number of deleted rows
-    int d;
-    while ((d = try_to_remove_some_rows() > 0))
-        n += d;
-
-    // if (n == 1)
-    //     std::cout << "deleted one row" << std::endl;
-    // else if (n)
-    //     std::cout << "deleted " << n << " rows" << std::endl;
+    cleanup_tighten_some_rows();
 }
 
 template <typename T, typename X> void lp_solver<T, X>::map_external_rows_to_core_solver_rows() {

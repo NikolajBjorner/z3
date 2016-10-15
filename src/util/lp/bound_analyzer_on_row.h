@@ -71,7 +71,7 @@ public :
                           const std::vector<X>& upper_bounds,
                           const X& rs,
                           const std::vector<column_type>& column_types,
-                             std::vector<implied_bound_evidence_signature<T, X>> & evidence_vector) {
+                            std::vector<implied_bound_evidence_signature<T, X>> & evidence_vector) {
         bound_analyzer_on_row a(it, low_bounds, upper_bounds, rs, column_types, evidence_vector);
         a.analyze();
     }

@@ -32,13 +32,6 @@
 #include "util/lp/bound_analyzer_on_row.h"
 #include "util/lp/bound_evidence.h"
 namespace lean {
-template <typename A, typename B>
-bool try_get_val(const std::unordered_map<A,B> & map, const A& key, B & val) {
-    const auto it = map.find(key);
-    if (it == map.end()) return false;
-    val = it->second;
-    return true;
-}
 template <typename V>
 struct conversion_helper {
     static V get_low_bound(const column_info<mpq> & ci) {
