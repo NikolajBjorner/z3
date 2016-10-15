@@ -332,8 +332,8 @@ protected:
             low_bounds[i] = zero_of_type<X>();
         }
         // in those cases above i is not mapped to any variable of the solver            
-        print_linear_combination_of_column_indices(vector, std::cout);
-        std::cout << std::endl;
+        // print_linear_combination_of_column_indices(vector, std::cout);
+        // std::cout << std::endl;
     }
 
     
@@ -349,8 +349,6 @@ protected:
         auto &constr = ct->second;
         const T & rs = constr.m_rs;
         bound_analyzer_on_row<T, X>::analyze_row(it, low_bounds, upper_bounds, rs, col_types, evidences);
-        if (evidences.size() > 0) 
-            std::cout << "found " << evidences.size() << " evidences" << std::endl;
     }
 
     bool check_can_be_fixed(column_info<X> * ci) {
@@ -366,7 +364,6 @@ protected:
     }
 
     void process_evidence_when_lb(implied_bound_evidence_signature<T,X> & evidence, column_info<X> *ci, row_tighten_stats & st) {
-        std::cout << "lb\n ";
 #if LEAN_DEBUG
         if (ci->low_bound_is_set()) {
             X delta = evidence.m_bound - ci->get_low_bound();            
@@ -421,7 +418,6 @@ protected:
         lean_assert(it != m_map_from_var_index_to_column_info.end());
         column_info<X> *ci;
         try_get_val(m_map_from_var_index_to_column_info, j, ci);
-        std::cout << "got ci " << ci->get_name() << std::endl;
         if (evidence.m_low_bound) {
             process_evidence_when_lb(evidence, ci, st);
         } else {
