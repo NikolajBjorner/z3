@@ -1043,6 +1043,9 @@ void update_settings(argument_parser & args_parser, lp_settings& settings) {
     else
         settings.report_frequency = args_parser.option_is_used("--mpq")? 80: 1000;
 
+    if (args_parser.option_is_used("-tb"))
+        settings.tighten_bounds = true;
+    
     settings.print_statistics = true;
 
     if (get_int_from_args_parser("--percent_for_enter", args_parser, n))
@@ -1849,6 +1852,8 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_help_string("--randomize_lar", "test randomize funclionality");
     parser.add_option_with_help_string("--smap", "test stacked_map");
     parser.add_option_with_help_string("--term", "simple term test");
+    parser.add_option_with_help_string("-tb", "tigthten bounds");
+    
 }
 
 struct fff { int a; int b;};

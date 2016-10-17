@@ -127,17 +127,21 @@ public:
             break;
         case fixed:
         {
+#if LEAN_DEBUG
             T delta = m_low_bounds[j] - ev.m_bound;
             lean_assert(numeric_traits<T>::is_pos(delta) && this->m_settings.abs_val_is_smaller_than_primal_feasibility_tolerance(delta));
+#endif
             this->m_low_bounds[j] = ev.m_bound;
             this->set_status(INFEASIBLE);
             break;
         }
         case boxed:
         case low_bound:
-        {
-            T delta = m_low_bounds[j] - ev.m_bound;
-            lean_assert(numeric_traits<T>::is_pos(delta) && this->m_settings.abs_val_is_smaller_than_primal_feasibility_tolerance(delta));
+            {
+#if LEAN_DEBUG
+                T delta = m_low_bounds[j] - ev.m_bound;
+                lean_assert(numeric_traits<T>::is_pos(delta) && this->m_settings.abs_val_is_smaller_than_primal_feasibility_tolerance(delta));
+#endif
             this->m_low_bounds[j] = ev.m_bound;
             break;
         }
@@ -158,18 +162,22 @@ public:
             this->m_column_types[j] = boxed;
             break;
         case fixed:
-        {
-            T delta = this->m_upper_bounds[j] - ev.m_bound;
-            lean_assert(numeric_traits<T>::is_pos(delta) && this->m_settings.abs_val_is_smaller_than_primal_feasibility_tolerance(delta));
+            {
+#if LEAN_DEBUG
+                T delta = this->m_upper_bounds[j] - ev.m_bound;
+                lean_assert(numeric_traits<T>::is_pos(delta) && this->m_settings.abs_val_is_smaller_than_primal_feasibility_tolerance(delta));
+#endif
             this->m_upper_bounds[j] = ev.m_bound;
             this->set_status(INFEASIBLE);
             break;
         }
         case boxed:
         case upper_bound:
-        {
+            {
+#if LEAN_DEBUG
             T delta = this->m_upper_bounds[j] - ev.m_bound;
             lean_assert(numeric_traits<T>::is_pos(delta) && this->m_settings.abs_val_is_smaller_than_primal_feasibility_tolerance(delta));
+#endif
             this->m_upper_bounds[j] = ev.m_bound;
             break;
         }
@@ -186,7 +194,7 @@ public:
             tighten_upper_bound(ev);
     }
 
-    void tighten_bounds_on_row(unsigned row_index) {
+    unsigned tighten_bounds_on_row(unsigned row_index) {
         iterator_on_row it(this->m_A->m_rows[row_index]);
         /*        std::cout << " row " << row_index << std::endl;
         this->print_linear_iterator(it, std::cout);
@@ -197,12 +205,15 @@ public:
         bound_analyzer_on_row<T, X>::analyze_row(it, this->m_low_bounds, this->m_upper_bounds, this->m_b[row_index], this->m_column_types, evidence, false);
         for (auto & ev : evidence)
             tighten_bounds_on_evidence(ev);
+        return evidence.size();
     }
     
     void tighten_bounds() {
+        unsigned n = 0;
         for (unsigned i = 0 ; i < this->m_A->row_count(); i++) {
-            tighten_bounds_on_row(i);
+            n += tighten_bounds_on_row(i);
         }
+        LP_OUT(this->m_settings, "tighthened " << n << " bounds\n");
     }
  
 };

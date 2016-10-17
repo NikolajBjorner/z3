@@ -389,7 +389,6 @@ template <typename T, typename X> void lp_solver<T, X>::cleanup() {
     while ((d = try_to_remove_some_rows() > 0))
         n += d;
 
-     LP_OUT(m_settings, "lu status is Degenerated" << std::endl);
      if (n == 1) {
          LP_OUT(m_settings, "deleted one row" << std::endl);
      } else if (n) {

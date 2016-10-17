@@ -216,7 +216,7 @@ public:
 #ifdef LEAN_DEBUG
     static unsigned ddd; // used for debugging
 #endif
-    bool tighten_bounds = true;
+    bool tighten_bounds = false;
 }; // end of lp_settings class
 
 
