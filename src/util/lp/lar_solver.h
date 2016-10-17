@@ -242,11 +242,12 @@ public:
     void analyze_new_bounds_on_row(std::vector<implied_bound_evidence_signature<mpq, numeric_pair<mpq>>>& evidence_vector, unsigned row_index) {
         iterator_on_pivot_row<mpq> it(m_mpq_lar_core_solver.m_pivot_row, m_basis[row_index]); 
         bound_analyzer_on_row<mpq, numeric_pair<mpq>> ra_pos(it,
-            m_mpq_lar_core_solver.m_low_bounds,
-            m_mpq_lar_core_solver.m_upper_bounds,
-            zero_of_type<numeric_pair<mpq>>(),
-            m_mpq_lar_core_solver.m_column_types,
-            evidence_vector);
+                                                             m_mpq_lar_core_solver.m_low_bounds,
+                                                             m_mpq_lar_core_solver.m_upper_bounds,
+                                                             zero_of_type<numeric_pair<mpq>>(),
+                                                             m_mpq_lar_core_solver.m_column_types,
+                                                             evidence_vector,
+                                                             true);
         ra_pos.analyze();
     }
 

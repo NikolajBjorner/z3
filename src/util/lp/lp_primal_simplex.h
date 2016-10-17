@@ -93,91 +93,117 @@ public:
 
     T get_current_cost() const;
 
-    // struct iterator_on_row:linear_combination_iterator<T> {
-    //     std::vector<row_cell<T>> & m_row;
-    //     unsigned m_i= 0; // offset
-    //     iterator_on_row(std::vector<row_cell<T>> & row) : m_row(row)
-    //     {}
-    //     bool next(T & a, unsigned & i) {
-    //         if (m_i == m_row.size())
-    //             return false;
-    //         auto &c = m_row[m_i++];
-    //         i = c.m_j;
-    //         a = c.get_val();
-    //         return true;
-    //     }
-    //     void reset() {
-    //         m_i = 0;
-    //     }
-    //     linear_combination_iterator<T>* clone() {
-    //         return new iterator_on_row(m_row);
-    //     }
-    // };
+    struct iterator_on_row:linear_combination_iterator<T> {
+        std::vector<row_cell<T>> & m_row;
+        unsigned m_i= 0; // offset
+        iterator_on_row(std::vector<row_cell<T>> & row) : m_row(row)
+        {}
+        bool next(T & a, unsigned & i) {
+            if (m_i == m_row.size())
+                return false;
+            auto &c = m_row[m_i++];
+            i = c.m_j;
+            a = c.get_val();
+            return true;
+        }
+        void reset() {
+            m_i = 0;
+        }
+        linear_combination_iterator<T>* clone() {
+            return new iterator_on_row(m_row);
+        }
+    };
     
-    // void tighten_low_bound(const implied_bound_evidence_signature<T, X> & ev) {
-    //     unsigned j = ev.m_j;
-    //     switch (this->m_column_types[j]) {
-    //     case free_column:
-    //         this->m_low_bounds[j] = ev.m_bound;
-    //         this->m_column_types[j] = low_bound;
-    //         break;
-    //     case upper_bound:
-    //         this->m_low_bounds[j] = ev.m_bound;
-    //         this->m_column_types[j] = boxed;
-    //         break;
-    //     case fixed:
-    //     {
-    //         T delta = m_low_bounds[j] - ev.m_bound;
-    //         lean_assert(numeric_traits<T>::is_pos(delta) && m_settings.abs_val_is_smaller_than_primal_feasibility_tolerance(delta));
-    //         this->m_low_bounds[j] = ev.m_bound;
-    //         this->set_status(INFEASIBLE);
-    //         break;
-    //     }
-    //     case boxed:
-    //     case low_bound:
-    //     {
-    //         T delta = m_low_bounds[j] - ev.m_bound;
-    //         lean_assert(numeric_traits<T>::is_pos(delta) && m_settings.abs_val_is_smaller_than_primal_feasibility_tolerance(delta));
-    //         this->m_low_bounds[j] = ev.m_bound;
-    //         break;
-    //     }
-    //     default:
-    //         lean_assert(false); // cannot be here
-    //     }
-    // }
+    void tighten_low_bound(const implied_bound_evidence_signature<T, X> & ev) {
+        unsigned j = ev.m_j;
+        switch (this->m_column_types[j]) {
+        case free_column:
+            this->m_low_bounds[j] = ev.m_bound;
+            this->m_column_types[j] = low_bound;
+            break;
+        case upper_bound:
+            this->m_low_bounds[j] = ev.m_bound;
+            this->m_column_types[j] = boxed;
+            break;
+        case fixed:
+        {
+            T delta = m_low_bounds[j] - ev.m_bound;
+            lean_assert(numeric_traits<T>::is_pos(delta) && this->m_settings.abs_val_is_smaller_than_primal_feasibility_tolerance(delta));
+            this->m_low_bounds[j] = ev.m_bound;
+            this->set_status(INFEASIBLE);
+            break;
+        }
+        case boxed:
+        case low_bound:
+        {
+            T delta = m_low_bounds[j] - ev.m_bound;
+            lean_assert(numeric_traits<T>::is_pos(delta) && this->m_settings.abs_val_is_smaller_than_primal_feasibility_tolerance(delta));
+            this->m_low_bounds[j] = ev.m_bound;
+            break;
+        }
+        default:
+            lean_assert(false); // cannot be here
+        }
+    }
 
-    // void tighten_upper_bound(const implied_bound_evidence_signature<T, X> & ev) {
+    void tighten_upper_bound(const implied_bound_evidence_signature<T, X> & ev) {
+        unsigned j = ev.m_j;
+        switch (this->m_column_types[j]) {
+        case free_column:
+            this->m_upper_bounds[j] = ev.m_bound;
+            this->m_column_types[j] = upper_bound;
+            break;
+        case low_bound:
+            this->m_upper_bounds[j] = ev.m_bound;
+            this->m_column_types[j] = boxed;
+            break;
+        case fixed:
+        {
+            T delta = this->m_upper_bounds[j] - ev.m_bound;
+            lean_assert(numeric_traits<T>::is_pos(delta) && this->m_settings.abs_val_is_smaller_than_primal_feasibility_tolerance(delta));
+            this->m_upper_bounds[j] = ev.m_bound;
+            this->set_status(INFEASIBLE);
+            break;
+        }
+        case boxed:
+        case upper_bound:
+        {
+            T delta = this->m_upper_bounds[j] - ev.m_bound;
+            lean_assert(numeric_traits<T>::is_pos(delta) && this->m_settings.abs_val_is_smaller_than_primal_feasibility_tolerance(delta));
+            this->m_upper_bounds[j] = ev.m_bound;
+            break;
+        }
+        default:
+            lean_assert(false); // cannot be here
+        }
 
-    // }
+    }
 
-    // void tighten_bounds_on_evidence(implied_bound_evidence_signature<T, X> & ev) {
-    //     if (ev.m_low_bound)
-    //         tighten_low_bound(ev);
-    //     else
-    //         tighten_upper_bound(ev);
-    // }
+    void tighten_bounds_on_evidence(implied_bound_evidence_signature<T, X> & ev) {
+        if (ev.m_low_bound)
+            tighten_low_bound(ev);
+        else
+            tighten_upper_bound(ev);
+    }
 
-    // void tighten_bounds_on_row(unsigned row_index) {
-    //     iterator_on_row it(this->m_A->m_rows[row_index]);
-    //     std::vector<implied_bound_evidence_signature<T, X>> evidence;
-    //     std::vector<std::pair<T, unsigned>> tmp;
-    //     T a; unsigned i;
-    //     while (it.next(a,i))
-    //         tmp.emplace_back(a,i);
-    //     std::cout << " row " << i << std::endl;
-    //     print_linear_combination_of_column_indices(tmp, std::cout);
-    //     std::cout << std::endl;
+    void tighten_bounds_on_row(unsigned row_index) {
+        iterator_on_row it(this->m_A->m_rows[row_index]);
+        /*        std::cout << " row " << row_index << std::endl;
+        this->print_linear_iterator(it, std::cout);
+        std::cout << std::endl;
+        */
+        std::vector<implied_bound_evidence_signature<T, X>> evidence;
                
-    //     bound_analyzer_on_row<T, X>::analyze_row(it, m_low_bounds, m_upper_bounds, m_b[row_index], m_column_types, evidence);
-    //     for (auto & ev : evidence)
-    //         tighten_bounds_on_evidence(ev);
-    // }
+        bound_analyzer_on_row<T, X>::analyze_row(it, this->m_low_bounds, this->m_upper_bounds, this->m_b[row_index], this->m_column_types, evidence, false);
+        for (auto & ev : evidence)
+            tighten_bounds_on_evidence(ev);
+    }
     
-    // void tighten_bounds() {
-    //     for (unsigned i = 0 ; i < this->m_A->row_count(); i++) {
-    //         tighten_bounds_on_row(i);
-    //     }
-    // }
+    void tighten_bounds() {
+        for (unsigned i = 0 ; i < this->m_A->row_count(); i++) {
+            tighten_bounds_on_row(i);
+        }
+    }
  
 };
 }

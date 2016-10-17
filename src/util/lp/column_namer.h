@@ -12,7 +12,7 @@ class column_namer {
 public:
     virtual std::string get_column_name(unsigned j) const = 0;
     template <typename T>
-    void print_linear_iterator(const linear_combination_iterator<T> & it, std::ostream & out) {
+    void print_linear_iterator(linear_combination_iterator<T> & it, std::ostream & out) {
         std::vector<std::pair<T, unsigned>> coeff;
         T a;
         unsigned i;

@@ -8,6 +8,10 @@
 #include <vector>
 #include "util/lp/linear_combination_iterator.h"
 #include "implied_bound_evidence_signature.h"
+// We have an equality : sum by j of row[j]*x[j] = rs
+// We try to pin a var by pushing the total by using the variable bounds
+// In a loop we drive the partial sum down, denoting the variable of this process by _minus.
+// In the same loop trying to pin variables by pushing the partial sum up, denoting it by _plus
 namespace lean {
 template <typename T, typename X> 
 class bound_analyzer_on_row {
@@ -18,9 +22,6 @@ class bound_analyzer_on_row {
     const std::vector<column_type>& m_column_types;
     std::vector<implied_bound_evidence_signature<T, X>> & m_evidence_vector;
     
-        // We have the equality, sum by j of row[j]*x[j] + x[basis[j]] = 0
-        // We try to pin a var by pushing the total of the partial sum down, denoting the variable of this process by _minus.
-        // In the same loop trying to pin a var by pushing the partial sum up, denoting it by _plus
     int m_cand_minus = -1;  // the variable pinned from above
     T m_a_minus; // the coefficent before the minus candidate
     unsigned m_n_minus = 0; // the number of terms active, limiting from above found so far
@@ -32,6 +33,7 @@ class bound_analyzer_on_row {
     X m_bound_plus; // the partial sum for plus, seen so far
     bool m_interested_in_plus = true;
     unsigned m_n_total = 0;
+    bool m_provide_evidence;
 public :
     // constructor
     bound_analyzer_on_row(linear_combination_iterator<T> &it,
@@ -39,14 +41,17 @@ public :
                           const std::vector<X>& upper_bounds,
                           const X& rs,
                           const std::vector<column_type>& column_types,
-                          std::vector<implied_bound_evidence_signature<T, X>> & evidence_vector) :
+                          std::vector<implied_bound_evidence_signature<T, X>> & evidence_vector,
+                          bool provide_evidence) :
         m_it(it),
         m_low_bounds(low_bounds),
         m_upper_bounds(upper_bounds),
         m_column_types(column_types),
         m_evidence_vector(evidence_vector),
         m_bound_minus(-rs),
-        m_bound_plus(-rs) {}
+        m_bound_plus(-rs),
+        m_provide_evidence(provide_evidence)
+    {}
 
     void analyze();
     void analyze_bound_on_var_on_coeff(int j, const T &a);
@@ -71,8 +76,9 @@ public :
                           const std::vector<X>& upper_bounds,
                           const X& rs,
                           const std::vector<column_type>& column_types,
-                            std::vector<implied_bound_evidence_signature<T, X>> & evidence_vector) {
-        bound_analyzer_on_row a(it, low_bounds, upper_bounds, rs, column_types, evidence_vector);
+                            std::vector<implied_bound_evidence_signature<T, X>> & evidence_vector,
+                            bool provide_evidence) {
+        bound_analyzer_on_row a(it, low_bounds, upper_bounds, rs, column_types, evidence_vector, provide_evidence);
         a.analyze();
     }
 

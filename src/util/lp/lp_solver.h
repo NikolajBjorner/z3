@@ -348,7 +348,40 @@ protected:
         lean_assert (ct != m_constraints.end());
         auto &constr = ct->second;
         const T & rs = constr.m_rs;
-        bound_analyzer_on_row<T, X>::analyze_row(it, low_bounds, upper_bounds, rs, col_types, evidences);
+        print_linear_iterator(it, std::cout);
+        std::cout << " = " << rs << std::endl;
+        std::cout << "lows ";
+        unsigned i = 0;
+        for (auto ct: col_types) {
+            switch (ct) {
+            case fixed:
+            case boxed:
+            case low_bound:
+                std::cout <<low_bounds[i] << " ";
+                break;
+            default: std::cout << " __ ";
+                    
+            }
+            i++;
+        }
+        std::cout << std::endl;
+        std::cout << "uppe ";
+        i = 0;
+        for (auto ct: col_types) {
+            switch (ct) {
+            case fixed:
+            case boxed:
+            case upper_bound:
+                std::cout << upper_bounds[i] << " ";
+                break;
+            default: std::cout << " __ ";
+                    
+            }
+            i++;
+        }
+        std::cout << std::endl;
+
+        bound_analyzer_on_row<T, X>::analyze_row(it, low_bounds, upper_bounds, rs, col_types, evidences, false);
     }
 
     bool check_can_be_fixed(column_info<X> * ci) {
@@ -414,8 +447,6 @@ protected:
 
     
     void process_evidence(implied_bound_evidence_signature<T, X> & evidence, unsigned j, row_tighten_stats & st) {
-        auto it =  m_map_from_var_index_to_column_info.find(j);
-        lean_assert(it != m_map_from_var_index_to_column_info.end());
         column_info<X> *ci;
         try_get_val(m_map_from_var_index_to_column_info, j, ci);
         if (evidence.m_low_bound) {
@@ -423,7 +454,6 @@ protected:
         } else {
             process_evidence_when_ub(evidence, ci, st);
         }
-        
     }
     
     void process_evidences(std::vector<column_type> & col_types,

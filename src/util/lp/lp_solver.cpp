@@ -384,7 +384,17 @@ template <typename T, typename X> unsigned lp_solver<T, X>::try_to_remove_some_r
 }
 
 template <typename T, typename X> void lp_solver<T, X>::cleanup() {
-    cleanup_tighten_some_rows();
+    int n = 0; // number of deleted rows
+    int d;
+    while ((d = try_to_remove_some_rows() > 0))
+        n += d;
+
+     LP_OUT(m_settings, "lu status is Degenerated" << std::endl);
+     if (n == 1) {
+         LP_OUT(m_settings, "deleted one row" << std::endl);
+     } else if (n) {
+         LP_OUT(m_settings, "deleted " << n << " rows" << std::endl);
+     }
 }
 
 template <typename T, typename X> void lp_solver<T, X>::map_external_rows_to_core_solver_rows() {

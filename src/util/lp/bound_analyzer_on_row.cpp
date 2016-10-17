@@ -84,7 +84,8 @@ void bound_analyzer_on_row<T, X>::pin_for_total_case_plus(const T & a, unsigned 
     auto bound_correction = a * (numeric_traits<T>::is_pos(a) ? m_low_bounds[j]: m_upper_bounds[j]);
     X saved_bound = m_bound_plus;
     m_bound_plus -= bound_correction;
-    fill_bound_evidence_plus(be);
+    if (m_provide_evidence)
+        fill_bound_evidence_plus(be);
     m_bound_plus = saved_bound;
 }
 template <typename T, typename X>    
@@ -93,7 +94,7 @@ void bound_analyzer_on_row<T, X>::pin_for_total_case_minus(const T & a, unsigned
     be.m_j = j;
     m_cand_minus = j;
     m_a_minus = a;
-    auto bound_correction = a * ((!numeric_traits<T>::is_pos(a)) ? m_low_bounds[j] : m_upper_bounds[j]);
+    auto bound_correction = a * ((!numeric_traits<T>::is_pos(a)) ? m_upper_bounds[j] : m_low_bounds[j]);
     X saved_bound = m_bound_minus; 
     m_bound_minus -= bound_correction;
     fill_bound_evidence_minus(be);
@@ -216,7 +217,8 @@ void bound_analyzer_on_row<T, X>::analyze_for_minus() {
         lean_assert(m_cand_minus != -1);
         implied_bound_evidence_signature<T, X> bnd_evid;
         bnd_evid.m_j = m_cand_minus;
-        fill_bound_evidence_minus(bnd_evid);
+        if (m_provide_evidence)
+            fill_bound_evidence_minus(bnd_evid);
     } else {
         lean_assert(m_n_minus == m_n_total);
         auto it = m_it.clone();

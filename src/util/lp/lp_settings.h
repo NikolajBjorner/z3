@@ -214,11 +214,9 @@ public:
     bool scale_with_ratio = true;
     double density_threshold = 0.7; // need to tune it up, todo
 #ifdef LEAN_DEBUG
-    bool dense_deb;
     static unsigned ddd; // used for debugging
 #endif
-    static unsigned tr; // used for debugging
-
+    bool tighten_bounds = true;
 }; // end of lp_settings class
 
 
