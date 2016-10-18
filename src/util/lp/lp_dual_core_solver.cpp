@@ -679,13 +679,14 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::find_q_on_tigh
         }
     }
     m_tight_set.erase(m_q);
+    lean_assert(m_q != -1);
 }
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::find_q_and_tight_set() {
     T harris_del = calculate_harris_delta_on_breakpoint_set();
     fill_tight_set_on_harris_delta(harris_del);
     find_q_on_tight_set();
-    lean_assert(m_q != -1);
+    m_entering_boundary_position = this->get_non_basic_column_value_position(m_q);
 }
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::erase_tight_breakpoints_and_q_from_breakpoint_set() {
