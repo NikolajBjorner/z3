@@ -503,6 +503,7 @@ template <typename L>
 void sparse_matrix<T, X>::find_error_in_solution_U_y_indexed(indexed_vector<L>& y_orig, indexed_vector<L> & y,  const std::vector<unsigned>& sorted_active_rows) {
     for (unsigned i: sorted_active_rows)
         y_orig.add_value_at_index(i, -dot_product_with_row(i, y)); // cannot round up here!!!
+    // y_orig can contain very small values
 }
 
 
@@ -543,6 +544,7 @@ void sparse_matrix<T, X>::double_solve_U_y(indexed_vector<L>& y, const lp_settin
         add_delta_to_solution(y_orig.m_data, y.m_data);
         y.restore_index_and_clean_from_data();
     }
+    lean_assert(y.is_OK());
 }
 template <typename T, typename X>
 template <typename L>

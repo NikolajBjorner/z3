@@ -113,6 +113,8 @@ public:
            T & v = m_data[i];
            if (!lp_settings::is_eps_small_general(v, 1e-14)) {
                index_copy.push_back(i);
+           } else if (!numeric_traits<T>::is_zero(v)) {
+               v = zero_of_type<T>();
            }
        }
        m_index = index_copy;

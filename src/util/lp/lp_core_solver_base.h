@@ -33,7 +33,7 @@ public:
     static_matrix<T, X> & m_A; // the matrix A
     std::vector<X> & m_b; // the right side
     std::vector<unsigned> & m_basis;
-    std::vector<unsigned>& m_non_basic_columns;
+    std::vector<unsigned>& m_nbasis;
     std::vector<int>& m_basis_heading;
     std::vector<X> & m_x; // a feasible solution, the fist time set in the constructor
     std::vector<T> & m_costs;
@@ -79,10 +79,10 @@ public:
      }
 
     std::vector<unsigned> & non_basis() {
-        return m_non_basic_columns;
+        return m_nbasis;
     }
 
-    const std::vector<unsigned> & non_basis() const { return m_non_basic_columns; }
+    const std::vector<unsigned> & non_basis() const { return m_nbasis; }
 
 
     

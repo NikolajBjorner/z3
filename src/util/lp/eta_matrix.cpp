@@ -103,9 +103,10 @@ void eta_matrix<T, X>::apply_from_right(indexed_vector<T> & w) {
             t = zero_of_type<T>();
         }
     }
-    lean_assert(w.is_OK());
+    
 #ifdef LEAN_DEBUG
-    lean_assert(vectors_are_equal<T>(wcopy, w.m_data));
+// lean_assert(w.is_OK());
+// lean_assert(vectors_are_equal<T>(wcopy, w.m_data));
 #endif
 }
 #ifdef LEAN_DEBUG

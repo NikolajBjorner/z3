@@ -57,3 +57,5 @@ template void lean::lu<double, double>::solve_By(lean::indexed_vector<double>&);
 template void lean::lu<double, double>::solve_yB_indexed(lean::indexed_vector<double>&);
 template void lean::lu<lean::mpq, lean::mpq>::solve_yB_indexed(lean::indexed_vector<lean::mpq>&);
 template void lean::lu<lean::mpq, lean::numeric_pair<lean::mpq> >::solve_yB_indexed(lean::indexed_vector<lean::mpq>&);
+template void lean::lu<lean::mpq, lean::mpq>::solve_By_for_T_indexed_only(lean::indexed_vector<lean::mpq>&, lean::lp_settings const&);
+template void lean::lu<double, double>::solve_By_for_T_indexed_only(lean::indexed_vector<double>&, lean::lp_settings const&);

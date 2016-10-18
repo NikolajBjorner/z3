@@ -53,7 +53,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::init_a_wave_by
 }
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::fill_non_basis_with_only_able_to_enter_columns() {
-    auto & nb = this->m_non_basic_columns;
+    auto & nb = this->m_nbasis;
     nb.clear();
     unsigned j = this->m_n();
     while (j--) {
@@ -64,7 +64,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::fill_non_basis
 }
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::restore_non_basis() {
-    auto & nb = this->m_non_basic_columns;
+    auto & nb = this->m_nbasis;
     nb.clear();
     unsigned j = this->m_n();
     while (j--) {
@@ -239,7 +239,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::pricing_loop(u
     // this calculation is needed for the steepest edge update,
     // it hijackes m_pivot_row_of_B_1 for this purpose since we will need it anymore to the end of the cycle
 template <typename T, typename X> void lp_dual_core_solver<T, X>::DSE_FTran() { // todo, see algorithm 7 from page 35
-    this->m_factorization->solve_By(this->m_pivot_row_of_B_1);
+    this->m_factorization->solve_By_for_T_indexed_only(this->m_pivot_row_of_B_1, this->m_settings);
 }
 
 template <typename T, typename X> bool lp_dual_core_solver<T, X>::advance_on_known_p() {
@@ -509,7 +509,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::recover_leavin
 }
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::revert_to_previous_basis() {
-    change_basis(m_p, m_q, this->m_basis, this->m_non_basic_columns, this->m_basis_heading);
+    change_basis(m_p, m_q, this->m_basis, this->m_nbasis, this->m_basis_heading);
     init_factorization(this->m_factorization, this->m_A, this->m_basis, this->m_settings);
     if (this->m_factorization->get_status() != LU_status::OK) {
         this->m_status = FLOATING_POINT_ERROR; // complete failure

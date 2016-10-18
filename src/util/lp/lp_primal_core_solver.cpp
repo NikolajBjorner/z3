@@ -17,19 +17,19 @@ namespace lean {
 // The right side b is given implicitly by x and the basis
 template <typename T, typename X>
 void lp_primal_core_solver<T, X>::sort_non_basis() {
-    for (unsigned j : this->m_non_basic_columns) {
+    for (unsigned j : this->m_nbasis) {
         T const & da = this->m_d[j];
         this->m_steepest_edge_coefficients[j] = da * da / this->m_column_norms[j];
     }
 
-    std::sort(this->m_non_basic_columns.begin(), this->m_non_basic_columns.end(), [this](unsigned a, unsigned b) {
+    std::sort(this->m_nbasis.begin(), this->m_nbasis.end(), [this](unsigned a, unsigned b) {
             return this->m_steepest_edge_coefficients[a] > this->m_steepest_edge_coefficients[b];
     });
 
     m_non_basis_list.clear();
     // reinit m_basis_heading
-    for (unsigned j = 0; j < this->m_non_basic_columns.size(); j++) {
-        unsigned col = this->m_non_basic_columns[j];
+    for (unsigned j = 0; j < this->m_nbasis.size(); j++) {
+        unsigned col = this->m_nbasis[j];
         this->m_basis_heading[col] = - static_cast<int>(j) - 1;
         m_non_basis_list.push_back(col);
     }
@@ -378,7 +378,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::update_re
     T pivot = this->m_pivot_row[entering];
     T dq = this->m_d[entering]/pivot;
     for (auto j : this->m_pivot_row.m_index) {
-        //            for (auto j : this->m_non_basic_columns)
+        //            for (auto j : this->m_nbasis)
         if (this->m_basis_heading[j] >= 0) continue;
         if (j != leaving)
             this->m_d[j] -= dq * this->m_pivot_row[j];
@@ -552,12 +552,12 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
 }
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::push_forward_offset_in_non_basis(unsigned & offset_in_nb) {
-    if (++offset_in_nb == this->m_non_basic_columns.size())
+    if (++offset_in_nb == this->m_nbasis.size())
         offset_in_nb = 0;
 }
 
 template <typename T, typename X>  unsigned lp_primal_core_solver<T, X>::get_number_of_non_basic_column_to_try_for_enter() {
-    unsigned ret = static_cast<unsigned>(this->m_non_basic_columns.size());
+    unsigned ret = static_cast<unsigned>(this->m_nbasis.size());
     if (this->m_status == TENTATIVE_UNBOUNDED)
         return ret; // we really need to find entering with a large reduced cost
     if (ret > 300) {
@@ -650,7 +650,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::delete_fa
 // according to Swietanowski, " A new steepest edge approximation for the simplex method for linear programming"
 template <typename T, typename X> void lp_primal_core_solver<T, X>::init_column_norms() {
     m_column_norm_update_counter = 0;
-    for (unsigned j : this->m_non_basic_columns)
+    for (unsigned j : this->m_nbasis)
         this->m_column_norms[j] = 1;
 }
 

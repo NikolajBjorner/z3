@@ -232,20 +232,20 @@ template <typename T, typename X>    bool lar_core_solver<T, X>::debug_profit(un
 }
 #endif
 template <typename T, typename X>    int lar_core_solver<T, X>::choose_column_entering_basis() {
-    unsigned offset = my_random() % this->m_non_basic_columns.size();
+    unsigned offset = my_random() % this->m_nbasis.size();
     unsigned initial_offset_in_non_basis = offset;
     do {
-        unsigned j = this->m_non_basic_columns[offset];
+        unsigned j = this->m_nbasis[offset];
         if (can_enter_basis_mpq(j))
             return j;
         offset++;
-        if (offset == this->m_non_basic_columns.size()) offset = 0;
+        if (offset == this->m_nbasis.size()) offset = 0;
     } while (offset != initial_offset_in_non_basis);
     return -1;
 }
 
 template <typename T, typename X>    void lar_core_solver<T, X>::one_iteration() {
-    lean_assert(this->m_non_basic_columns.size()  + this->m_basis.size() == this->m_basis_heading.size());
+    lean_assert(this->m_nbasis.size()  + this->m_basis.size() == this->m_basis_heading.size());
     if (is_zero(m_infeasibility)) {
         this->m_status = OPTIMAL;
         return;
@@ -529,7 +529,7 @@ template <typename T, typename X>  void lar_core_solver<T, X>::move_as_many_as_p
 
 
 template <typename T, typename X> bool lar_core_solver<T, X>::non_basis_columns_are_set_correctly() const {
-    for (unsigned j : this->m_non_basic_columns)
+    for (unsigned j : this->m_nbasis)
         if (!non_basis_column_is_set_correctly(j))
             return false;
     return true;
@@ -666,13 +666,13 @@ template <typename T, typename X>    bool lar_core_solver<T, X>::improves_pivot_
 }
 
 template <typename T, typename X> int lar_core_solver<T, X>::choose_entering_column_for_row_inf_strategy() {
-    unsigned offset = my_random() % this->m_non_basic_columns.size();
+    unsigned offset = my_random() % this->m_nbasis.size();
     unsigned initial_offset_in_non_basis = offset;
     do {
-        unsigned j = this->m_non_basic_columns[offset];
+        unsigned j = this->m_nbasis[offset];
         if (improves_pivot_row_inf(j, m_infeasible_row_sign))
             return j;
-        if (++offset == this->m_non_basic_columns.size()) offset = 0;
+        if (++offset == this->m_nbasis.size()) offset = 0;
     } while (offset != initial_offset_in_non_basis);
     return -1;
 }
@@ -680,7 +680,7 @@ template <typename T, typename X> int lar_core_solver<T, X>::choose_entering_col
 template <typename T, typename X>    void lar_core_solver<T, X>::fill_evidence(unsigned row) {
     m_infeasible_row.clear();
     m_infeasible_row.push_back(std::make_pair(numeric_traits<T>::one(), this->m_basis[row]));
-    for (auto j : this->m_non_basic_columns) {
+    for (auto j : this->m_nbasis) {
         T aj = this->m_pivot_row[j];
         if (!numeric_traits<T>::is_zero(aj)) {
             m_infeasible_row.push_back(std::make_pair(aj, j));

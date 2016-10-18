@@ -346,17 +346,21 @@ void lu<T, X>::add_delta_to_solution_indexed(indexed_vector<T>& y) {
     m_ii.clear();
     m_ii.resize(y.data_size());
     for (unsigned i : y.m_index)
-        m_ii.set_value(i, i);
+        m_ii.set_value(1, i);
     for (unsigned i : m_y_copy.m_index) {
         y.m_data[i] += m_y_copy[i];
         if (m_ii[i] == 0)
-            m_ii.set_value(i, i);
+            m_ii.set_value(1, i);
     }
+    lean_assert(m_ii.is_OK());
     y.m_index.clear();
 
     for (unsigned i : m_ii.m_index) {
-        if (!lp_settings::is_eps_small_general(y.m_data[i], 1e-14))
+        T & v = y.m_data[i];
+        if (!lp_settings::is_eps_small_general(v, 1e-14))
             y.m_index.push_back(i);
+        else if (!numeric_traits<T>::is_zero(v))
+            v = zero_of_type<T>();
     }
         
     lean_assert(y.is_OK());
@@ -410,15 +414,22 @@ void lu<T, X>::find_error_of_yB_indexed(const indexed_vector<T>& y, const std::v
             int hj = heading[j];
             if (hj < 0) continue;
             if (m_ii.m_data[hj] == 0)
-                m_ii.set_value(hj, hj);
+                m_ii.set_value(1, hj);
             m_y_copy.m_data[hj] -= c.get_val() * y_k;
         }
     }
-
+    // add the index of m_y_copy to m_ii
+    for (unsigned i : m_y_copy.m_index) {
+        if (m_ii.m_data[i] == 0)
+            m_ii.set_value(1, i);
+    }
+    
+    // there is no guarantee that m_y_copy is OK here, but its index
+    // is contained in m_ii index
     m_y_copy.m_index.clear();
-       // setup the index of m_y_copy
+    // setup the index of m_y_copy
     for (auto k : m_ii.m_index) {
-        auto v = m_y_copy.m_data[k];
+        T& v = m_y_copy.m_data[k];
         if (settings.abs_val_is_smaller_than_drop_tolerance(v))
             v = zero_of_type<T>();
         else {
@@ -445,7 +456,7 @@ void lu<T, X>::solve_yB_with_error_check_indexed(indexed_vector<T> & y, const st
     if (y.m_index.size() * ratio_of_index_size_to_all_size<T>() < m_A.column_count()) {
         m_y_copy = y;
         solve_yB_indexed(y);
-        
+        lean_assert(y.is_OK());
         if (y.m_index.size() * ratio_of_index_size_to_all_size<T>() >= m_A.column_count()) {
             find_error_of_yB(m_y_copy.m_data, y.m_data, basis);
             solve_yB(m_y_copy.m_data);

@@ -466,7 +466,7 @@ void lar_solver::find_solution_signature_with_doubles(lar_solution_signature & s
 
 template <typename U, typename V>
 void lar_solver::extract_signature_from_lp_core_solver(lp_primal_core_solver<U, V> & core_solver, lar_solution_signature & signature) {
-    for (auto j : core_solver.m_non_basic_columns)
+    for (auto j : core_solver.m_nbasis)
         signature[j] = core_solver.get_non_basic_column_value_position(j);
 }
 
