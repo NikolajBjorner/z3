@@ -13,7 +13,7 @@ template <typename T, typename X> permutation_matrix<T, X>::permutation_matrix(u
     }
 }
 
-    template <typename T, typename X> permutation_matrix<T, X>::permutation_matrix(unsigned length, std::vector<unsigned> const & values): m_permutation(length), m_rev(length) , m_T_buffer(length), m_X_buffer(length) {
+template <typename T, typename X> permutation_matrix<T, X>::permutation_matrix(unsigned length, std::vector<unsigned> const & values): m_permutation(length), m_rev(length) , m_T_buffer(length), m_X_buffer(length) {
     for (unsigned i = 0; i < length; i++) {
         set_val(i, values[i]);
     }
@@ -217,9 +217,10 @@ void permutation_matrix<T, X>::apply_reverse_from_right_to_T(std::vector<T> & w)
 template <typename T, typename X>
 void permutation_matrix<T, X>::apply_reverse_from_right_to_T(indexed_vector<T> & w) {
     // the result will be w = w * p(-1)
-    std::vector<T> wcopy(w.m_data);
-    apply_reverse_from_right_to_T(wcopy);
-    
+#ifdef LEAN_DEBUG
+    // std::vector<T> wcopy(w.m_data);
+    // apply_reverse_from_right_to_T(wcopy);
+#endif
     lean_assert(w.is_OK());
     std::vector<T> tmp;
     std::vector<unsigned> tmp_index(w.m_index);
@@ -233,10 +234,8 @@ void permutation_matrix<T, X>::apply_reverse_from_right_to_T(indexed_vector<T> &
         w.set_value(tmp[k], m_rev[j]);
     }
 
-    lean_assert(w.is_OK());
-    
-    lean_assert(vectors_are_equal(w.m_data, wcopy));
-    
+    // lean_assert(w.is_OK());    
+    // lean_assert(vectors_are_equal(w.m_data, wcopy));
 }
 
 
@@ -292,6 +291,7 @@ template <typename T, typename X> void permutation_matrix<T, X>::multiply_by_per
 }
 
 template <typename T, typename X> void permutation_matrix<T, X>::multiply_by_reverse_from_right(permutation_matrix<T, X> & q){ // todo : condensed permutations ?
+    lean_assert(q.size() == size());
     m_work_array = m_permutation;
     // the result is this = this*q(-1)
     unsigned i = size();

@@ -35,7 +35,7 @@ public:
         return *this;
     }
 
-    T value() const {
+    const T & value() const {
         return m_value;
     }
 

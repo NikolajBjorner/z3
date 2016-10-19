@@ -5,7 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Author: Lev Nachmanson
 */
 #include <limits>
-#if 0
+#if _LINUX_
 #include <dirent.h>
 #endif
 #include <algorithm>
@@ -1043,6 +1043,9 @@ void update_settings(argument_parser & args_parser, lp_settings& settings) {
     else
         settings.report_frequency = args_parser.option_is_used("--mpq")? 80: 1000;
 
+    if (args_parser.option_is_used("-tb"))
+        settings.tighten_bounds = true;
+    
     settings.print_statistics = true;
 
     if (get_int_from_args_parser("--percent_for_enter", args_parser, n))
@@ -1106,6 +1109,7 @@ void solve_mps_double(std::string file_name, bool look_for_min, unsigned max_ite
         std::cout << "cannot process " << file_name << std::endl;
         return;
     }
+    
     lp_solver<double, double> * solver =  reader.create_solver(dual);
     setup_solver(max_iterations, time_limit, look_for_min, args_parser, solver);
     int begin = get_millisecond_count();
@@ -1125,7 +1129,7 @@ void solve_mps_double(std::string file_name, bool look_for_min, unsigned max_ite
         }
         std::cout << "cost = " << cost << std::endl;
     }
-    cout << "processed in " << span / 1000.0  << " seconds, running for " << solver->m_total_iterations << " iterations" << std::endl;
+    cout << "processed in " << span / 1000.0  << " seconds, running for " << solver->m_total_iterations << " iterations" << "  one iter for " << (double)span/solver->m_total_iterations << " ms" << std::endl;
     if (compare_with_primal) {
         auto * primal_solver = reader.create_solver(false);
         setup_solver(max_iterations, time_limit, look_for_min, args_parser, primal_solver);
@@ -1188,7 +1192,8 @@ void solve_mps(std::string file_name, bool look_for_min, unsigned max_iterations
     if (!solve_for_rational) {
         std::cout << "solving " << file_name << std::endl;
         solve_mps_double(file_name, look_for_min, max_iterations, time_limit, dual, compare_with_primal, args_parser);
-    } else {
+    }
+    else {
         std::cout << "solving " << file_name << " in rationals " << std::endl;
         solve_mps_rational(file_name, look_for_min, max_iterations, time_limit, dual, args_parser);
     }
@@ -1403,7 +1408,7 @@ void random_test() {
     }
 }
 
-#if 0
+#if _LINUX_
 void fill_file_names(std::vector<std::string> &file_names,  std::set<string> & minimums) {
     char *home_dir = getenv("HOME");
     if (home_dir == nullptr) {
@@ -1823,6 +1828,8 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_help_string("--smt", "smt file format");
     parser.add_option_with_after_string_with_help("--filelist", "the file containing the list of files");
     parser.add_option_with_after_string_with_help("--file", "the input file name");
+    parser.add_option_with_help_string("--tr", "cycle threshold");
+    parser.add_option_with_help_string("--bp", "bound propogation");
     parser.add_option_with_help_string("--min", "will look for the minimum for the given file if --file is used; the default is looking for the max");
     parser.add_option_with_help_string("--max", "will look for the maximum for the given file if --file is used; it is the default behavior");
     parser.add_option_with_after_string_with_help("--max_iters", "maximum total iterations in a core solver stage");
@@ -1845,6 +1852,8 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_help_string("--randomize_lar", "test randomize funclionality");
     parser.add_option_with_help_string("--smap", "test stacked_map");
     parser.add_option_with_help_string("--term", "simple term test");
+    parser.add_option_with_help_string("-tb", "tigthten bounds");
+    
 }
 
 struct fff { int a; int b;};
@@ -2755,6 +2764,92 @@ void test_term() {
     
 }
 
+void test_bound_propogation_one_row() {
+    lar_solver ls;
+    unsigned x0 = ls.add_var("x0");
+    unsigned x1 = ls.add_var("x1");
+    std::vector<std::pair<mpq, var_index>> c;
+    c.push_back(std::pair<mpq, var_index>(1, x0));
+    c.push_back(std::pair<mpq, var_index>(-1, x1));
+    ls.add_constraint(c, EQ, one_of_type<mpq>());
+    ls.solve();
+    std::vector<bound_evidence> ev;
+    ls.add_var_bound_with_bound_propagation(x0, LE, mpq(1), ev);
+} 
+void test_bound_propogation_one_row_with_bounded_vars() {
+    lar_solver ls;
+    unsigned x0 = ls.add_var("x0");
+    unsigned x1 = ls.add_var("x1");
+    std::vector<std::pair<mpq, var_index>> c;
+    c.push_back(std::pair<mpq, var_index>(1, x0));
+    c.push_back(std::pair<mpq, var_index>(-1, x1));
+    ls.add_constraint(c, EQ, one_of_type<mpq>());
+    ls.solve();
+    std::vector<bound_evidence> ev;
+    ls.add_var_bound(x0, GE, mpq(-3));
+    ls.add_var_bound(x0, LE, mpq(3));
+    ls.add_var_bound_with_bound_propagation(x0, LE, mpq(1), ev);
+}
+void test_bound_propogation_one_row_mixed() {
+    lar_solver ls;
+    unsigned x0 = ls.add_var("x0");
+    unsigned x1 = ls.add_var("x1");
+    std::vector<std::pair<mpq, var_index>> c;
+    c.push_back(std::pair<mpq, var_index>(1, x0));
+    c.push_back(std::pair<mpq, var_index>(-1, x1));
+    ls.add_constraint(c, EQ, one_of_type<mpq>());
+    ls.solve();
+    std::vector<bound_evidence> ev;
+    ls.add_var_bound_with_bound_propagation(x1, LE, mpq(1), ev);
+} 
+
+void test_bound_propogation_two_rows() {
+    lar_solver ls;
+    unsigned x = ls.add_var("x");
+    unsigned y = ls.add_var("y");
+    unsigned z = ls.add_var("z");
+    std::vector<std::pair<mpq, var_index>> c;
+    c.push_back(std::pair<mpq, var_index>(1, x));
+    c.push_back(std::pair<mpq, var_index>(2, y));
+    c.push_back(std::pair<mpq, var_index>(3, z));
+    ls.add_constraint(c, GE, one_of_type<mpq>());
+    c.clear();
+    c.push_back(std::pair<mpq, var_index>(3, x));
+    c.push_back(std::pair<mpq, var_index>(2, y));
+    c.push_back(std::pair<mpq, var_index>(1, z));
+    ls.add_constraint(c, GE, one_of_type<mpq>());
+    ls.add_var_bound(x, LE, mpq(2));
+    ls.solve();
+    std::vector<bound_evidence> ev;
+    ls.add_var_bound_with_bound_propagation(y, LE, mpq(1), ev);
+} 
+
+void test_total_case_plus() {
+    lar_solver ls;
+    unsigned x = ls.add_var("x");
+    unsigned y = ls.add_var("y");
+    unsigned z = ls.add_var("z");
+    std::vector<std::pair<mpq, var_index>> c;
+    c.push_back(std::pair<mpq, var_index>(1, x));
+    c.push_back(std::pair<mpq, var_index>(2, y));
+    c.push_back(std::pair<mpq, var_index>(3, z));
+    ls.add_constraint(c, LE, one_of_type<mpq>());
+    ls.add_var_bound(x, GE, zero_of_type<mpq>());
+    ls.add_var_bound(y, GE, zero_of_type<mpq>());
+    ls.solve();
+    std::vector<bound_evidence> ev;
+    ls.add_var_bound_with_bound_propagation(z, GE, zero_of_type<mpq>(), ev);
+}
+void test_total_case_minus(){}
+void test_bound_propogation() {
+    test_bound_propogation_one_row();
+    test_bound_propogation_one_row_with_bounded_vars();
+    test_bound_propogation_two_rows();
+    test_bound_propogation_one_row_mixed();
+    test_total_case_plus();
+    test_total_case_minus();
+}
+   
 void test_lp_local(int argn, char**argv) {
     // initialize_util_module();
     // initialize_numerics_module();
@@ -2770,6 +2865,12 @@ void test_lp_local(int argn, char**argv) {
 
     args_parser.print();
 
+    if (args_parser.option_is_used("--bp")) {
+        test_bound_propogation();
+        return finalize(0);
+    }
+        
+    
     std::string lufile = args_parser.get_option_value("--checklu");
     if (lufile.size()) {
         check_lu_from_file(lufile);
@@ -2875,7 +2976,7 @@ void test_lp_local(int argn, char**argv) {
     }
     
     if (args_parser.option_is_used("--solve_some_mps")) {
-#if 0
+#if _LINUX_
         solve_some_mps(args_parser);
 #endif
         ret = 0;

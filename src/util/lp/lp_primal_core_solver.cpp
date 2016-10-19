@@ -17,19 +17,19 @@ namespace lean {
 // The right side b is given implicitly by x and the basis
 template <typename T, typename X>
 void lp_primal_core_solver<T, X>::sort_non_basis() {
-    for (unsigned j : this->m_non_basic_columns) {
+    for (unsigned j : this->m_nbasis) {
         T const & da = this->m_d[j];
         this->m_steepest_edge_coefficients[j] = da * da / this->m_column_norms[j];
     }
 
-    std::sort(this->m_non_basic_columns.begin(), this->m_non_basic_columns.end(), [this](unsigned a, unsigned b) {
+    std::sort(this->m_nbasis.begin(), this->m_nbasis.end(), [this](unsigned a, unsigned b) {
             return this->m_steepest_edge_coefficients[a] > this->m_steepest_edge_coefficients[b];
     });
 
     m_non_basis_list.clear();
     // reinit m_basis_heading
-    for (unsigned j = 0; j < this->m_non_basic_columns.size(); j++) {
-        unsigned col = this->m_non_basic_columns[j];
+    for (unsigned j = 0; j < this->m_nbasis.size(); j++) {
+        unsigned col = this->m_nbasis[j];
         this->m_basis_heading[col] = - static_cast<int>(j) - 1;
         m_non_basis_list.push_back(col);
     }
@@ -54,7 +54,7 @@ int lp_primal_core_solver<T, X>::choose_entering_column(unsigned number_of_benef
             continue;
         }
         T dj = this->m_d[j];
-        switch (this->m_column_type[j]) {
+        switch (this->m_column_types[j]) {
         case fixed:  continue;
         case free_column:
             if (dj > m_epsilon_of_reduced_cost || dj < -m_epsilon_of_reduced_cost) break;
@@ -169,7 +169,7 @@ template <typename T, typename X>    int lp_primal_core_solver<T, X>::find_leavi
 
 
 template <typename T, typename X>    bool lp_primal_core_solver<T, X>::try_jump_to_another_bound_on_entering(unsigned entering, const X & theta, X & t) {
-    if (this->m_column_type[entering] != boxed)
+    if (this->m_column_types[entering] != boxed)
         return false;
 
     if (m_sign_of_entering_delta > 0) {
@@ -327,13 +327,13 @@ template <typename T, typename X> bool lp_primal_core_solver<T, X>::initial_x_is
         }
 
         if (basis_set.find(j) != basis_set.end()) continue;
-        if (this->m_column_type[j] == low_bound)  {
+        if (this->m_column_types[j] == low_bound)  {
             if (numeric_traits<T>::zero() != this->m_x[j]) {
                 LP_OUT(this->m_settings, "only low bound is set for " << j << " but low bound value " << numeric_traits<T>::zero() << " is not equal to " << this->m_x[j] << std::endl);
                 return false;
             }
         }
-        if (this->m_column_type[j] == boxed) {
+        if (this->m_column_types[j] == boxed) {
             if (this->m_upper_bounds[j] != this->m_x[j] && !numeric_traits<T>::is_zero(this->m_x[j])) {
                 return false;
             }
@@ -378,7 +378,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::update_re
     T pivot = this->m_pivot_row[entering];
     T dq = this->m_d[entering]/pivot;
     for (auto j : this->m_pivot_row.m_index) {
-        //            for (auto j : this->m_non_basic_columns)
+        //            for (auto j : this->m_nbasis)
         if (this->m_basis_heading[j] >= 0) continue;
         if (j != leaving)
             this->m_d[j] -= dq * this->m_pivot_row[j];
@@ -402,7 +402,7 @@ template <typename T, typename X>    int lp_primal_core_solver<T, X>::refresh_re
     this->m_d[entering] = refreshed_cost;
     T delta = abs(reduced_at_entering_was - refreshed_cost);
     if (delta * 2 > abs(reduced_at_entering_was)) {
-        this->m_status = UNSTABLE;
+        // this->m_status = UNSTABLE;
         if (reduced_at_entering_was > m_epsilon_of_reduced_cost) {
             if (refreshed_cost <= zero_of_type<T>())
                 return 2; // abort entering
@@ -441,10 +441,10 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::init_run(
 
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::calc_working_vector_beta_for_column_norms(){
-    unsigned i = this->m_m();
-    while (i--)
-        m_beta[i] = this->m_ed[i];
-    this->m_factorization->solve_yB_with_error_check(m_beta, this->m_basis);
+    lean_assert(this->m_ed.is_OK());
+    lean_assert(m_beta.is_OK());
+    m_beta = this->m_ed;
+    this->m_factorization->solve_yB_with_error_check_indexed(m_beta, this->m_basis_heading, this->m_basis, this->m_settings); // todo, call indexed
 }
 
 template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_entering_and_leaving(int entering, int leaving, X & t) {
@@ -493,7 +493,8 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
         init_reduced_costs();
         m_forbidden_enterings.insert(entering);
         return;
-    }
+    } 
+    
     if (!is_zero(t)) {
         this->m_iters_with_no_cost_growing = 0;
         set_current_x_is_feasible();
@@ -551,12 +552,12 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
 }
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::push_forward_offset_in_non_basis(unsigned & offset_in_nb) {
-    if (++offset_in_nb == this->m_non_basic_columns.size())
+    if (++offset_in_nb == this->m_nbasis.size())
         offset_in_nb = 0;
 }
 
 template <typename T, typename X>  unsigned lp_primal_core_solver<T, X>::get_number_of_non_basic_column_to_try_for_enter() {
-    unsigned ret = static_cast<unsigned>(this->m_non_basic_columns.size());
+    unsigned ret = static_cast<unsigned>(this->m_nbasis.size());
     if (this->m_status == TENTATIVE_UNBOUNDED)
         return ret; // we really need to find entering with a large reduced cost
     if (ret > 300) {
@@ -615,9 +616,9 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
             break;
 
         case UNSTABLE:
-            // m_forbidden_enterings.clear();
             this->init_lu();
             init_reduced_costs();
+            this->m_status = FEASIBLE;
             break;
 
         default:
@@ -649,7 +650,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::delete_fa
 // according to Swietanowski, " A new steepest edge approximation for the simplex method for linear programming"
 template <typename T, typename X> void lp_primal_core_solver<T, X>::init_column_norms() {
     m_column_norm_update_counter = 0;
-    for (unsigned j : this->m_non_basic_columns)
+    for (unsigned j : this->m_nbasis)
         this->m_column_norms[j] = 1;
 }
 
@@ -687,10 +688,10 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::update_co
         if (j == leaving)
             continue;
         const T & t = this->m_pivot_row[j];
-        T s = this->m_A.dot_product_with_column(m_beta, j);
+        T s = this->m_A.dot_product_with_column(m_beta.m_data, j);
         T k = -2 / pivot;
         T tp = t/pivot;
-        if (this->m_column_type[j] == fixed) {
+        if (this->m_column_types[j] == fixed) {
             this->m_column_norms[j] = T(1); // We would like to kick out fixed vars from the basis, so making the norm small increases this chance since the steepest edge expression will be large
         } else {
             this->m_column_norms[j] = std::max(this->m_column_norms[j] + t * (t * g_ent + k * s), // see Achim Koberstein dissertation (8.1)
@@ -919,7 +920,7 @@ template <typename T, typename X> bool lp_primal_core_solver<T, X>::done() {
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::init_infeasibility_costs() {
     lean_assert(this->m_x.size() >= this->m_n());
-    lean_assert(this->m_column_type.size() >= this->m_n());
+    lean_assert(this->m_column_types.size() >= this->m_n());
     //        X inf = m_infeasibility;
     m_infeasibility = zero_of_type<X>();
     for (unsigned j = this->m_n(); j--;)
@@ -961,7 +962,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::init_infe
     }
 
     // j is a basis column
-    switch (this->m_column_type[j]) {
+    switch (this->m_column_types[j]) {
     case fixed:
     case boxed:
         if (this->above_bound(x, this->m_upper_bounds[j])) {

@@ -239,7 +239,7 @@ public:
     bool non_basis_column_is_set_correctly(unsigned j) const {
         if (j >= this->m_n())
             return false;
-        switch (this->m_column_type[j]) {
+        switch (this->m_column_types[j]) {
         case fixed:
         case boxed:
             if (!this->x_is_at_bound(j))

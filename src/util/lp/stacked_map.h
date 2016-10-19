@@ -81,7 +81,7 @@ public:
         return it->second;
     }
 
-    bool try_get_value(A& key, B& val) const  {
+    bool try_get_value(const A& key, B& val) const  {
         auto it = m_map.find(key);
         if (it == m_map.end())
             return false;
@@ -89,7 +89,7 @@ public:
         val = it->second;
         return true;
     }
-    bool try_get_value(A&& key, B& val) const  {
+    bool try_get_value(const A&& key, B& val) const  {
         auto it = m_map.find(std::move(key));
         if (it == m_map.end())
             return false;
@@ -102,11 +102,11 @@ public:
         return m_map.size();
     }
 
-    bool contains(A & key) const {
+    bool contains(const A & key) const {
         return m_map.find(key) != m_map.end();
     }
 
-    bool contains(A && key) const {
+    bool contains(const A && key) const {
         return m_map.find(std::move(key)) != m_map.end();
     }
     

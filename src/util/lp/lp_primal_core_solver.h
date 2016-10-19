@@ -41,7 +41,7 @@ public:
     bool m_using_inf_costs = false;
     bool m_recalc_reduced_costs = false;
     std::set<unsigned> m_forbidden_enterings;
-    std::vector<T> m_beta; // see Swietanowski working vector beta for column norms
+    indexed_vector<T> m_beta; // see Swietanowski working vector beta for column norms
     T m_epsilon_of_reduced_cost = T(1)/T(10000000);
     bool m_exit_on_feasible_solution = false;
     std::vector<T> m_costs_backup;
@@ -69,24 +69,24 @@ public:
     int find_leaving_and_t(unsigned entering, X & t);
 
     void limit_theta_on_basis_column_for_inf_case_m_neg_upper_bound(unsigned j, const T & m, X & theta) {
-        lean_assert(m < 0 && this->m_column_type[j] == upper_bound);
+        lean_assert(m < 0 && this->m_column_types[j] == upper_bound);
         limit_inf_on_upper_bound_m_neg(m, this->m_x[j], this->m_upper_bounds[j], theta);
     }
 
 
     void limit_theta_on_basis_column_for_inf_case_m_neg_low_bound(unsigned j, const T & m, X & theta) {
-        lean_assert(m < 0 && this->m_column_type[j] == low_bound);
+        lean_assert(m < 0 && this->m_column_types[j] == low_bound);
         limit_inf_on_bound_m_neg(m, this->m_x[j], this->m_low_bounds[j], theta);
     }
 
 
     void limit_theta_on_basis_column_for_inf_case_m_pos_low_bound(unsigned j, const T & m, X & theta) {
-        lean_assert(m > 0 && this->m_column_type[j] == low_bound);
+        lean_assert(m > 0 && this->m_column_types[j] == low_bound);
         limit_inf_on_low_bound_m_pos(m, this->m_x[j], this->m_low_bounds[j], theta);
     }
 
     void limit_theta_on_basis_column_for_inf_case_m_pos_upper_bound(unsigned j, const T & m, X & theta) {
-        lean_assert(m > 0 && this->m_column_type[j] == upper_bound);
+        lean_assert(m > 0 && this->m_column_types[j] == upper_bound);
         limit_inf_on_bound_m_pos(m, this->m_x[j], this->m_upper_bounds[j], theta);
     };
 
@@ -99,10 +99,10 @@ public:
     bool column_is_free(unsigned j) { return this->m_column_type[j] == free; }
 
     bool column_has_upper_bound(unsigned j) {
-        return ((unsigned)this->m_column_type[j]) < 2;
+        return ((unsigned)this->m_column_types[j]) < 2;
     }
 
-    bool column_has_low_bound(unsigned j) { return this->m_column_type[j] != free_column; }
+    bool column_has_low_bound(unsigned j) { return this->m_column_types[j] != free_column; }
 
     std::vector<T> m_low_bounds_dummy; // needed for the base class only
 
@@ -339,7 +339,7 @@ public:
     // or
     // x[j] + t * m <= this->m_upper_bounds[j] + harris_feasibility_tolerance ( if m > 0)
     void limit_theta_on_basis_column(unsigned j, T m, X & theta) {
-        switch (this->m_column_type[j]) {
+        switch (this->m_column_types[j]) {
         case free_column: break;
         case upper_bound:
             if (get_current_x_is_feasible()) {

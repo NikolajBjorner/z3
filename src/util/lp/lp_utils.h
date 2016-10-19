@@ -9,6 +9,14 @@
 #include <string>
 #include "util/lp/numeric_pair.h"
 #include "util/debug.h"
+#include <unordered_map>
+template <typename A, typename B>
+bool try_get_val(const std::unordered_map<A,B> & map, const A& key, B & val) {
+    const auto it = map.find(key);
+    if (it == map.end()) return false;
+    val = it->second;
+    return true;
+}
 
 #ifdef lp_for_z3
 namespace lean {

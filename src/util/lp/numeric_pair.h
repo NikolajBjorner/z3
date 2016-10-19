@@ -32,6 +32,15 @@ std::string T_to_string(const T & t); // forward definition
 #ifdef lp_for_z3
 template <typename T> class numeric_traits {};
 
+template <>  class numeric_traits<unsigned> {
+public:
+    static bool precise() { return true; }
+    static unsigned const zero() { return 0; }
+    static unsigned const one() { return 1; }
+    static bool is_zero(unsigned v) { return v == 0; }
+    static double const get_double(unsigned const & d) { return d; }
+};
+
 template <>  class numeric_traits<double> {
     public:
         static bool precise() { return false; }
@@ -43,6 +52,8 @@ template <>  class numeric_traits<double> {
         static double const & get_double(double const & d) { return d;}
         static double log(double const & d) { NOT_IMPLEMENTED_YET(); return d;}
         static double from_string(std::string const & str) { return atof(str.c_str()); }
+        static bool is_pos(const double & d) {return d > 0.0;}
+        static bool is_neg(const double & d) {return d < 0.0;}
     };
 
     template<>
@@ -55,6 +66,8 @@ template <>  class numeric_traits<double> {
         static double const  get_double(const rational  & d) { return d.get_double();}
         static rational log(rational const& r) { UNREACHABLE(); return r; }
         static rational from_string(std::string const & str) { return rational(str.c_str()); }
+        static bool is_pos(const rational & d) {return d.is_pos();}
+        static bool is_neg(const rational & d) {return d.is_neg();}
     };
 #endif
 
@@ -164,6 +177,10 @@ struct numeric_pair {
     static bool precize() { return lean::numeric_traits<T>::precize();}
 
     bool is_zero() const { return x.is_zero() && y.is_zero(); }
+
+    bool is_pos() const { return x.is_pos() || (x.is_zero() && y.is_pos());}
+
+    bool is_neg() const { return x.is_neg() || (x.is_zero() && y.is_neg());}
     
     std::string to_string() const {
         return std::string("(") + T_to_string(x) + ", "  + T_to_string(y) + ")";

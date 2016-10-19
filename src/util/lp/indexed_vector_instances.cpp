@@ -10,12 +10,15 @@ namespace lean {
 template void indexed_vector<double>::clear();
 template void indexed_vector<double>::clear_all();
 template void indexed_vector<double>::erase_from_index(unsigned int);
-template void indexed_vector<double>::set_value(double, unsigned int);
+template void indexed_vector<double>::set_value(const double&, unsigned int);
 template void indexed_vector<mpq>::clear();
+template void indexed_vector<unsigned>::clear();
 template void indexed_vector<mpq>::clear_all();
 template void indexed_vector<mpq>::erase_from_index(unsigned int);
 template void indexed_vector<mpq>::resize(unsigned int);
-template void indexed_vector<mpq>::set_value(mpq, unsigned int);
+template void indexed_vector<unsigned>::resize(unsigned int);
+template void indexed_vector<mpq>::set_value(const mpq&, unsigned int);
+template void indexed_vector<unsigned>::set_value(const unsigned&, unsigned int);
 #ifdef LEAN_DEBUG
 template bool indexed_vector<double>::is_OK() const;
 template bool indexed_vector<mpq>::is_OK() const;
@@ -31,3 +34,4 @@ template void lean::print_vector<std::string>(std::vector<std::string, std::allo
 template void lean::print_vector<lean::numeric_pair<lean::mpq> >(std::vector<lean::numeric_pair<lean::mpq>, std::allocator<lean::numeric_pair<lean::mpq> > > const&, std::ostream&);
 template void lean::indexed_vector<double>::resize(unsigned int);
 template void lean::print_vector< lean::mpq>(std::vector< lean::mpq, std::allocator< lean::mpq> > const &, std::basic_ostream<char, std::char_traits<char> > &);
+template void lean::indexed_vector<lean::numeric_pair<lean::mpq> >::erase_from_index(unsigned int);

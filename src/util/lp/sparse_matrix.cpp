@@ -22,6 +22,7 @@ void sparse_matrix<T, X>::copy_column_from_static_matrix(unsigned col, static_ma
         unsigned row_offset = static_cast<unsigned>(row_vector.size());
         new_column_vector.push_back(indexed_value<T>(col_cell.m_value, col_cell.m_i, row_offset));
         row_vector.push_back(indexed_value<T>(col_cell.m_value, col_index_in_the_new_matrix, col_offset));
+        m_n_of_active_elems++;
     }
 }
 
@@ -167,6 +168,7 @@ void sparse_matrix<T, X>::remove_element(std::vector<indexed_value<T>> & row_val
     // do nothing - just decrease the sizes
     column_vals.pop_back();
     row_vals.pop_back();
+    m_n_of_active_elems--; // the value is correct only when refactoring
 }
 
 template <typename T, typename X>
@@ -498,9 +500,10 @@ void sparse_matrix<T, X>::find_error_in_solution_U_y(std::vector<L>& y_orig, std
 
 template <typename T, typename X>
 template <typename L>
-void sparse_matrix<T, X>::find_error_in_solution_U_y_indexed(indexed_vector<L>& y_orig, indexed_vector<L> & y) {
-    for (unsigned i : y_orig.m_index)
-        y_orig[i] -= dot_product_with_row(i, y);
+void sparse_matrix<T, X>::find_error_in_solution_U_y_indexed(indexed_vector<L>& y_orig, indexed_vector<L> & y,  const std::vector<unsigned>& sorted_active_rows) {
+    for (unsigned i: sorted_active_rows)
+        y_orig.add_value_at_index(i, -dot_product_with_row(i, y)); // cannot round up here!!!
+    // y_orig can contain very small values
 }
 
 
@@ -514,34 +517,34 @@ void sparse_matrix<T, X>::add_delta_to_solution(const std::vector<L>& del, std::
 }
 template <typename T, typename X>
 template <typename L>
-void sparse_matrix<T, X>::add_delta_to_solution(const indexed_vector<L>& del, indexed_vector<L> & y, const lp_settings & settings) {
+void sparse_matrix<T, X>::add_delta_to_solution(const indexed_vector<L>& del, indexed_vector<L> & y) {
 //    lean_assert(del.is_OK());
  //   lean_assert(y.is_OK());
     for (auto i : del.m_index) {
-        bool was_zero = is_zero(y[i]);
-        y[i] += del[i];
-        if (settings.abs_val_is_smaller_than_drop_tolerance(y[i]))
-            y[i] = zero_of_type<L>();
-        else if (was_zero)
-            y.m_index.push_back(i);
+        y.add_value_at_index(i, del[i]);
     }
-    std::vector<unsigned> index_copy(y.m_index);
-    y.m_index.clear();
-    for (auto i : index_copy) {
-        if (!is_zero(y[i]))
-            y.m_index.push_back(i);
-    }
-    lean_assert(y.is_OK());
 }
 template <typename T, typename X>
 template <typename L>
 void sparse_matrix<T, X>::double_solve_U_y(indexed_vector<L>& y, const lp_settings & settings){
+    lean_assert(y.is_OK());
     indexed_vector<L> y_orig(y); // copy y aside
-    solve_U_y_indexed_only(y, settings);
-    find_error_in_solution_U_y_indexed(y_orig, y);
+    std::vector<unsigned> active_rows;
+    solve_U_y_indexed_only(y, settings, active_rows);
+    lean_assert(y.is_OK());
+    find_error_in_solution_U_y_indexed(y_orig, y, active_rows);
     // y_orig contains the error now
-    solve_U_y_indexed_only(y_orig, settings);
-    add_delta_to_solution(y_orig, y, settings);
+    if (y_orig.m_index.size() * ratio_of_index_size_to_all_size<T>() < 32 * dimension()) {
+        active_rows.clear();
+        solve_U_y_indexed_only(y_orig, settings, active_rows);
+        add_delta_to_solution(y_orig, y);
+        y.clean_up();
+    } else { // the dense version
+        solve_U_y(y_orig.m_data);
+        add_delta_to_solution(y_orig.m_data, y.m_data);
+        y.restore_index_and_clean_from_data();
+    }
+    lean_assert(y.is_OK());
 }
 template <typename T, typename X>
 template <typename L>
@@ -640,8 +643,7 @@ void sparse_matrix<T, X>::extend_and_sort_active_rows(const std::vector<unsigned
 
 template <typename T, typename X>
 template <typename L>
-void sparse_matrix<T, X>::solve_U_y_indexed_only(indexed_vector<L> & y, const lp_settings & settings) { // it is a column wise version
-    std::vector<unsigned> sorted_active_rows;
+void sparse_matrix<T, X>::solve_U_y_indexed_only(indexed_vector<L> & y, const lp_settings & settings, std::vector<unsigned> & sorted_active_rows) { // it is a column wise version
     create_graph_G(y.m_index, sorted_active_rows);
 
     for (auto k = sorted_active_rows.size(); k-- > 0;) {
@@ -708,16 +710,6 @@ unsigned sparse_matrix<T, X>::get_number_of_nonzeroes() const {
 }
 
 template <typename T, typename X>
-unsigned sparse_matrix<T, X>::get_number_of_nonzeroes_below_row(unsigned row) const {
-    unsigned ret = 0;
-    for (unsigned i = dimension() - 1;
-         static_cast<int>(i) >= static_cast<int>(row); i--) {
-        ret += number_of_non_zeroes_in_row(adjust_row(i));
-    }
-    return ret;
-}
-
-template <typename T, typename X>
 bool sparse_matrix<T, X>::get_non_zero_column_in_row(unsigned i, unsigned *j) const {
     // go over the i-th row
     auto & mc = get_row_values(adjust_row(i));
@@ -778,6 +770,7 @@ void sparse_matrix<T, X>::add_new_element(unsigned row, unsigned col, T val) {
     unsigned col_el_offs = static_cast<unsigned>(col_vals.size());
     row_vals.push_back(indexed_value<T>(val, col, col_el_offs));
     col_vals.push_back(indexed_value<T>(val, row, row_el_offs));
+    m_n_of_active_elems++;
 }
 
 // w contains the "rest" of the new column; all common elements of w and the old column has been zeroed
@@ -882,6 +875,7 @@ bool sparse_matrix<T, X>::remove_row_from_active_pivots_and_shorten_columns(unsi
     unsigned arow = adjust_row(row);
     for (auto & iv : m_rows[arow]) {
         m_pivot_queue.remove(arow, iv.m_index);
+        m_n_of_active_elems--;  // the value is correct only when refactoring
         if (adjust_column_inverse(iv.m_index) <= row)
             continue; // this column will be removed anyway
         auto & col = m_columns[iv.m_index];

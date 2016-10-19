@@ -44,12 +44,12 @@ enum lp_status {
     UNSTABLE
 };
 
-// when the ratio is less than the return value we switch to solve_By_for_T_indexed_only , still needs tuning
+// when the ratio of the vector lenth to domain size to is greater than the return value we switch to solve_By_for_T_indexed_only
 template <typename X>
 unsigned ratio_of_index_size_to_all_size() {
     if (numeric_traits<X>::precise())
         return 10;
-    return 100;
+    return 120;
 }
 
 const char* lp_status_to_string(lp_status status);
@@ -79,6 +79,7 @@ struct stats {
     unsigned m_total_iterations;
     unsigned m_iters_with_no_cost_growing;
     unsigned m_num_factorizations;
+    unsigned m_num_of_implied_bounds;
     stats() { reset(); }
     void reset() { memset(this, 0, sizeof(*this)); }
 };
@@ -160,7 +161,7 @@ public:
 
     template <typename T>
     bool abs_val_is_smaller_than_primal_feasibility_tolerance(T const & t) {
-        return is_eps_small_general<T>(t, dual_feasibility_tolerance);
+        return is_eps_small_general<T>(t, primal_feasibility_tolerance);
     }
 
     template <typename T>
@@ -213,9 +214,9 @@ public:
     bool scale_with_ratio = true;
     double density_threshold = 0.7; // need to tune it up, todo
 #ifdef LEAN_DEBUG
-    bool dense_deb;
     static unsigned ddd; // used for debugging
 #endif
+    bool tighten_bounds = false;
 }; // end of lp_settings class
 
 

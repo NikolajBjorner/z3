@@ -126,6 +126,7 @@ lu<T, X>::lu(static_matrix<T, X> const & A,
     m_A(A),
     m_Q(m_dim),
     m_R(m_dim),
+    m_r_wave(m_dim),
     m_U(A, basis), // create the square matrix that eventually will be factorized
     m_settings(settings),
     m_row_eta_work_vector(A.row_count()){
@@ -238,19 +239,13 @@ void lu<T, X>::solve_By_when_y_is_ready_for_T(std::vector<T> & y, std::vector<un
 template <typename T, typename X>
 void lu<T, X>::solve_By_for_T_indexed_only(indexed_vector<T> & y, const lp_settings & settings) {
     if (numeric_traits<T>::precise()) {
-        m_U.solve_U_y_indexed_only(y, settings);
+        std::vector<unsigned> active_rows;
+        m_U.solve_U_y_indexed_only(y, settings, active_rows);
         m_R.apply_reverse_from_left(y); // see 24.3 from Chvatal
         return;
     }
     m_U.double_solve_U_y(y, m_settings);
     m_R.apply_reverse_from_left(y); // see 24.3 from Chvatal
-    unsigned i = m_dim;
-    while (i--) {
-        if (is_zero(y[i])) continue;
-        if (m_settings.abs_val_is_smaller_than_drop_tolerance(y[i])){
-            y[i] = zero_of_type<T>();
-        }
-    }
 }
 
 template <typename T, typename X>
@@ -344,25 +339,30 @@ void lu<T, X>::add_delta_to_solution(const std::vector<T>& yc, std::vector<T>& y
 }
 
 template <typename T, typename X>
-void lu<T, X>::add_delta_to_solution_indexed(indexed_vector<T>& y) { // the delta sits in m_y_copy
-    // todo ( create indexed version later)
+void lu<T, X>::add_delta_to_solution_indexed(indexed_vector<T>& y) {
+    // the delta sits in m_y_copy, put result into y
     lean_assert(y.is_OK());
+    lean_assert(m_y_copy.is_OK());
+    m_ii.clear();
+    m_ii.resize(y.data_size());
+    for (unsigned i : y.m_index)
+        m_ii.set_value(1, i);
     for (unsigned i : m_y_copy.m_index) {
-        auto & v = y.m_data[i];
-        bool was_zero = numeric_traits<T>::is_zero(v);
-        v += m_y_copy[i];
-      
-        if (was_zero) {
-            if (!lp_settings::is_eps_small_general(v, 1e-14))
-                y.m_index.push_back(i);
-            else {
-                v = zero_of_type<T>();
-            }
-        } else if (lp_settings::is_eps_small_general(v, 1e-14)) {
-            v = zero_of_type<T>();
-            y.erase_from_index(i);
-        }
+        y.m_data[i] += m_y_copy[i];
+        if (m_ii[i] == 0)
+            m_ii.set_value(1, i);
     }
+    lean_assert(m_ii.is_OK());
+    y.m_index.clear();
+
+    for (unsigned i : m_ii.m_index) {
+        T & v = y.m_data[i];
+        if (!lp_settings::is_eps_small_general(v, 1e-14))
+            y.m_index.push_back(i);
+        else if (!numeric_traits<T>::is_zero(v))
+            v = zero_of_type<T>();
+    }
+        
     lean_assert(y.is_OK());
 }
 
@@ -401,8 +401,11 @@ void lu<T, X>::find_error_of_yB_indexed(const indexed_vector<T>& y, const std::v
         }
     }
 #endif
-
-    // working with m_y_copy
+    lean_assert(m_ii.is_OK());
+    m_ii.clear();
+    m_ii.resize(y.data_size());
+    lean_assert(m_y_copy.is_OK());
+    // put the error into m_y_copy
     for (auto k : y.m_index) {
         auto & row = m_A.m_rows[k];
         const T & y_k = y.m_data[k];
@@ -410,19 +413,31 @@ void lu<T, X>::find_error_of_yB_indexed(const indexed_vector<T>& y, const std::v
             unsigned j = c.m_j;
             int hj = heading[j];
             if (hj < 0) continue;
-            bool new_for_index = numeric_traits<T>::is_zero(m_y_copy[hj]);
+            if (m_ii.m_data[hj] == 0)
+                m_ii.set_value(1, hj);
             m_y_copy.m_data[hj] -= c.get_val() * y_k;
-            if (new_for_index)
-                m_y_copy.m_index.push_back(hj);
         }
     }
-    // now clean up m_y_copy.index
-
-    clean_indexed_vector(m_y_copy, settings);
-#if 0==1    
+    // add the index of m_y_copy to m_ii
+    for (unsigned i : m_y_copy.m_index) {
+        if (m_ii.m_data[i] == 0)
+            m_ii.set_value(1, i);
+    }
+    
+    // there is no guarantee that m_y_copy is OK here, but its index
+    // is contained in m_ii index
+    m_y_copy.m_index.clear();
+    // setup the index of m_y_copy
+    for (auto k : m_ii.m_index) {
+        T& v = m_y_copy.m_data[k];
+        if (settings.abs_val_is_smaller_than_drop_tolerance(v))
+            v = zero_of_type<T>();
+        else {
+            m_y_copy.set_value(v, k);
+        }
+    }
     lean_assert(m_y_copy.is_OK());
-    lean_assert(vectors_are_equal(m_y_copy.m_data, yc.m_data));
-#endif
+
 }
 
 
@@ -431,16 +446,34 @@ void lu<T, X>::find_error_of_yB_indexed(const indexed_vector<T>& y, const std::v
 // solves y*B = y
 // y is the input
 template <typename T, typename X>
-void lu<T, X>::solve_yB_with_error_check_indexed(indexed_vector<T> & y, const std::vector<int>& heading, const lp_settings & settings) {
+void lu<T, X>::solve_yB_with_error_check_indexed(indexed_vector<T> & y, const std::vector<int>& heading,  const std::vector<unsigned> & basis, const lp_settings & settings) {
     if (numeric_traits<T>::precise()) {
         solve_yB_indexed(y);
         return;
     }
-    m_y_copy = y;
-    solve_yB_indexed(y);
-    find_error_of_yB_indexed(y, heading, settings); // this works with m_y_copy
-    solve_yB_indexed(m_y_copy);
-    add_delta_to_solution_indexed(y);
+    lean_assert(m_y_copy.is_OK());
+    lean_assert(y.is_OK());
+    if (y.m_index.size() * ratio_of_index_size_to_all_size<T>() < m_A.column_count()) {
+        m_y_copy = y;
+        solve_yB_indexed(y);
+        lean_assert(y.is_OK());
+        if (y.m_index.size() * ratio_of_index_size_to_all_size<T>() >= m_A.column_count()) {
+            find_error_of_yB(m_y_copy.m_data, y.m_data, basis);
+            solve_yB(m_y_copy.m_data);
+            add_delta_to_solution(m_y_copy.m_data, y.m_data);
+            y.restore_index_and_clean_from_data();
+            m_y_copy.clear_all();
+        } else {
+            find_error_of_yB_indexed(y, heading, settings); // this works with m_y_copy
+            solve_yB_indexed(m_y_copy);
+            add_delta_to_solution_indexed(y);
+        }
+        lean_assert(m_y_copy.is_OK());
+    } else {
+        solve_yB_with_error_check(y.m_data, basis);
+        y.restore_index_and_clean_from_data();
+    }
+    lean_assert(m_y_copy.is_OK());
 }
 
 
@@ -452,11 +485,13 @@ void lu<T, X>::solve_yB_with_error_check(std::vector<T> & y, const std::vector<u
         solve_yB(y);
         return;
     }
-    std::vector<T> yc(y); // copy y aside
+    auto & yc = m_y_copy.m_data;
+    yc =y; // copy y aside
     solve_yB(y);
     find_error_of_yB(yc, y, basis);
     solve_yB(yc);
     add_delta_to_solution(yc, y);
+    m_y_copy.clear_all();
 }
 template <typename T, typename X>
 void lu<T, X>::apply_Q_R_to_U(permutation_matrix<T, X> & r_wave) {
@@ -686,7 +721,10 @@ bool lu<T, X>::too_dense(unsigned j) const {
     unsigned r = m_dim - j;
     if (r < 5)
         return false;
-    return r * r * m_settings.density_threshold <= m_U.get_number_of_nonzeroes_below_row(j);
+     // if (j * 5 < m_dim * 4) // start looking for dense only at the bottom  of the rows
+     //    return false;
+    //    return r * r * m_settings.density_threshold <= m_U.get_number_of_nonzeroes_below_row(j);
+    return r * r * m_settings.density_threshold <= m_U.get_n_of_active_elems();
 }
 template <typename T, typename X>
 void lu<T, X>::pivot_in_dense_mode(unsigned i) {
@@ -707,13 +745,13 @@ void lu<T, X>::create_initial_factorization(){
     unsigned j;
     for (j = 0; j < m_dim; j++) {
         process_column(j);
-        if (m_failure || too_dense(j + 1)) {
+        if (m_failure) {
+            set_status(LU_status::Degenerated);
+            return;
+        }
+        if (too_dense(j)) {
             break;
         }
-    }
-    if (m_failure) {
-        set_status(LU_status::Degenerated);
-        return;
     }
     if (j == m_dim) {
         // TBD does not compile: lean_assert(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
@@ -790,6 +828,9 @@ void lu<T, X>::pivot_and_solve_the_system(unsigned replaced_column, unsigned low
             T delta = col < lowest_row_of_the_bump? -v * iv.m_value: v * iv.m_value;
             lean_assert(numeric_traits<T>::is_zero(delta) == false);
 
+
+            
+           // m_row_eta_work_vector.add_value_at_index_with_drop_tolerance(col, delta);
             if (numeric_traits<T>::is_zero(m_row_eta_work_vector[col])) {
                 if (!m_settings.abs_val_is_smaller_than_drop_tolerance(delta)){
                     m_row_eta_work_vector.set_value(delta, col);
@@ -802,10 +843,9 @@ void lu<T, X>::pivot_and_solve_the_system(unsigned replaced_column, unsigned low
                     if (it != m_row_eta_work_vector.m_index.end())
                         m_row_eta_work_vector.m_index.erase(it);
                 }
-            }
+                }
         }
     }
-    // TBD does not compile: lean_assert(m_row_eta_work_vector.is_OK());
 }
 // see Achim Koberstein's thesis page 58, but here we solve the system and pivot to the last
 // row at the same time
@@ -851,15 +891,15 @@ void lu<T, X>::replace_column(T pivot_elem_for_checking, indexed_vector<T> & w, 
     m_refactor_counter++;
     unsigned replaced_column =  transform_U_to_V_by_replacing_column( w, leaving_column_of_U);
     unsigned lowest_row_of_the_bump = m_U.lowest_row_in_column(replaced_column);
-    permutation_matrix<T, X> r_wave(m_dim);
-    calculate_r_wave_and_update_U(replaced_column, lowest_row_of_the_bump, r_wave);
+    m_r_wave.init(m_dim);
+    calculate_r_wave_and_update_U(replaced_column, lowest_row_of_the_bump, m_r_wave);
     auto row_eta = get_row_eta_matrix_and_set_row_vector(replaced_column, lowest_row_of_the_bump, pivot_elem_for_checking);
     if (get_status() == LU_status::Degenerated) {
         m_row_eta_work_vector.clear_all();
         return;
     }
-    m_Q.multiply_by_permutation_from_right(r_wave);
-    m_R.multiply_by_permutation_reverse_from_left(r_wave);
+    m_Q.multiply_by_permutation_from_right(m_r_wave);
+    m_R.multiply_by_permutation_reverse_from_left(m_r_wave);
     if (row_eta != nullptr) {
         row_eta->conjugate_by_permutation(m_Q);
         push_matrix_to_tail(row_eta);

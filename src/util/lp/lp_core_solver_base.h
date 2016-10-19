@@ -33,7 +33,7 @@ public:
     static_matrix<T, X> & m_A; // the matrix A
     std::vector<X> & m_b; // the right side
     std::vector<unsigned> & m_basis;
-    std::vector<unsigned>& m_non_basic_columns;
+    std::vector<unsigned>& m_nbasis;
     std::vector<int>& m_basis_heading;
     std::vector<X> & m_x; // a feasible solution, the fist time set in the constructor
     std::vector<T> & m_costs;
@@ -47,7 +47,7 @@ public:
     std::vector<T> m_d; // the vector of reduced costs
     indexed_vector<T> m_ed; // the solution of B*m_ed = a
     unsigned m_iters_with_no_cost_growing = 0;
-    const std::vector<column_type> & m_column_type;
+    const std::vector<column_type> & m_column_types;
     std::vector<X> & m_low_bounds;
     std::vector<X> & m_upper_bounds;
     std::vector<T> m_column_norms; // the approximate squares of column norms that help choosing a profitable column
@@ -79,10 +79,10 @@ public:
      }
 
     std::vector<unsigned> & non_basis() {
-        return m_non_basic_columns;
+        return m_nbasis;
     }
 
-    const std::vector<unsigned> & non_basis() const { return m_non_basic_columns; }
+    const std::vector<unsigned> & non_basis() const { return m_nbasis; }
 
 
     
@@ -231,7 +231,7 @@ public:
     X low_bound_value(unsigned j) const { return m_low_bounds[j]; }
     X upper_bound_value(unsigned j) const { return m_upper_bounds[j]; }
 
-    column_type get_column_type(unsigned j) const {return m_column_type[j]; }
+    column_type get_column_type(unsigned j) const {return m_column_types[j]; }
 
     bool pivot_row_element_is_too_small_for_ratio_test(unsigned j) {
         return m_settings.abs_val_is_smaller_than_pivot_tolerance(m_pivot_row[j]);
@@ -253,7 +253,7 @@ public:
     void solve_Ax_eq_b();
 
     void snap_column_to_bound(unsigned j) {
-        switch (m_column_type[j]) {
+        switch (m_column_types[j]) {
         case fixed:
         case boxed:
             if (x_is_at_bound(j))
@@ -287,9 +287,8 @@ public:
     void init_lu();
     int pivots_in_column_and_row_are_different(int entering, int leaving) const;
     void pivot_fixed_vars_from_basis();
-    void print_linear_combination_of_column_indices(const std::vector<std::pair<T, unsigned>> & coeffs, std::ostream & out) const;
 };
-   void change_basis(unsigned entering, unsigned leaving, std::vector<unsigned>& basis, std::vector<unsigned>& nbasis, std::vector<int> & basis_heading);
+void change_basis(unsigned entering, unsigned leaving, std::vector<unsigned>& basis, std::vector<unsigned>& nbasis, std::vector<int> & basis_heading);
 void restore_basis_change(unsigned entering, unsigned leaving, std::vector<unsigned>& basis, std::vector<unsigned>& nbasis, std::vector<int> & basis_heading);
 
 }

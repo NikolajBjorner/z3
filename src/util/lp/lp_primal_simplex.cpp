@@ -236,6 +236,10 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::solve_with_total
         this->m_costs[j--] = numeric_traits<T>::zero();
     }
     set_scaled_costs();
+
+    if (this->m_settings.tighten_bounds)
+        tighten_bounds();
+    
     m_core_solver = new lp_primal_core_solver<T, X>(*this->m_A,
                                                     this->m_b,
                                                     this->m_x,

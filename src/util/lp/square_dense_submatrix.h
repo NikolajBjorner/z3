@@ -40,12 +40,13 @@ class square_dense_submatrix : public tail_matrix<T, X> {
             return m_s.m_v[m_i_offset + m_s.adjust_column(j) - m_s.m_index_start];
         }
     };
-public: // debug
+public:
     unsigned m_index_start;
     unsigned m_dim;
     std::vector<T> m_v;
     sparse_matrix<T, X> * m_parent = nullptr;
     permutation_matrix<T, X>  m_row_permutation;
+    indexed_vector<T> m_work_vector;
 public:
     permutation_matrix<T, X>  m_column_permutation;
     bool is_active() const { return m_parent != nullptr; }
@@ -81,6 +82,8 @@ public:
         return m_column_permutation[col];
     }
     unsigned adjust_row(unsigned row)  const{
+        if (row >= m_row_permutation.size())
+            return row;
         return m_row_permutation[row];
     }
 
@@ -123,8 +126,29 @@ public:
         apply_from_left_local(w, settings);
     }
 
+    
+    
     void apply_from_right(indexed_vector<T> & w) {
-        // todo: implement an indexed version
+#if 1==0
+        indexed_vector<T> wcopy = w;
+        apply_from_right(wcopy.m_data);
+        wcopy.m_index.clear();
+        if (numeric_traits<T>::precise()) {
+            for (unsigned i = 0; i < m_parent->dimension(); i++) {
+                if (!is_zero(wcopy.m_data[i]))
+                    wcopy.m_index.push_back(i);
+            }
+        } else  {
+            for (unsigned i = 0; i < m_parent->dimension(); i++) {
+                T & v = wcopy.m_data[i];
+                if (!lp_settings::is_eps_small_general(v, 1e-14)){
+                    wcopy.m_index.push_back(i);
+                } else {
+                    v = zero_of_type<T>();
+                }
+            }
+        }
+        lean_assert(wcopy.is_OK());
         apply_from_right(w.m_data);
         w.m_index.clear();
         if (numeric_traits<T>::precise()) {
@@ -142,6 +166,31 @@ public:
                 }
             }
         }
+#else
+        lean_assert(w.is_OK());
+        lean_assert(m_work_vector.is_OK());
+        m_work_vector.resize(w.data_size());
+        m_work_vector.clear();
+        lean_assert(m_work_vector.is_OK());
+        unsigned end = m_index_start + m_dim;
+        for (unsigned k : w.m_index) {
+            // find j such that k = adjust_row_inverse(j)
+            unsigned j = adjust_row(k);
+            if (j < m_index_start || j >= end) {
+                m_work_vector.set_value(w[k], adjust_column_inverse(j));
+            }  else { // j >= m_index_start and j < end
+                unsigned offset = (j - m_index_start) * m_dim; // this is the row start
+                const T& wv = w[k];
+                for (unsigned col = m_index_start; col < end; col++, offset ++) {
+                    unsigned adj_col =  adjust_column_inverse(col);
+                    m_work_vector.add_value_at_index(adj_col, m_v[offset] * wv);
+                }
+            }
+        }
+        m_work_vector.clean_up();
+        lean_assert(m_work_vector.is_OK());
+        w = m_work_vector;
+#endif
     }
     void apply_from_left(std::vector<X> & w, lp_settings & /*settings*/) {
         apply_from_left_to_vector(w);// , settings);

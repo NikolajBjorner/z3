@@ -45,6 +45,7 @@ class sparse_matrix
         }
     };
 
+    unsigned m_n_of_active_elems = 0;
     binary_heap_upair_queue<unsigned> m_pivot_queue;
 public:
     std::vector<std::vector<indexed_value<T>>>  m_rows;
@@ -53,7 +54,7 @@ public:
     permutation_matrix<T, X>  m_column_permutation;
     indexed_vector<T> m_work_pivot_vector;
     std::vector<bool> m_processed;
-
+    unsigned get_n_of_active_elems() const { return m_n_of_active_elems; }
 
 #ifdef LEAN_DEBUG
     // dense_matrix<T> m_dense;
@@ -261,13 +262,13 @@ public:
     void find_error_in_solution_U_y(std::vector<L>& y_orig, std::vector<L> & y);
 
     template <typename L>
-    void find_error_in_solution_U_y_indexed(indexed_vector<L>& y_orig, indexed_vector<L> & y);
+    void find_error_in_solution_U_y_indexed(indexed_vector<L>& y_orig, indexed_vector<L> & y,     const std::vector<unsigned>& sorted_active_rows);
 
     template <typename L>
     void add_delta_to_solution(const std::vector<L>& del, std::vector<L> & y);
 
     template <typename L>
-    void add_delta_to_solution(const indexed_vector<L>& del, indexed_vector<L> & y, const lp_settings & settings);
+    void add_delta_to_solution(const indexed_vector<L>& del, indexed_vector<L> & y);
 
     template <typename L>
     void double_solve_U_y(indexed_vector<L>& y, const lp_settings & settings);
@@ -281,7 +282,7 @@ public:
     // solving this * x = y, and putting the answer into y
     // the matrix here has to be upper triangular
     template <typename L>
-    void solve_U_y_indexed_only(indexed_vector<L> & y, const lp_settings& );
+    void solve_U_y_indexed_only(indexed_vector<L> & y, const lp_settings&, std::vector<unsigned> & sorted_active_rows );
 
 #ifdef LEAN_DEBUG
     T get_elem(unsigned i, unsigned j) const { return get(i, j); }
@@ -297,8 +298,6 @@ public:
     L dot_product_with_row (unsigned row, const indexed_vector<L> & y) const;
 
     unsigned get_number_of_nonzeroes() const;
-
-    unsigned get_number_of_nonzeroes_below_row(unsigned row) const;
 
     bool get_non_zero_column_in_row(unsigned i, unsigned *j) const;
 
@@ -406,6 +405,7 @@ public:
             add_new_element(j, j, numeric_traits<T>::one());
         }
     }
+    unsigned pivot_queue_size() const { return m_pivot_queue.size(); }
 };
 };
 

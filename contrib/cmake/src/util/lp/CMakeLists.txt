@@ -2,10 +2,11 @@ z3_add_component(lp
    SOURCES
 lp_utils.cpp
 binary_heap_priority_queue_instances.cpp
- binary_heap_upair_queue_instances.cpp
- core_solver_pretty_printer_instances.cpp
- dense_matrix_instances.cpp
- eta_matrix_instances.cpp
+binary_heap_upair_queue_instances.cpp
+bound_analyzer_on_row.cpp
+core_solver_pretty_printer_instances.cpp
+dense_matrix_instances.cpp
+eta_matrix_instances.cpp
 indexed_vector_instances.cpp
 lar_core_solver_instances.cpp
 lar_constraints.cpp
