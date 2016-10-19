@@ -32,7 +32,7 @@ namespace smt {
         st.update("assert lower", m_stats.m_assert_lower);
         st.update("assert upper", m_stats.m_assert_upper);
         st.update("assert diseq", m_stats.m_assert_diseq);
-        st.update("bound prop", m_stats.m_bound_props);
+        st.update("arith bound prop", m_stats.m_bound_props);
         st.update("fixed eqs", m_stats.m_fixed_eqs);
         st.update("offset eqs", m_stats.m_offset_eqs);
         st.update("gcd tests", m_stats.m_gcd_tests);
