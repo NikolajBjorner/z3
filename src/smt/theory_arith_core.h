@@ -934,13 +934,14 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::mk_clause(literal l1, literal l2, unsigned num_params, parameter * params) {
-//        TRACE("arith", literal lits[2]; lits[0] = l1; lits[1] = l2; display_literals_verbose(tout, 2, lits););
+        TRACE("arith", literal lits[2]; lits[0] = l1; lits[1] = l2; get_context().display_literals_verbose(tout, 2, lits); tout << "\n";);
+        //literal lits[2]; lits[0] = l1; lits[1] = l2; get_context().display_literals_verbose(std::cout, 2, lits); std::cout << "\n";
         get_context().mk_th_axiom(get_id(), l1, l2, num_params, params);
     }
 
     template<typename Ext>
     void theory_arith<Ext>::mk_clause(literal l1, literal l2, literal l3, unsigned num_params, parameter * params) {
-//        TRACE("arith", literal lits[3] = { l1, l2, l3 }; display_literals_verbose(tout, 3, lits););
+        TRACE("arith", literal lits[3]; lits[0] = l1; lits[1] = l2; lits[2] = l3; get_context().display_literals_verbose(tout, 3, lits); tout << "\n";);
         get_context().mk_th_axiom(get_id(), l1, l2, l3, num_params, params);
     }
 
@@ -959,7 +960,7 @@ namespace smt {
         }
         inf_numeral const & k1(a1->get_k());
         atom_kind kind1 = a1->get_atom_kind();
-        TRACE("mk_bound_axioms", display_atom(tout << "making bound axioms for " << a1 << " ", a1, true); tout << "\n";);
+        TRACE("mk_bound_axioms", display_atom(tout << "making bound axioms for ", a1, true); tout << "\n";);
         typename atoms::iterator it  = occs.begin();
         typename atoms::iterator end = occs.end();
 
@@ -969,7 +970,7 @@ namespace smt {
             atom * a2 = *it;            
             inf_numeral const & k2(a2->get_k());
             atom_kind kind2 = a2->get_atom_kind();
-            TRACE("mk_bound_axioms", display_atom(tout << "compare " << a2 << " ", a2, true); tout << "\n";);
+            TRACE("mk_bound_axioms", display_atom(tout << "compare ", a2, true); tout << "\n";);
 
             if (k1 == k2 && kind1 == kind2) {
                 continue;
@@ -1003,7 +1004,6 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::mk_bound_axiom(atom* a1, atom* a2) {
-        TRACE("mk_bound_axioms", tout << a1 << " " << a2 << "\n";);
         theory_var v = a1->get_var();
         literal   l1(a1->get_bool_var()); 
         literal   l2(a2->get_bool_var()); 
@@ -2259,6 +2259,8 @@ namespace smt {
         CASSERT("arith", wf_columns());
         CASSERT("arith", valid_row_assignment());
 
+        // static unsigned m_checks = 0;
+        // std::cout << "check feasible " << m_checks++ << "\n";
         m_left_basis.reset();
         m_blands_rule    = false;
         unsigned num_repeated = 0;
