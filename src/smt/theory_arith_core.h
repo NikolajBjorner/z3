@@ -3141,6 +3141,7 @@ namespace smt {
             if (u != 0)
                 update_epsilon(get_value(v), u->get_value());
         }
+        std::cout << "epsilon: " << m_epsilon << "\n";
         TRACE("epsilon_bug", tout << "epsilon: " << m_epsilon << "\n";);
     }
 

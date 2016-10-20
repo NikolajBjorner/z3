@@ -171,6 +171,8 @@ public:
 
     var_index add_var(std::string s);
 
+    numeric_pair<mpq> const& get_value(var_index vi) const { return m_x[vi]; }
+
     bool is_term(unsigned j) const {
         return j >= m_terms_start_index && j - m_terms_start_index < m_terms.size();
     }
@@ -464,8 +466,7 @@ public:
 
     mpq find_delta_for_strict_bounds() const;
 
-    void restrict_delta_on_low_bound_column(mpq& delta, unsigned j) const;
-    void restrict_delta_on_upper_bound(mpq& delta, unsigned j) const;
+    void update_delta(mpq& delta, numeric_pair<mpq> const& l, numeric_pair<mpq> const& u) const;
 
     void get_model(std::unordered_map<var_index, mpq> & variable_values) const;
 

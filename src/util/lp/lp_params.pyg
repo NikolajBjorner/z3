@@ -1,0 +1,15 @@
+def_module_params('lp', 
+                  export=True,
+                  params=(('rep-freq', UINT, 0, "the report frequency, in how many iterations print the cost and other info "),
+                          ('mpq', BOOL, False, "use infinite precision rational numerals"),
+                          ('tb', BOOL, False, "tighten bounds"),
+                          ('compact', BOOL, False, 'try to compact function graph (i.e., function interpretations that are lookup tables)'),
+                          ('percent.for.enter', UINT, 0, "which percent of columns check for entering column"),
+                          ('partial.pivot', UINT, 100, "partial pivot constant, a number somewhere between 10 and 100"),
+                          ('density', UINT, 100, "the percentage of non-zeroes in the matrix below which it is not dense"),
+                          ('maxng', UINT, 0, "max iterations without progress"),
+                          ('harris.tolerance', DOUBLE, 0.0, "Harris tolerance"),
+                          ))
+
+
+    
