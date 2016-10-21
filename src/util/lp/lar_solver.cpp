@@ -547,8 +547,9 @@ mpq lar_solver::find_delta_for_strict_bounds() const{
 }
 
 void lar_solver::update_delta(mpq& delta, numeric_pair<mpq> const& l, numeric_pair<mpq> const& u) const {
+    lean_assert(l <= u);
     if (l.x < u.x && l.y > u.y) {
-        mpq delta1 = (u.x - l.x) / (u.y - u.y);
+        mpq delta1 = (u.x - l.x) / (l.y - u.y);
         if (delta1 < delta) {
             delta = delta1;
         }
