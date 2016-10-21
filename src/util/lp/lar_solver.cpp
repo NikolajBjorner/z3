@@ -484,10 +484,10 @@ lp_status lar_solver::solve() {
         find_solution_signature_with_doubles(solution_signature);
         // here the basis that is kept in m_basis is the same that was used in the double solver
         solve_on_signature(solution_signature);
-        return m_status;
     }
-    solve_with_core_solver();
-    
+    else {
+        solve_with_core_solver();
+    }    
     return m_status;
 }
 
@@ -539,45 +539,25 @@ mpq lar_solver::find_delta_for_strict_bounds() const{
     mpq delta = numeric_traits<mpq>::one();
     for (unsigned j = 0; j < m_map_of_canonic_left_sides_to_ul_pairs().size(); j++ ) {
         if (low_bound_is_set(j))
-            restrict_delta_on_low_bound_column(delta, j);
+            update_delta(delta, m_low_bounds[j], m_x[j]);
         if (upper_bound_is_set(j))
-            restrict_delta_on_upper_bound(delta, j);
+            update_delta(delta, m_x[j], m_upper_bounds[j]);
     }
     return delta;
 }
 
-void lar_solver::restrict_delta_on_low_bound_column(mpq& delta, unsigned j) const {
-    lean_assert(delta > numeric_traits<mpq>::zero());
-    const numeric_pair<mpq> & x = m_x[j];
-    const numeric_pair<mpq> & l = m_low_bounds[j];
-    const mpq & xx = x.x;
-    const mpq & xy = x.y;
-    if (!xy.is_neg()) return;
-    const mpq & lx = l.x;
-    lean_assert(xx > lx);
-    // we need lx <= xx + delta*xy, or delta*xy >= lx - xx, or - delta*xy <= xx - ls.
-    // The right part is not negative. The delta is positive. If xy >= 0 we have the ineqality
-    // otherwise we need to have delta not greater than - (xx - lx)/xy. We use the 2 coefficient to handle the strict case
-    if (xy >= zero_of_type<mpq>()) return;
-    delta = std::min(delta, (lx - xx) / (2 * xy)); // we need to have delta * xy < xx - lx for the strict case
+void lar_solver::update_delta(mpq& delta, numeric_pair<mpq> const& l, numeric_pair<mpq> const& u) const {
+    if (l.x < u.x && l.y > u.y) {
+        mpq delta1 = (u.x - l.x) / (u.y - u.y);
+        if (delta1 < delta) {
+            delta = delta1;
+        }
+    }
+    lean_assert(l.x + delta * l.y <= u.x + delta * u.y);
+    lean_assert(l.x == l.y || l.x + delta * l.y < u.x + delta * u.y);
 }
-void lar_solver::restrict_delta_on_upper_bound(mpq& delta, unsigned j) const {
-    const numeric_pair<mpq> & x = m_x[j];
-    const numeric_pair<mpq> & u = m_upper_bounds[j];
-    const mpq & xx = x.x;
-    const mpq & xy = x.y;
-    const mpq & ux = u.x;
-    if (!xy.is_pos()) return;
-    // if (xx >= ux) {
-    //     std::cout << "name = " << get_variable_name(j) << std::endl;
-    //     std::cout << "x = " << T_to_string(x) << ", u = " << T_to_string(u) << std::endl;
-    //     std::cout << "x = (" << T_to_string(xx.get_double()) <<","
-    //               << T_to_string(xy.get_double()) << "), u = (" <<
-    //         T_to_string(ux.get_double()) << "," << T_to_string(u.y.get_double()) << ")" << std::endl;
-    // }
-    lean_assert(xx < ux);
-    delta = std::min(delta, (ux - xx) / (2 * xy)); // we need to have delta * xy < ux - xx, for the strict case
-}
+
+
 void lar_solver::get_model(std::unordered_map<var_index, mpq> & variable_values) const {
     lean_assert(m_status == OPTIMAL);
     mpq delta = find_delta_for_strict_bounds();
@@ -586,6 +566,7 @@ void lar_solver::get_model(std::unordered_map<var_index, mpq> & variable_values)
         variable_values[i] = rp.x + delta * rp.y;
     }
 }
+
 
 std::string lar_solver::get_variable_name(var_index vi) const {
     return get_column_name(vi);

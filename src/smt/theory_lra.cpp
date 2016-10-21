@@ -103,7 +103,8 @@ namespace lp {
 
 namespace smt {
 
-
+    typedef ptr_vector<lp::bound> lp_bounds;
+    
     class theory_lra::imp {        
 
         struct scope {
@@ -206,7 +207,7 @@ namespace smt {
         svector<theory_var>      m_term_index2theory_var;   // reverse map from lp_solver variables to theory variables  
         var_coeffs               m_left_side;              // constraint left side
         mutable std::unordered_map<lean::var_index, rational> m_variable_values; // current model
-        
+
         enum constraint_source {
             inequality_source,
             equality_source,
@@ -229,8 +230,8 @@ namespace smt {
 
         // attributes for incremental version:
         u_map<lp::bound*>      m_bool_var2bound;
-        vector<ptr_vector<lp::bound> > m_bounds;
-        unsigned_vector                m_unassigned_bounds;
+        vector<lp_bounds>      m_bounds;
+        unsigned_vector        m_unassigned_bounds;
         unsigned_vector        m_bounds_trail;
         unsigned               m_asserted_qhead;
 
@@ -258,6 +259,7 @@ namespace smt {
         arith_factory*         m_factory;       
         scoped_ptr<lean::lar_solver> m_solver;
         resource_limit         m_resource_limit;
+        lp_bounds              m_new_bounds;
 
 
         context& ctx() const { return th.get_context(); }
@@ -454,7 +456,7 @@ namespace smt {
                 v = th.mk_var(e);
                 SASSERT(m_bounds.size() <= static_cast<unsigned>(v) || m_bounds[v].empty());
                 if (m_bounds.size() <= static_cast<unsigned>(v)) {
-                    m_bounds.push_back(ptr_vector<lp::bound>());
+                    m_bounds.push_back(lp_bounds());
                     m_unassigned_bounds.push_back(0);
                 }
                 ctx().attach_th_var(e, &th, v);
@@ -1008,7 +1010,6 @@ namespace smt {
             m_num_conflicts = 0;
         }
 
-
         bool can_get_value(theory_var v) const {
             return 
                 (v != null_theory_var) &&
@@ -1049,7 +1050,6 @@ namespace smt {
         bool assume_eqs() {        
             svector<lean::var_index> vars;
             theory_var sz = static_cast<theory_var>(th.get_num_vars());
-;
             for (theory_var v = 0; v < sz; ++v) {
                 if (th.is_relevant_and_shared(get_enode(v))) { 
                     vars.push_back(m_theory_var2var_index[v]);
@@ -1306,7 +1306,7 @@ namespace smt {
             if (m_unassigned_bounds[v] == 0 || m_bounds.size() <= static_cast<unsigned>(v)) {
                 return;
             }
-            ptr_vector<lp::bound> const& bounds = m_bounds[v];
+            lp_bounds const& bounds = m_bounds[v];
             for (unsigned i = 0; i < bounds.size(); ++i) {
                 lp::bound* b = bounds[i];
                 if (ctx().get_assignment(b->get_bv()) != l_undef) {
@@ -1380,7 +1380,7 @@ namespace smt {
             theory_var v = b.get_var();
             lp::bound_kind kind1 = b.get_bound_kind();
             rational const& k1 = b.get_value();
-            ptr_vector<lp::bound> & bounds = m_bounds[v];
+            lp_bounds & bounds = m_bounds[v];
 
             lp::bound* end = 0;
             lp::bound* lo_inf = end, *lo_sup = end;
@@ -1489,15 +1489,11 @@ namespace smt {
             }        
         }
 
-        typedef ptr_vector<lp::bound> lp_atoms;
-       
-        lp_atoms m_new_bounds;
-
         void flush_bound_axioms() {
             CTRACE("arith", !m_new_bounds.empty(), tout << "flush bound axioms\n";);
 
             while (!m_new_bounds.empty()) {
-                ptr_vector<lp::bound> atoms;            
+                lp_bounds atoms;            
                 atoms.push_back(m_new_bounds.back());
                 m_new_bounds.pop_back();
                 theory_var v = atoms.back()->get_var();
@@ -1513,21 +1509,21 @@ namespace smt {
                        for (unsigned i = 0; i < atoms.size(); ++i) {
                            atoms[i]->display(tout); tout << "\n";
                        });
-                ptr_vector<lp::bound> occs(m_bounds[v]);
+                lp_bounds occs(m_bounds[v]);
                 
-                std::sort(atoms.begin(), atoms.end(), compare_atoms());
-                std::sort(occs.begin(), occs.end(), compare_atoms());
+                std::sort(atoms.begin(), atoms.end(), compare_bounds());
+                std::sort(occs.begin(), occs.end(), compare_bounds());
                 
-                typename lp_atoms::iterator begin1 = occs.begin();
-                typename lp_atoms::iterator begin2 = occs.begin();
-                typename lp_atoms::iterator end = occs.end();
+                typename lp_bounds::iterator begin1 = occs.begin();
+                typename lp_bounds::iterator begin2 = occs.begin();
+                typename lp_bounds::iterator end = occs.end();
                 begin1 = first(lp::lower_t, begin1, end);
                 begin2 = first(lp::upper_t, begin2, end);
                 
-                typename lp_atoms::iterator lo_inf = begin1, lo_sup = begin1;
-                typename lp_atoms::iterator hi_inf = begin2, hi_sup = begin2;
-                typename lp_atoms::iterator lo_inf1 = begin1, lo_sup1 = begin1;
-                typename lp_atoms::iterator hi_inf1 = begin2, hi_sup1 = begin2;
+                typename lp_bounds::iterator lo_inf = begin1, lo_sup = begin1;
+                typename lp_bounds::iterator hi_inf = begin2, hi_sup = begin2;
+                typename lp_bounds::iterator lo_inf1 = begin1, lo_sup1 = begin1;
+                typename lp_bounds::iterator hi_inf1 = begin2, hi_sup1 = begin2;
                 bool flo_inf, fhi_inf, flo_sup, fhi_sup;
                 ptr_addr_hashtable<lp::bound> visited;
                 for (unsigned i = 0; i < atoms.size(); ++i) {
@@ -1553,15 +1549,15 @@ namespace smt {
             }
         }
 
-        struct compare_atoms {
+        struct compare_bounds {
             bool operator()(lp::bound* a1, lp::bound* a2) const { return a1->get_value() < a2->get_value(); }
         };
 
 
-        lp_atoms::iterator first(
+        lp_bounds::iterator first(
             lp::bound_kind kind, 
-            typename lp_atoms::iterator it, 
-            typename lp_atoms::iterator end) {
+            typename lp_bounds::iterator it, 
+            typename lp_bounds::iterator end) {
             for (; it != end; ++it) {
                 lp::bound* a = *it;
                 if (a->get_bound_kind() == kind) return it;
@@ -1569,14 +1565,14 @@ namespace smt {
             return end;
         }
 
-        lp_atoms::iterator next_inf(
+        lp_bounds::iterator next_inf(
             lp::bound* a1, 
             lp::bound_kind kind, 
-            typename lp_atoms::iterator it, 
-            typename lp_atoms::iterator end,
+            typename lp_bounds::iterator it, 
+            typename lp_bounds::iterator end,
             bool& found_compatible) {
             rational const & k1(a1->get_value());
-            typename lp_atoms::iterator result = end;
+            typename lp_bounds::iterator result = end;
             found_compatible = false;
             for (; it != end; ++it) {
                 lp::bound * a2 = *it;            
@@ -1594,11 +1590,11 @@ namespace smt {
             return result;
         }
 
-        lp_atoms::iterator next_sup(
+        lp_bounds::iterator next_sup(
             lp::bound* a1, 
             lp::bound_kind kind, 
-            typename lp_atoms::iterator it, 
-            typename lp_atoms::iterator end,
+            typename lp_bounds::iterator it, 
+            typename lp_bounds::iterator end,
             bool& found_compatible) {
             rational const & k1(a1->get_value());
             found_compatible = false;
@@ -1626,7 +1622,7 @@ namespace smt {
             lp::bound_kind k = b.get_bound_kind();
             theory_var v = b.get_var();
             inf_rational val = b.get_value(is_true);
-            ptr_vector<lp::bound> const& bounds = m_bounds[v];
+            lp_bounds const& bounds = m_bounds[v];
             SASSERT(!bounds.empty());
             if (bounds.size() == 1) return;
             if (m_unassigned_bounds[v] == 0) return;
