@@ -41,7 +41,7 @@ lp_dual_core_solver<T, X>::lp_dual_core_solver(static_matrix<T, X> & A,
     m_betas(this->m_m()) {
     m_harris_tolerance = numeric_traits<T>::precise()? numeric_traits<T>::zero() : T(this->m_settings.harris_feasibility_tolerance);
     this->solve_yB(this->m_y);
-    init_basic_part_of_basis_heading(this->m_basis, this->m_basis_heading);
+    this->init_basic_part_of_basis_heading(this->m_basis, this->m_basis_heading);
     fill_non_basis_with_only_able_to_enter_columns();
 }
 
@@ -509,7 +509,8 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::recover_leavin
 }
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::revert_to_previous_basis() {
-    change_basis(m_p, m_q, this->m_basis, this->m_nbasis, this->m_basis_heading);
+    std::cout << "revert to previous basis on ( " << m_p << ", " << m_q << ")" << std::endl;
+    this->change_basis_unconditionally(m_p, m_q);
     init_factorization(this->m_factorization, this->m_A, this->m_basis, this->m_settings);
     if (this->m_factorization->get_status() != LU_status::OK) {
         this->m_status = FLOATING_POINT_ERROR; // complete failure

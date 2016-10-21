@@ -21,7 +21,7 @@ void lp_primal_core_solver<T, X>::sort_non_basis() {
         T const & da = this->m_d[j];
         this->m_steepest_edge_coefficients[j] = da * da / this->m_column_norms[j];
     }
-
+    
     std::sort(this->m_nbasis.begin(), this->m_nbasis.end(), [this](unsigned a, unsigned b) {
             return this->m_steepest_edge_coefficients[a] > this->m_steepest_edge_coefficients[b];
     });
@@ -493,8 +493,8 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
         init_reduced_costs();
         m_forbidden_enterings.insert(entering);
         return;
-    } 
-    
+    }
+
     if (!is_zero(t)) {
         this->m_iters_with_no_cost_growing = 0;
         set_current_x_is_feasible();
@@ -691,12 +691,10 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::update_co
         T s = this->m_A.dot_product_with_column(m_beta.m_data, j);
         T k = -2 / pivot;
         T tp = t/pivot;
-        if (this->m_column_types[j] == fixed) {
-            this->m_column_norms[j] = T(1); // We would like to kick out fixed vars from the basis, so making the norm small increases this chance since the steepest edge expression will be large
-        } else {
-            this->m_column_norms[j] = std::max(this->m_column_norms[j] + t * (t * g_ent + k * s), // see Achim Koberstein dissertation (8.1)
+        if (this->m_column_types[j] != fixed) { // a fixed columns do not enter the basis, we don't use the norm of a fixed column
+            this->m_column_norms[j] = std::max(this->m_column_norms[j] + t * (t * g_ent + k * s), // see Istvan Maros, page 196
                                                1 + tp * tp);
-        }
+             }
     }
 }
 

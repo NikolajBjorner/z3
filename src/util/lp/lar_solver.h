@@ -20,7 +20,6 @@
 #include "util/lp/lar_solution_signature.h"
 #include "util/lp/scaler.h"
 #include "util/lp/lp_primal_core_solver.h"
-#include "util/lp/lar_core_solver_parameter_struct.h"
 #include "util/lp/random_updater.h"
 #include <stack>
 #include "util/lp/stacked_map.h"
