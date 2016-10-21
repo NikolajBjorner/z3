@@ -444,7 +444,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::calc_work
     lean_assert(this->m_ed.is_OK());
     lean_assert(m_beta.is_OK());
     m_beta = this->m_ed;
-    this->m_factorization->solve_yB_with_error_check_indexed(m_beta, this->m_basis_heading, this->m_basis, this->m_settings); // todo, call indexed
+    this->m_factorization->solve_yB_with_error_check_indexed(m_beta, this->m_basis_heading, this->m_basis, this->m_settings);
 }
 
 template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_entering_and_leaving(int entering, int leaving, X & t) {
@@ -696,6 +696,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::update_co
                                                1 + tp * tp);
              }
     }
+    this->m_column_norms[entering] = 1;
 }
 
 template <typename T, typename X>    T lp_primal_core_solver<T, X>::calculate_norm_of_entering_exactly() {
