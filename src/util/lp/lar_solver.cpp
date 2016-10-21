@@ -554,7 +554,6 @@ void lar_solver::update_delta(mpq& delta, numeric_pair<mpq> const& l, numeric_pa
         }
     }
     lean_assert(l.x + delta * l.y <= u.x + delta * u.y);
-    lean_assert(l.x == l.y || l.x + delta * l.y < u.x + delta * u.y);
 }
 
 
