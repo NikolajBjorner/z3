@@ -313,7 +313,7 @@ public:
     void change_basis_unconditionally(unsigned entering, unsigned leaving) {
         lean_assert(m_basis_heading[entering] < 0);
         int place_in_non_basis = -1 - m_basis_heading[entering];
-        if (place_in_non_basis >= m_nbasis.size()) {
+        if (static_cast<unsigned>(place_in_non_basis) >= m_nbasis.size()) {
             m_basis_heading[entering] = place_in_non_basis = m_nbasis.size();
             m_nbasis.push_back(entering);
         }
