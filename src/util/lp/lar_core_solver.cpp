@@ -680,7 +680,8 @@ template <typename T, typename X> int lar_core_solver<T, X>::choose_entering_col
 template <typename T, typename X>    void lar_core_solver<T, X>::fill_evidence(unsigned row) {
     m_infeasible_row.clear();
     m_infeasible_row.push_back(std::make_pair(numeric_traits<T>::one(), this->m_basis[row]));
-    for (auto j : this->m_nbasis) {
+    for (unsigned j = 0; j < this->m_basis_heading.size(); j++) {
+        if (this->m_basis_heading[j] >= 0) continue;
         T aj = this->m_pivot_row[j];
         if (!numeric_traits<T>::is_zero(aj)) {
             m_infeasible_row.push_back(std::make_pair(aj, j));

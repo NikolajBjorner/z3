@@ -595,7 +595,6 @@ public:
         m_touched_columns.resize(i + 1);
 
         lean_assert(m_heading.size() == i); // as m_A.column_count() on the entry to the method
-        lean_assert(m_nbasis.size() == i - m_A.row_count());
         if (register_in_basis) {
             m_A.add_row();
             m_heading.push_back(m_basis.size());
