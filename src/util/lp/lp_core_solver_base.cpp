@@ -10,31 +10,6 @@
 #include "util/lp/lp_utils.h"
 #include "util/lp/lp_core_solver_base.h"
 namespace lean {
-void init_basic_part_of_basis_heading(std::vector<unsigned> & basis, std::vector<int> & basis_heading) {
-    lean_assert(basis_heading.size() >= basis.size());
-    unsigned m = basis.size();
-    for (unsigned i = 0; i < m; i++) {
-        unsigned column = basis[i];
-        basis_heading[column] = i;
-    }
-}
-
-void init_non_basic_part_of_basis_heading(std::vector<int> & basis_heading, std::vector<unsigned> & non_basic_columns) {
-    non_basic_columns.clear();
-    for (int j = basis_heading.size(); j--;){
-        if (basis_heading[j] < 0) {
-            non_basic_columns.push_back(j);
-            // the index of column j in m_nbasis is (- basis_heading[j] - 1)
-            basis_heading[j] = - static_cast<int>(non_basic_columns.size());
-        }
-    }
-}
-void init_basis_heading_and_non_basic_columns_vector(std::vector<unsigned> & basis,
-                                                     std::vector<int> & basis_heading,
-                                                     std::vector<unsigned> & non_basic_columns) {
-    init_basic_part_of_basis_heading(basis, basis_heading);
-    init_non_basic_part_of_basis_heading(basis_heading, non_basic_columns);
-}
 
 template <typename T, typename X> lp_core_solver_base<T, X>::
 lp_core_solver_base(static_matrix<T, X> & A,
@@ -517,12 +492,12 @@ update_basis_and_x(int entering, int leaving, X const & tt) {
         const T &  pivot = this->m_pivot_row[entering]; // m_ed[m_factorization->basis_heading(leaving)] is the same but the one that we are using is more precise
         m_factorization->replace_column(pivot, m_w, m_basis_heading[leaving]);
         if (m_factorization->get_status() == LU_status::OK) {
-            change_basis(entering, leaving, m_basis, m_nbasis, m_basis_heading);
+            change_basis(entering, leaving);
             return true;
         }
     }
     // need to refactor == true
-    change_basis(entering, leaving, m_basis, m_nbasis, m_basis_heading);
+    change_basis(entering, leaving);
     init_factorization(m_factorization, m_A, m_basis, m_settings);
     if (m_factorization->get_status() != LU_status::OK) {
         LP_OUT(m_settings, "failing refactor for entering = " << entering << ", leaving = " << leaving << " total_iterations = " << total_iterations() << std::endl);
@@ -614,7 +589,7 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 restore_x_and_refactor(int entering, int leaving, X const & t) {
-    restore_basis_change(entering, leaving, m_basis, m_nbasis, m_basis_heading);
+    this->restore_basis_change(entering, leaving);
     restore_x(entering, t);
     init_factorization(m_factorization, m_A, m_basis, m_settings);
     if (m_factorization->get_status() == LU_status::Degenerated) {
@@ -823,15 +798,15 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_v
                 break;
             j++;
             if (m_factorization->need_to_refactor()) {
-                change_basis(jj, ii, m_basis, m_nbasis, m_basis_heading);
+                change_basis(jj, ii);
                 init_lu();
             } else {
                 m_factorization->prepare_entering(jj, w); // to init vector w
                 m_factorization->replace_column(zero_of_type<T>(), w, m_basis_heading[ii]);
-                change_basis(jj, ii, m_basis, m_nbasis, m_basis_heading);
+                change_basis(jj, ii);
             }
             if (m_factorization->get_status() != LU_status::OK) {
-                change_basis(ii, jj, m_basis, m_nbasis, m_basis_heading);
+                change_basis(ii, jj);
                 init_lu();
             } else {
                 break;
@@ -839,22 +814,6 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_v
         }
         lean_assert(m_factorization->get_status()== LU_status::OK)
     }
-}
-
-void change_basis(unsigned entering, unsigned leaving, std::vector<unsigned>& basis, std::vector<unsigned>& nbasis, std::vector<int> & basis_heading) {
-    int place_in_basis =  basis_heading[leaving];
-    int place_in_non_basis = - basis_heading[entering] - 1;
-    basis_heading[entering] = place_in_basis;
-    basis_heading[leaving] = -place_in_non_basis - 1;
-    basis[place_in_basis] = entering;
-    nbasis[place_in_non_basis] = leaving;
-}
-
-void restore_basis_change(unsigned entering, unsigned leaving, std::vector<unsigned>& basis, std::vector<unsigned>& nbasis, std::vector<int> & basis_heading) {
-    if (basis_heading[entering] < 0) {
-        return; // the basis has not been changed
-    }
-    change_basis(leaving, entering, basis, nbasis, basis_heading);
 }
 
 

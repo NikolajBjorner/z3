@@ -164,6 +164,43 @@ std::vector<int> allocate_basis_heading(unsigned count) { // the rest of initili
     return basis_heading;
 }
 
+
+void init_basic_part_of_basis_heading(std::vector<unsigned> & basis, std::vector<int> & basis_heading) {
+    lean_assert(basis_heading.size() >= basis.size());
+    unsigned m = basis.size();
+    for (unsigned i = 0; i < m; i++) {
+        unsigned column = basis[i];
+        basis_heading[column] = i;
+    }
+}
+
+void init_non_basic_part_of_basis_heading(std::vector<int> & basis_heading, std::vector<unsigned> & non_basic_columns) {
+    non_basic_columns.clear();
+    for (int j = basis_heading.size(); j--;){
+        if (basis_heading[j] < 0) {
+                non_basic_columns.push_back(j);
+                // the index of column j in m_nbasis is (- basis_heading[j] - 1)
+                basis_heading[j] = - static_cast<int>(non_basic_columns.size());
+        }
+    }
+}
+void init_basis_heading_and_non_basic_columns_vector(std::vector<unsigned> & basis,
+                                                     std::vector<int> & basis_heading,
+                                                     std::vector<unsigned> & non_basic_columns) {
+    init_basic_part_of_basis_heading(basis, basis_heading);
+    init_non_basic_part_of_basis_heading(basis_heading, non_basic_columns);
+}
+
+void change_basis(unsigned entering, unsigned leaving, std::vector<unsigned>& basis, std::vector<unsigned>& nbasis, std::vector<int> & basis_heading) {
+    int place_in_basis =  basis_heading[leaving];
+    int place_in_non_basis = - basis_heading[entering] - 1;
+    basis_heading[entering] = place_in_basis;
+    basis_heading[leaving] = -place_in_non_basis - 1;
+    basis[place_in_basis] = entering;
+    nbasis[place_in_non_basis] = leaving;
+}
+
+
 #ifdef LEAN_DEBUG
 void test_small_lu(lp_settings & settings) {
     std::cout << " test_small_lu" << std::endl;

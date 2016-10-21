@@ -16,12 +16,6 @@
 #include "util/lp/permutation_matrix.h"
 #include "util/lp/column_namer.h"
 namespace lean {
-void init_basic_part_of_basis_heading(std::vector<unsigned> & basis, std::vector<int> & basis_heading);
-
-void init_non_basic_part_of_basis_heading(std::vector<int> & basis_heading, std::vector<unsigned> & non_basic_columns, unsigned n);
-void init_basis_heading_and_non_basic_columns_vector(std::vector<unsigned> & basis,
-                                                     std::vector<int> & basis_heading,
-                                                     std::vector<unsigned> & non_basic_columns);
 
 template <typename T, typename X> // X represents the type of the x variable and the bounds
 class lp_core_solver_base {    
@@ -287,8 +281,86 @@ public:
     void init_lu();
     int pivots_in_column_and_row_are_different(int entering, int leaving) const;
     void pivot_fixed_vars_from_basis();
+    void init_basic_part_of_basis_heading(std::vector<unsigned> & basis, std::vector<int> & basis_heading) {
+        lean_assert(basis_heading.size() >= basis.size());
+        unsigned m = basis.size();
+        for (unsigned i = 0; i < m; i++) {
+            unsigned column = basis[i];
+            basis_heading[column] = i;
+        }
+    }
+
+    void init_non_basic_part_of_basis_heading(std::vector<int> & basis_heading, std::vector<unsigned> & non_basic_columns) {
+        non_basic_columns.clear();
+        for (int j = basis_heading.size(); j--;){
+            if (basis_heading[j] < 0) {
+                if (m_column_types[j] != fixed) {
+                    non_basic_columns.push_back(j);
+                    // the index of column j in m_nbasis is (- basis_heading[j] - 1)
+                    basis_heading[j] = - static_cast<int>(non_basic_columns.size());
+                } else
+                    basis_heading[j] = - 100000000; // some huge negative number
+            }
+        }
+    }
+    void init_basis_heading_and_non_basic_columns_vector(std::vector<unsigned> & basis,
+                                                         std::vector<int> & basis_heading,
+                                                         std::vector<unsigned> & non_basic_columns) {
+        init_basic_part_of_basis_heading(basis, basis_heading);
+        init_non_basic_part_of_basis_heading(basis_heading, non_basic_columns);
+    }
+
+    void change_basis_unconditionally(unsigned entering, unsigned leaving) {
+        lean_assert(m_basis_heading[entering] < 0);
+        int place_in_non_basis = -1 - m_basis_heading[entering];
+        if (place_in_non_basis >= m_nbasis.size()) {
+            m_basis_heading[entering] = place_in_non_basis = m_nbasis.size();
+            m_nbasis.push_back(entering);
+        }
+        
+        int place_in_basis =  m_basis_heading[leaving];
+        m_basis_heading[entering] = place_in_basis;
+        m_basis[place_in_basis] = entering;
+        m_basis_heading[leaving] = -place_in_non_basis - 1;
+        m_nbasis[place_in_non_basis] = leaving;
+    }
+
+    
+    void change_basis(unsigned entering, unsigned leaving) {
+        lean_assert(m_basis_heading[entering] < 0);
+#if LEAN_DEBUG
+        int j = -1 - m_basis_heading[entering];
+        lean_assert(m_nbasis[j] == entering);
+#endif
+        
+        int place_in_basis =  m_basis_heading[leaving];
+        int place_in_non_basis = - m_basis_heading[entering] - 1;        
+        m_basis_heading[entering] = place_in_basis;
+        m_basis[place_in_basis] = entering;
+
+        if (m_column_types[leaving] != fixed) {
+            m_basis_heading[leaving] = -place_in_non_basis - 1;
+            m_nbasis[place_in_non_basis] = leaving;
+        } else {
+            unsigned last = m_nbasis.size() - 1;
+            // just remove leaving from non basis
+            if (place_in_non_basis != last) {
+                unsigned last_j = m_nbasis[last];
+                m_basis_heading[last_j] = - place_in_non_basis - 1;
+                m_nbasis[place_in_non_basis] = last_j;
+            }
+            m_basis_heading[leaving] = -100000000; // some huge negative number
+            m_nbasis.resize(last); // shrink by one and forget the fixed column
+        }
+    }
+
+    void restore_basis_change(unsigned entering, unsigned leaving) {
+        if (m_basis_heading[entering] < 0) {
+            return; // the basis has not been changed
+        }
+        change_basis(leaving, entering);
+    }
+
 };
-void change_basis(unsigned entering, unsigned leaving, std::vector<unsigned>& basis, std::vector<unsigned>& nbasis, std::vector<int> & basis_heading);
-void restore_basis_change(unsigned entering, unsigned leaving, std::vector<unsigned>& basis, std::vector<unsigned>& nbasis, std::vector<int> & basis_heading);
 
 }

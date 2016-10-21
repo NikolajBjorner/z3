@@ -21,7 +21,7 @@ void lp_primal_core_solver<T, X>::sort_non_basis() {
         T const & da = this->m_d[j];
         this->m_steepest_edge_coefficients[j] = da * da / this->m_column_norms[j];
     }
-
+    
     std::sort(this->m_nbasis.begin(), this->m_nbasis.end(), [this](unsigned a, unsigned b) {
             return this->m_steepest_edge_coefficients[a] > this->m_steepest_edge_coefficients[b];
     });
