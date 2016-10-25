@@ -55,8 +55,6 @@ public:
 
     void init_cost_for_column(unsigned j);
 
-    void init_local();
-
     // returns m_sign_of_alpha_r
     int column_is_out_of_bounds(unsigned j);
 

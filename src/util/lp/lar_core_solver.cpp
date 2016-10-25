@@ -107,21 +107,6 @@ template <typename T, typename X> void lar_core_solver<T, X>::init_cost_for_colu
     }
 }
 
-template <typename T, typename X>    void lar_core_solver<T, X>::init_local() {
-    this->m_b.resize(this->m_m());
-    this->m_breakpoint_indices_queue.resize(this->m_n());
-    this->m_copy_of_xB.resize(this->m_n());
-    this->m_costs.resize(this->m_n());
-    this->m_d.resize(this->m_n());
-    this->m_ed.resize(this->m_m());
-    this->m_pivot_row.resize(this->m_n());
-    this->m_pivot_row_of_B_1.resize(this->m_m());
-    this->m_w.resize(this->m_m());
-    this->m_y.resize(this->m_m());
-    this->m_steepest_edge_coefficients.resize(this->m_n());
-    this->m_column_norms.clear();
-    this->m_column_norms.resize(this->m_n(), one_of_type<mpq>());
-}
 
 // returns m_sign_of_alpha_r
 template <typename T, typename X>    int lar_core_solver<T, X>::column_is_out_of_bounds(unsigned j) {
@@ -540,9 +525,19 @@ template <typename T, typename X>  void lar_core_solver<T, X>::move_as_many_as_p
 
 
 template <typename T, typename X> void lar_core_solver<T, X>::prefix() {
-    init_local();
-    unsigned seed = 1;
-    my_random_init(&seed);
+    this->m_b.resize(this->m_m());
+    this->m_breakpoint_indices_queue.resize(this->m_n());
+    this->m_copy_of_xB.resize(this->m_n());
+    this->m_costs.resize(this->m_n());
+    this->m_d.resize(this->m_n());
+    this->m_ed.resize(this->m_m());
+    this->m_pivot_row.resize(this->m_n());
+    this->m_pivot_row_of_B_1.resize(this->m_m());
+    this->m_w.resize(this->m_m());
+    this->m_y.resize(this->m_m());
+    this->m_steepest_edge_coefficients.resize(this->m_n());
+    this->m_column_norms.clear();
+    this->m_column_norms.resize(this->m_n(), one_of_type<mpq>());
 }
 
 template <typename T, typename X> void lar_core_solver<T, X>::feasibility_loop() {
