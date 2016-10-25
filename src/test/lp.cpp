@@ -1892,6 +1892,7 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_help_string("-tb", "tigthten bounds");
     parser.add_option_with_help_string("--eti"," run a small evidence test for total infeasibility scenario");
     parser.add_option_with_help_string("--row_inf", "forces row infeasibility search");
+    parser.add_option_with_help_string("-pd", "presolve with double solver");
 }
 
 struct fff { int a; int b;};
@@ -2381,12 +2382,13 @@ void run_lar_solver(argument_parser & args_parser, lar_solver * solver, mps_read
     if (maxng.size() > 0) {
         solver->settings().max_number_of_iterations_with_no_improvements = atoi(maxng.c_str());
     }
+    if (args_parser.option_is_used("-pd")){
+        solver->settings().presolve_with_double_solver_for_lar = true;
+    }
     if (args_parser.option_is_used("--totalinf")) {
         solver->settings().lar_row_feasibility_only = false;
     }
-    if (args_parser.option_is_used("--mpq")) {
-        solver->settings().use_double_solver_for_lar = false;
-    }
+
     std::string iter = args_parser.get_option_value("--max_iters");
     if (iter.size() > 0) {
         solver->settings().max_total_number_of_iterations = atoi(iter.c_str());

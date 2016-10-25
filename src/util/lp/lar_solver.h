@@ -541,7 +541,7 @@ public:
 
  
     bool need_to_presolve_with_double_solver() const {
-        return m_settings.use_double_solver_for_lar
+        return m_settings.presolve_with_double_solver_for_lar
             && m_A.row_count() > 0; // todo, add more conditions
     }
 

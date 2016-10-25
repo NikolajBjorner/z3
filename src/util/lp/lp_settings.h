@@ -221,7 +221,7 @@ public:
     }
     // the method of lar solver to use
     bool lar_row_feasibility_only = false;  // we are going away from row_feasibility_loop - remove this field (todo)
-    bool use_double_solver_for_lar = false;
+    bool presolve_with_double_solver_for_lar = false;
     int report_frequency = 1000;
     bool print_statistics = false;
     unsigned column_norms_update_frequency = 1000;
