@@ -269,7 +269,7 @@ void lar_solver::solve_with_core_solver() {
     m_mpq_lar_core_solver.solve();
     m_status = m_mpq_lar_core_solver.m_status;
     lean_assert(m_status != OPTIMAL || all_constraints_hold());
-    lean_assert(!settings().row_feasibility || m_status != INFEASIBLE || evidence_is_correct());
+    lean_assert(m_status != INFEASIBLE || evidence_is_correct());
 }
 
 bool lar_solver::the_relations_are_of_same_type(const std::vector<std::pair<mpq, unsigned>> & evidence, lconstraint_kind & the_kind_of_sum) {

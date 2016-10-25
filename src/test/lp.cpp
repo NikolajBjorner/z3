@@ -1890,7 +1890,8 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_help_string("--smap", "test stacked_map");
     parser.add_option_with_help_string("--term", "simple term test");
     parser.add_option_with_help_string("-tb", "tigthten bounds");
-    
+    parser.add_option_with_help_string("--eti"," run a small evidence test for total infeasibility scenario");
+    parser.add_option_with_help_string("--row_inf", "forces row infeasibility search");
 }
 
 struct fff { int a; int b;};
@@ -2381,7 +2382,7 @@ void run_lar_solver(argument_parser & args_parser, lar_solver * solver, mps_read
         solver->settings().max_number_of_iterations_with_no_improvements = atoi(maxng.c_str());
     }
     if (args_parser.option_is_used("--totalinf")) {
-        solver->settings().row_feasibility = false;
+        solver->settings().lar_row_feasibility_only = false;
     }
     if (args_parser.option_is_used("--mpq")) {
         solver->settings().use_double_solver_for_lar = false;
@@ -2801,6 +2802,28 @@ void test_term() {
     
 }
 
+void test_evidence_for_total_inf_simple(argument_parser & args_parser) {
+    lar_solver solver;
+    if (args_parser.option_is_used("--row_inf"))
+        solver.settings().lar_row_feasibility_only = true; 
+    var_index x = solver.add_var("x");
+    var_index y = solver.add_var("y");
+    solver.add_var_bound(x, LE, -mpq(1));
+    solver.add_var_bound(y, GE, mpq(0));
+    std::vector<std::pair<mpq, var_index>> ls;
+    
+    ls.push_back(std::pair<mpq, var_index>((int)1, x));
+    ls.push_back(std::pair<mpq, var_index>((int)1, y));
+    solver.add_constraint(ls, GE, mpq(1));
+    ls.pop_back();
+    ls.push_back(std::pair<mpq, var_index>(-(int)1, y));
+    solver.add_constraint(ls, lconstraint_kind::GE, mpq(0));
+    auto status = solver.solve();
+    std::cout << lp_status_to_string(status) << std::endl;
+    std::unordered_map<var_index, mpq> model;
+    lean_assert(solver.get_status() == INFEASIBLE);
+}
+
 void test_bound_propogation_one_row() {
     lar_solver ls;
     unsigned x0 = ls.add_var("x0");
@@ -2983,7 +3006,13 @@ void test_lp_local(int argn, char**argv) {
         return finalize(ret);
     }
 #endif
-
+    if (args_parser.option_is_used("--eti")) {
+        test_evidence_for_total_inf_simple(args_parser);
+        ret = 0;
+        return finalize(ret);
+    }
+        
+    
     if (args_parser.option_is_used("--test_lp_0")) {
         test_lp_0();
         ret = 0;

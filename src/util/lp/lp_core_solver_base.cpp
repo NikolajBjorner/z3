@@ -113,10 +113,10 @@ solve_Bd(unsigned entering) {
     lean_assert(m_ed.is_OK());
     lean_assert(m_w.is_OK());
 #ifdef LEAN_DEBUG
-    // auto B = get_B(m_factorization);
-    // vector<T>  a(m_m);
+    // auto B = get_B(*m_factorization, m_basis);
+    // std::vector<T>  a(m_m());
     // m_A.copy_column_to_vector(entering, a);
-    // vector<T> cd(m_ed);
+    // std::vector<T> cd(m_ed.m_data);
     // B.apply_from_left(cd, m_settings);
     // lean_assert(vectors_are_equal(cd , a));
 #endif

@@ -181,7 +181,7 @@ public:
         return j - m_terms_start_index;
     }
     
-    constraint_index add_var_bound(var_index j, lconstraint_kind kind, mpq right_side)  {
+    constraint_index add_var_bound(var_index j, lconstraint_kind kind, const mpq & right_side)  {
         if (j < m_A.column_count()) { // j is a var
             const canonic_left_side& cls = m_vec_of_canonic_left_sides[j];
             return add_constraint(cls, kind, right_side);

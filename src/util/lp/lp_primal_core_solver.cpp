@@ -100,22 +100,23 @@ int lp_primal_core_solver<T, X>::choose_entering_column(unsigned number_of_benef
 
 template <typename T, typename X> int
 lp_primal_core_solver<T, X>::find_leaving_and_t_precisely(unsigned entering, X & t){
-    int leaving = -1;
     T abs_of_d_of_leaving = numeric_traits<T>::zero();
-    for (unsigned i = 0; i < this->m_m; i++) {
-        if (is_zero(this->m_ed[i])) continue;
+    std::vector<unsigned> leavings;
+    for (unsigned i : this->m_ed.m_index) {
+        lean_assert (!is_zero(this->m_ed[i])) 
         unsigned j = this->m_basis[i];
-        get_bound_on_variable_and_update_leaving_precisely(j, leaving,  - this->m_ed[i] * m_sign_of_entering_delta, t, abs_of_d_of_leaving);
-        if (leaving != -1 && is_zero(t)) {
-            return leaving;
-        }
+        get_bound_on_variable_and_update_leaving_precisely(j, leavings,  - this->m_ed[i] * m_sign_of_entering_delta, t, abs_of_d_of_leaving);
     }
-
-    get_bound_on_variable_and_update_leaving_precisely(entering, leaving, T(m_sign_of_entering_delta), t, abs_of_d_of_leaving);
-    return leaving;
+    get_bound_on_variable_and_update_leaving_precisely(entering, leavings, T(m_sign_of_entering_delta), t, abs_of_d_of_leaving);
+    if (leavings.size() == 0)
+        return -1;
+    if (leavings.size() == 1)
+        return leavings[0];
+    return leavings[my_random() % leavings.size()];
 }
 
-template <typename T, typename X>    X lp_primal_core_solver<T, X>::get_harris_theta() {
+template <typename T, typename X> X lp_primal_core_solver<T, X>::get_harris_theta() {
+    lean_assert(numeric_traits<T>::precise() == false);
     X theta = positive_infinity();
     unsigned i = this->m_m();
     while (i--) {
@@ -190,7 +191,7 @@ template <typename T, typename X>    bool lp_primal_core_solver<T, X>::try_jump_
 }
 
 template <typename T, typename X>    int lp_primal_core_solver<T, X>::find_leaving_and_t(unsigned entering, X & t){
-    // if (numeric_traits<T>::precise()) return find_leaving_and_t_precisely(entering, t);
+    if (numeric_traits<T>::precise()) return find_leaving_and_t_precisely(entering, t);
     X theta = get_harris_theta();
     lean_assert(theta >= zero_of_type<X>());
     if (try_jump_to_another_bound_on_entering(entering, theta, t)) return entering;
@@ -203,31 +204,45 @@ template <typename T, typename X>    int lp_primal_core_solver<T, X>::find_leavi
 // x[j] + t * m >= m_low_bounds[j] ( if m < 0 )
 // or
 // x[j] + t * m <= this->m_upper_bounds[j] ( if m > 0)
-template <typename T, typename X>    void lp_primal_core_solver<T, X>::get_bound_on_variable_and_update_leaving_precisely(unsigned j, int & leaving, T m, X & t, T & abs_of_d_of_leaving) {
-    lean_assert(leaving == -1 || t > zero_of_type<X>());
+template <typename T, typename X> void
+lp_primal_core_solver<T, X>::get_bound_on_variable_and_update_leaving_precisely(unsigned j, std::vector<unsigned> & leavings, T m, X & t, T & abs_of_d_of_leaving) {
     if (m > 0) {
-        if (this->m_column_type[j] != boxed) {
+        switch(this->m_column_types[j]) { // check that j has a low bound
+        case free_column:
+        case upper_bound:
             return;
+        default:break;
         }
-        X tt = (this->m_upper_bounds[j] - this->m_x[j]) / m;
-        if (leaving == -1 || tt < t || (tt == t && m > abs_of_d_of_leaving)) {
+        X tt = - (this->m_low_bounds[j] - this->m_x[j]) / m;
+        if (numeric_traits<X>::is_neg(tt))
+            tt = zero_of_type<X>();
+        if (leavings.size() == 0 || tt < t || (tt == t && m > abs_of_d_of_leaving)) {
             t = tt;
-            leaving = j;
             abs_of_d_of_leaving = m;
-            if (t < zero_of_type<X>())
-                t = zero_of_type<X>();
+            leavings.clear();
+            leavings.push_back(j);
+        }
+        else if (tt == t || m == abs_of_d_of_leaving) {
+            leavings.push_back(j);
         }
     } else if (m < 0){
-        if (this->m_column_type[j] == free_column) {
+        switch (this->m_column_types[j]) { // check that j has an upper bound
+        case free_column:
+        case low_bound:
             return;
+        default:break;
         }
-        X tt = (- this->m_x[j]) / m;
-        if (leaving == -1 || tt < t || (tt == t && - m > abs_of_d_of_leaving)) {
+
+        X tt = (this->m_upper_bounds[j] - this->m_x[j]) / m;
+        if (numeric_traits<X>::is_neg(tt))
+            tt = zero_of_type<X>();
+        if (leavings.size() == 0 || tt < t || (tt == t && - m > abs_of_d_of_leaving)) {
             t = tt;
-            leaving = j;
             abs_of_d_of_leaving = - m;
-            if (t < zero_of_type<X>())
-                t = zero_of_type<X>();
+            leavings.clear();
+            leavings.push_back(j);
+        } else if (tt == t || m == abs_of_d_of_leaving) {
+            leavings.push_back(j);
         }
     }
 }
@@ -434,7 +449,8 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::normalize
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::init_run() {
     this->set_total_iterations(0);
     this->m_iters_with_no_cost_growing = 0;
-    normalize_costs_and_backup_costs();
+    if (numeric_traits<X>::precise() == false)
+        normalize_costs_and_backup_costs();
     set_current_x_is_feasible();
     init_reduced_costs();
 }
@@ -533,6 +549,12 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
     int leaving = find_leaving_and_t(entering, t);
     if (leaving == -1){
         if (get_current_x_is_infeasible()) {
+            if (m_exit_on_feasible_solution) {
+                this->m_status = INFEASIBLE;
+                return;
+            }
+            
+                
             if (this->m_status == UNSTABLE) {
                 this->m_status = FLOATING_POINT_ERROR;
                 return;
@@ -595,6 +617,8 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
         switch (this->m_status) {
         case OPTIMAL:  // double check that we are at optimum
         case INFEASIBLE:
+            if (numeric_traits<T>::precise())
+                break;
             m_forbidden_enterings.clear();
             this->init_lu();
             lean_assert(this->m_factorization->get_status() == LU_status::OK);
@@ -616,6 +640,7 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
             break;
 
         case UNSTABLE:
+            lean_assert(! (numeric_traits<T>::precise()));
             this->init_lu();
             init_reduced_costs();
             this->m_status = FEASIBLE;
@@ -712,7 +737,8 @@ template <typename T, typename X>    T lp_primal_core_solver<T, X>::calculate_no
 // calling it stage1 is too cryptic
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::find_feasible_solution() {
     m_exit_on_feasible_solution = true;
-    this->snap_xN_to_bounds_and_free_columns_to_zeroes();
+    lean_assert(this->non_basis_columns_are_set_correctly());
+    //    this->snap_xN_to_bounds_and_free_columns_to_zeroes(); 
     solve();
 }
 

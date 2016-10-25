@@ -85,6 +85,14 @@ struct convert_struct<double, mpq> {
     static double convert(const mpq & q) {return q.get_double();}
 };
 
+
+template <>
+struct convert_struct<mpq, unsigned> {
+    static mpq convert(unsigned q) {return mpq(q);}
+};
+
+
+
 template <typename T>
 struct numeric_pair {
     T x;
@@ -94,7 +102,17 @@ struct numeric_pair {
     // another constructor
 
     numeric_pair(T xp, T yp) : x(xp), y(yp) {}
-    template <typename X, typename Y> numeric_pair(X xp, Y yp) : numeric_pair(convert_struct<T, X>::convert(xp), convert_struct<T, Y>::convert(yp)) {}
+
+
+    template <typename X>
+    numeric_pair(const X & n) : x(n), y(0) {
+    }
+    
+    template <typename X>
+    numeric_pair(const numeric_pair<X> & n) : x(n.x), y(n.y) {}
+    
+    template <typename X, typename Y>
+    numeric_pair(X xp, Y yp) : numeric_pair(convert_struct<T, X>::convert(xp), convert_struct<T, Y>::convert(yp)) {}
 
     bool operator<(const numeric_pair& a) const {
         return x < a.x || (x == a.x && y < a.y);
@@ -224,6 +242,15 @@ class numeric_traits<lean::numeric_pair<T>> {
     static bool is_zero(const lean::numeric_pair<T> & v) { return numeric_traits<T>::is_zero(v.x) && numeric_traits<T>::is_zero(v.y); }
     static double get_double(const lean::numeric_pair<T> & v){ return numeric_traits<T>::get_double(v.x); } // just return the double of the first coordinate
     static double one() { /*lean_unreachable();*/ return 0;}
+    static bool is_pos(const numeric_pair<T> &p) {
+        return numeric_traits<T>::is_pos(p.x) ||
+            (numeric_traits<T>::is_zero(p.x) && numeric_traits<T>::is_pos(p.y));
+    }
+    static bool is_neg(const numeric_pair<T> &p) {
+        return numeric_traits<T>::is_neg(p.x) ||
+            (numeric_traits<T>::is_zero(p.x) && numeric_traits<T>::is_neg(p.y));
+    }
+            
 };
 } // close namespace lean
 
@@ -232,6 +259,8 @@ template <>
 struct convert_struct<double, numeric_pair<double>> {
     static double convert(const numeric_pair<double> & q) {return q.x;}
 };
+
+
 
 template <typename X> bool is_epsilon_small(const X & v, const double& eps);   // forward definition { return convert_struct<X, double>::is_epsilon_small(v, eps);}
 

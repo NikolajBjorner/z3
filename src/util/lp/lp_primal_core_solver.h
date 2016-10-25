@@ -94,7 +94,7 @@ public:
     }
 
 
-    void get_bound_on_variable_and_update_leaving_precisely(unsigned j, int & leaving, T m, X & t, T & abs_of_d_of_leaving);
+    void get_bound_on_variable_and_update_leaving_precisely(unsigned j, std::vector<unsigned> & leavings, T m, X & t, T & abs_of_d_of_leaving);
 
     bool column_is_free(unsigned j) { return this->m_column_type[j] == free; }
 

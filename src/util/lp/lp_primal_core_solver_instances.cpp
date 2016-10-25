@@ -13,6 +13,7 @@
 #include "util/lp/lp_primal_core_solver.cpp"
 namespace lean {
 template void lp_primal_core_solver<double, double>::find_feasible_solution();
+template void lean::lp_primal_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::find_feasible_solution();
 template lp_primal_core_solver<double, double>::lp_primal_core_solver(static_matrix<double, double>&, std::vector<double, std::allocator<double> >&, std::vector<double, std::allocator<double> >&, std::vector<unsigned int, std::allocator<unsigned int> >&,
                                                                       std::vector<unsigned> & nbasis,
                                                                       std::vector<int> & heading,
@@ -31,4 +32,5 @@ template lp_primal_core_solver<mpq, mpq>::lp_primal_core_solver(static_matrix<mp
                                                                 std::vector<int> & heading,
                                                                 std::vector<mpq, std::allocator<mpq> >&, const std::vector<column_type, std::allocator<column_type> >&, std::vector<mpq, std::allocator<mpq> >&, std::vector<mpq, std::allocator<mpq> >&, lp_settings&, const column_namer &);
 template unsigned lp_primal_core_solver<mpq, mpq>::solve();
+template lean::lp_primal_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::lp_primal_core_solver(lean::static_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >&, std::vector<lean::numeric_pair<lean::mpq>, std::allocator<lean::numeric_pair<lean::mpq> > >&, std::vector<lean::numeric_pair<lean::mpq>, std::allocator<lean::numeric_pair<lean::mpq> > >&, std::vector<unsigned int, std::allocator<unsigned int> >&, std::vector<unsigned int, std::allocator<unsigned int> >&, std::vector<int, std::allocator<int> >&, std::vector<lean::mpq, std::allocator<lean::mpq> >&, std::vector<lean::column_type, std::allocator<lean::column_type> > const&, std::vector<lean::numeric_pair<lean::mpq>, std::allocator<lean::numeric_pair<lean::mpq> > >&, std::vector<lean::numeric_pair<lean::mpq>, std::allocator<lean::numeric_pair<lean::mpq> > >&, lean::lp_settings&, lean::column_namer const&);
 }
