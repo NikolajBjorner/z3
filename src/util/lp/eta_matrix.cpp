@@ -77,9 +77,6 @@ void eta_matrix<T, X>::apply_from_right(indexed_vector<T> & w) {
     T & t = w[m_column_index];
     t /= m_diagonal_element;
     bool was_in_index = (!numeric_traits<T>::is_zero(t));
-    // if (m_column_vector.size())
-    //     std::cout << m_column_vector.size() << " against " << w.data_size() << " and " <<
-    //     w.size() << std::endl;
     
     for (auto & it : m_column_vector.m_data) {
         t += w[it.first] * it.second;

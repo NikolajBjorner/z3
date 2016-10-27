@@ -14,7 +14,6 @@
 #include <vector>
 #include "util/lp/lar_core_solver.h"
 namespace lean {
-//void f(int i) { std::cout << i << std::endl;}
 template <typename T, typename X>
 lar_core_solver<T, X>::lar_core_solver(std::vector<X> & x, const std::vector<column_type> & column_types,
                                        std::vector<X> & low_bounds, std::vector<X> & upper_bounds,
@@ -50,8 +49,8 @@ template <typename T, typename X> void lar_core_solver<T, X>::init_costs(bool fi
     for (unsigned j = this->m_n(); j--;)
         init_cost_for_column(j);
     if (!(first_time || inf >= m_infeasibility)) {
-        std::cout << "iter = " << this->total_iterations() << std::endl;
-        std::cout << "inf was " << T_to_string(inf) << " and now " << T_to_string(m_infeasibility) << std::endl;
+        LP_OUT(this->m_settings, "iter = " << this->total_iterations() << std::endl);
+        LP_OUT(this->m_settings, "inf was " << T_to_string(inf) << " and now " << T_to_string(m_infeasibility) << std::endl);
         lean_assert(false);
     }
     if (inf == m_infeasibility)
@@ -547,7 +546,7 @@ template <typename T, typename X> void lar_core_solver<T, X>::feasibility_loop()
         init_costs(first_time);
         first_time = false;
         this->init_reduced_costs_for_one_iteration();
-        if (this->print_statistics_with_cost_and_check_that_the_time_is_over(m_infeasibility)){
+        if (this->print_statistics_with_cost_and_check_that_the_time_is_over(m_infeasibility, *(this->m_settings.get_message_ostream()))) {
             break;
         }
         one_iteration();

@@ -113,7 +113,10 @@ private:
 
     default_lp_resource_limit m_default_resource_limit;
     lp_resource_limit* m_resource_limit;
-    std::ostream* m_out = &std::cout;
+    // used for debug output
+    std::ostream* m_debug_out = &std::cout;
+    // used for messages, for example, the computation progress messages
+    std::ostream* m_message_out = &std::cout;
 
     stats  m_stats;
 
@@ -158,9 +161,11 @@ public:
     void set_resource_limit(lp_resource_limit& lim) { m_resource_limit = &lim; }
     bool get_cancel_flag() const { return m_resource_limit->get_cancel_flag(); }
 
-    void set_ostream(std::ostream* out) { m_out = out; }
-    std::ostream* out() { return m_out; }
-
+    void set_debug_ostream(std::ostream* out) { m_debug_out = out; }
+    void set_message_ostream(std::ostream* out) { m_message_out = out; }
+    
+    std::ostream* get_debug_ostream() { return m_debug_out; }
+    std::ostream* get_message_ostream() { return m_message_out; }
     stats& st() { return m_stats; }
     stats const& st() const { return m_stats; }
 
@@ -236,7 +241,7 @@ public:
 }; // end of lp_settings class
 
 
-#define LP_OUT(_settings_, _msg_) { if (_settings_.out()) { *_settings_.out() << _msg_; } }
+#define LP_OUT(_settings_, _msg_) { if (_settings_.get_debug_ostream()) { *_settings_.get_debug_ostream() << _msg_; } }
 
 template <typename T>
 std::string T_to_string(const T & t) {

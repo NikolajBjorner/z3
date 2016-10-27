@@ -22,17 +22,16 @@
 #include "util/lp/lp_utils.h"
 #include "util/lp/lp_solver.h"
 namespace lean {
-using namespace std;
 inline bool my_white_space(const char & a) {
     return a == ' ' || a == '\t';
 }
-inline size_t number_of_whites(const string & s)  {
+inline size_t number_of_whites(const std::string & s)  {
     size_t i = 0;
     for(;i < s.size(); i++)
         if (!my_white_space(s[i])) return i;
     return i;
 }
-inline size_t number_of_whites_from_end(const string & s)  {
+inline size_t number_of_whites_from_end(const std::string & s)  {
     size_t ret = 0;
     for(int i = static_cast<int>(s.size()) - 1;i >= 0; i--)
         if (my_white_space(s[i])) ret++;else break;
@@ -51,24 +50,24 @@ inline std::string &ltrim(std::string &s) {
 
 
     // trim from end
-inline string &rtrim(std::string &s) {
+inline std::string &rtrim(std::string &s) {
     //       s.erase(std::find_if(s.rbegin(), s.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
     s.erase(s.end() - number_of_whites_from_end(s), s.end());
     return s;
 }
     // trim from both ends
-inline string &trim(std::string &s) {
+inline std::string &trim(std::string &s) {
     return ltrim(rtrim(s));
 }
 
-inline string trim(std::string const &r) {
-        string s = r;
+inline std::string trim(std::string const &r) {
+        std::string s = r;
         return ltrim(rtrim(s));
 }
 
 
-inline std::vector<string> string_split(const string &source, const char *delimiter, bool keep_empty)  {
-    std::vector<string> results;
+inline std::vector<std::string> string_split(const std::string &source, const char *delimiter, bool keep_empty)  {
+    std::vector<std::string> results;
     size_t prev = 0;
     size_t next = 0;
     while ((next = source.find_first_of(delimiter, prev)) != std::string::npos) {
@@ -83,9 +82,9 @@ inline std::vector<string> string_split(const string &source, const char *delimi
     return results;
 }
 
-inline std::vector<string> split_and_trim(string line) {
+inline std::vector<std::string> split_and_trim(std::string line) {
     auto split = string_split(line, " \t", false);
-    std::vector<string> ret;
+    std::vector<std::string> ret;
     for (auto s : split) {
         ret.push_back(trim(s));
     }
@@ -108,43 +107,43 @@ class mps_reader {
     };
 
     struct column {
-        string m_name;
+        std::string m_name;
         bound * m_bound = nullptr;
         unsigned m_index;
-        column(string name, unsigned index): m_name(name), m_index(index) {
+        column(std::string name, unsigned index): m_name(name), m_index(index) {
         }
     };
 
     struct row {
         row_type m_type;
-        string m_name;
-        unordered_map<string, T> m_row_columns;
+        std::string m_name;
+        std::unordered_map<std::string, T> m_row_columns;
         T m_right_side = numeric_traits<T>::zero();
         unsigned m_index;
         T m_range = numeric_traits<T>::zero();
-        row(row_type type, string name, unsigned index) : m_type(type), m_name(name), m_index(index) {
+        row(row_type type, std::string name, unsigned index) : m_type(type), m_name(name), m_index(index) {
         }
     };
 
-    string m_file_name;
+    std::string m_file_name;
     bool m_is_OK = true;
-    unordered_map<string, row *> m_rows;
-    unordered_map<string, column *> m_columns;
-    string m_line;
-    string m_name;
-    string m_cost_row_name;
-    ifstream m_file_stream;
+    std::unordered_map<std::string, row *> m_rows;
+    std::unordered_map<std::string, column *> m_columns;
+    std::string m_line;
+    std::string m_name;
+    std::string m_cost_row_name;
+    std::ifstream m_file_stream;
     // needed to adjust the index row
     unsigned m_cost_line_count = 0;
     unsigned m_line_number = 0;
-
+    std::ostream * m_message_stream = & std::cout;
 
     void set_m_ok_to_false() {
-        cout << "setting m_is_OK to false" << endl;
+        *m_message_stream << "setting m_is_OK to false" << std::endl;
         m_is_OK = false;
     }
 
-    string get_string_from_position(unsigned offset) {
+    std::string get_string_from_position(unsigned offset) {
         unsigned i = offset;
         for (; i < m_line.size(); i++){
             if (m_line[i] == ' ')
@@ -192,7 +191,7 @@ class mps_reader {
             if (!getline(m_file_stream, m_line)) {
                 m_line_number++;
                 set_m_ok_to_false();
-                cout << "cannot read from file" << endl;
+                *m_message_stream << "cannot read from file" << std::endl;
             }
             m_line_number++;
             if (m_line.size() != 0 && m_line[0] != '*' && !all_white_space())
@@ -229,15 +228,15 @@ class mps_reader {
         } while (m_is_OK);
     }
 
-    void read_column_by_columns(string column_name, string column_data) {
+    void read_column_by_columns(std::string column_name, std::string column_data) {
          // uph, let us try to work with columns
         if (column_data.size() >= 22) {
-            string ss = column_data.substr(0, 8);
-            string row_name = trim(ss);
+            std::string ss = column_data.substr(0, 8);
+            std::string row_name = trim(ss);
             auto t = m_rows.find(row_name);
 
             if (t == m_rows.end()) {
-                cout << "cannot find " << row_name << endl;
+                *m_message_stream << "cannot find " << row_name << std::endl;
                 goto fail;
             } else {
                 row * row = t->second;
@@ -252,13 +251,13 @@ class mps_reader {
         } else {
         fail:
             set_m_ok_to_false();
-            cout << "cannot understand this line" << endl;
-            cout << "line = " << m_line <<  ", line number is " << m_line_number << endl;
+            *m_message_stream << "cannot understand this line" << std::endl;
+            *m_message_stream << "line = " << m_line <<  ", line number is " << m_line_number << std::endl;
             return;
         }
     }
 
-    void read_column(string column_name, string column_data){
+    void read_column(std::string column_name, std::string column_data){
         auto tokens = split_and_trim(column_data);
         for (unsigned i = 0; i < tokens.size() - 1; i+= 2) {
             auto row_name = tokens[i];
@@ -274,21 +273,21 @@ class mps_reader {
     }
 
     void read_columns(){
-        string column_name;
+        std::string column_name;
         do {
             read_line();
             if (m_line.find("RHS") == 0) {
-                //  cout << "found RHS" << endl;
+                //  cout << "found RHS" << std::endl;
                 break;
             }
             if (m_line.size() < 22) {
-                cout << "line is too short for a column" << endl;
-                cout << m_line << endl;
-                cout << "line number is " << m_line_number << endl;
+                (*m_message_stream) << "line is too short for a column" << std::endl;
+                (*m_message_stream) << m_line << std::endl;
+                (*m_message_stream) << "line number is " << m_line_number << std::endl;
                 set_m_ok_to_false();
                 return;
             }
-            string column_name_tmp = trim(m_line.substr(4, 8));
+            std::string column_name_tmp = trim(m_line.substr(4, 8));
             if (!column_name_tmp.empty()) {
                 column_name = column_name_tmp;
             }
@@ -297,7 +296,7 @@ class mps_reader {
             if (col_it == m_columns.end()) {
                 col = new mps_reader::column(column_name, m_columns.size());
                 m_columns[column_name] = col;
-                // cout << column_name << '[' << col->m_index << ']'<< endl;
+                // (*m_message_stream) << column_name << '[' << col->m_index << ']'<< std::endl;
             } else {
                 col = col_it->second;
             }
@@ -316,15 +315,15 @@ class mps_reader {
     }
 
 
-    void fill_rhs_by_columns(string rhsides) {
+    void fill_rhs_by_columns(std::string rhsides) {
         // uph, let us try to work with columns
         if (rhsides.size() >= 22) {
-            string ss = rhsides.substr(0, 8);
-            string row_name = trim(ss);
+            std::string ss = rhsides.substr(0, 8);
+            std::string row_name = trim(ss);
             auto t = m_rows.find(row_name);
 
             if (t == m_rows.end()) {
-                cout << "cannot find " << row_name << endl;
+                (*m_message_stream) << "cannot find " << row_name << std::endl;
                 goto fail;
             } else {
                 row * row = t->second;
@@ -339,22 +338,22 @@ class mps_reader {
         } else {
         fail:
             set_m_ok_to_false();
-            cout << "cannot understand this line" << endl;
-            cout << "line = " << m_line <<  ", line number is " << m_line_number << endl;
+            (*m_message_stream) << "cannot understand this line" << std::endl;
+            (*m_message_stream) << "line = " << m_line <<  ", line number is " << m_line_number << std::endl;
             return;
         }
     }
 
     void fill_rhs()  {
         if (m_line.size() < 14) {
-            cout << "line is too short" << endl;
-            cout << m_line << endl;
-            cout << "line number is " << m_line_number << endl;
+            (*m_message_stream) << "line is too short" << std::endl;
+            (*m_message_stream) << m_line << std::endl;
+            (*m_message_stream) << "line number is " << m_line_number << std::endl;
             set_m_ok_to_false();
             return;
         }
-        string rhsides = m_line.substr(14);
-        std::vector<string> splitted_line = split_and_trim(rhsides);
+        std::string rhsides = m_line.substr(14);
+        std::vector<std::string> splitted_line = split_and_trim(rhsides);
 
         for (unsigned i = 0; i < splitted_line.size() - 1; i += 2) {
             auto t = m_rows.find(splitted_line[i]);
@@ -396,25 +395,25 @@ class mps_reader {
     }
 
 
-    void read_bound_by_columns(string colstr) {
+    void read_bound_by_columns(std::string colstr) {
         if (colstr.size() < 14) {
-            cout << "line is too short" << endl;
-            cout << m_line << endl;
-            cout << "line number is " << m_line_number << endl;
+            (*m_message_stream) << "line is too short" << std::endl;
+            (*m_message_stream) << m_line << std::endl;
+            (*m_message_stream) << "line number is " << m_line_number << std::endl;
             set_m_ok_to_false();
             return;
         }
          // uph, let us try to work with columns
         if (colstr.size() >= 22) {
-            string ss = colstr.substr(0, 8);
-            string column_name = trim(ss);
+            std::string ss = colstr.substr(0, 8);
+            std::string column_name = trim(ss);
             auto t = m_columns.find(column_name);
 
             if (t == m_columns.end()) {
-                cout << "cannot find " << column_name << endl;
+                (*m_message_stream) << "cannot find " << column_name << std::endl;
                 goto fail;
             } else {
-                std::vector<string> bound_string;
+                std::vector<std::string> bound_string;
                 bound_string.push_back(column_name);
                 if (colstr.size() > 14) {
                     bound_string.push_back(colstr.substr(14));
@@ -429,18 +428,18 @@ class mps_reader {
         } else {
         fail:
             set_m_ok_to_false();
-            cout << "cannot understand this line" << endl;
-            cout << "line = " << m_line <<  ", line number is " << m_line_number << endl;
+            (*m_message_stream) << "cannot understand this line" << std::endl;
+            (*m_message_stream) << "line = " << m_line <<  ", line number is " << m_line_number << std::endl;
             return;
         }
     }
 
-    void update_bound(bound * b, std::vector<string> bound_string) {
+    void update_bound(bound * b, std::vector<std::string> bound_string) {
         /*
           UP means an upper bound is applied to the variable. A bound of type LO means a lower bound is applied. A bound type of FX ("fixed") means that the variable has upper and lower bounds equal to a single value. A bound type of FR ("free") means the variable has neither lower nor upper bounds and so can take on negative values. A variation on that is MI for free negative, giving an upper bound of 0 but no lower bound. Bound type PL is for a free positive for zero to plus infinity, but as this is the normal default, it is seldom used. There are also bound types for use in MIP models - BV for binary, being 0 or 1. UI for upper integer and LI for lower integer. SC stands for semi-continuous and indicates that the variable may be zero, but if not must be equal to at least the value given.
         */
 
-        string bound_type = get_string_from_position(1);
+        std::string bound_type = get_string_from_position(1);
         if (bound_type == "BV") {
             b->m_upper_is_set = true;
             b->m_upper = 1;
@@ -479,7 +478,7 @@ class mps_reader {
             b->m_upper_is_set = true;
             b->m_upper = 0;
         } else {
-            cout << "unexpected bound type " << bound_type << " at line " << m_line_number << endl;
+            (*m_message_stream) << "unexpected bound type " << bound_type << " at line " << m_line_number << std::endl;
             set_m_ok_to_false();
             throw;
         }
@@ -488,15 +487,15 @@ class mps_reader {
     void create_or_update_bound() {
         const unsigned name_offset = 14;
         lean_assert(m_line.size() >= 14);
-        std::vector<string> bound_string = split_and_trim(m_line.substr(name_offset, m_line.size()));
+        std::vector<std::string> bound_string = split_and_trim(m_line.substr(name_offset, m_line.size()));
 
         if (bound_string.size() == 0) {
             set_m_ok_to_false();
-            cout << "error at line " << m_line_number << endl;
+            (*m_message_stream) << "error at line " << m_line_number << std::endl;
             throw m_line;
         }
 
-        string name = bound_string[0];
+        std::string name = bound_string[0];
         auto it = m_columns.find(name);
         if (it == m_columns.end()){
             read_bound_by_columns(m_line.substr(14));
@@ -512,22 +511,22 @@ class mps_reader {
 
 
 
-    void read_range_by_columns(string rhsides) {
+    void read_range_by_columns(std::string rhsides) {
         if (m_line.size() < 14) {
-            cout << "line is too short" << endl;
-            cout << m_line << endl;
-            cout << "line number is " << m_line_number << endl;
+            (*m_message_stream) << "line is too short" << std::endl;
+            (*m_message_stream) << m_line << std::endl;
+            (*m_message_stream) << "line number is " << m_line_number << std::endl;
             set_m_ok_to_false();
             return;
         }
          // uph, let us try to work with columns
         if (rhsides.size() >= 22) {
-            string ss = rhsides.substr(0, 8);
-            string row_name = trim(ss);
+            std::string ss = rhsides.substr(0, 8);
+            std::string row_name = trim(ss);
             auto t = m_rows.find(row_name);
 
             if (t == m_rows.end()) {
-                cout << "cannot find " << row_name << endl;
+                (*m_message_stream) << "cannot find " << row_name << std::endl;
                 goto fail;
             } else {
                 row * row = t->second;
@@ -543,14 +542,14 @@ class mps_reader {
         } else {
         fail:
             set_m_ok_to_false();
-            cout << "cannot understand this line" << endl;
-            cout << "line = " << m_line <<  ", line number is " << m_line_number << endl;
+            (*m_message_stream) << "cannot understand this line" << std::endl;
+            (*m_message_stream) << "line = " << m_line <<  ", line number is " << m_line_number << std::endl;
             return;
         }
     }
 
 
-    void read_range(std::vector<string> & splitted_line){
+    void read_range(std::vector<std::string> & splitted_line){
         for (unsigned i = 1; i < splitted_line.size() - 1; i += 2) {
             auto it = m_rows.find(splitted_line[i]);
             if (it == m_rows.end()) {
@@ -565,7 +564,7 @@ class mps_reader {
 
     void maybe_modify_current_row_and_add_row_for_range(row * row_with_range) {
         unsigned index= m_rows.size() - m_cost_line_count;
-        string row_name = row_with_range->m_name + "_range";
+        std::string row_name = row_with_range->m_name + "_range";
         row * other_bound_range_row;
         switch (row_with_range->m_type) {
         case row_type::Greater_or_equal:
@@ -587,7 +586,7 @@ class mps_reader {
             other_bound_range_row->m_right_side = row_with_range->m_right_side + row_with_range->m_range;
             break;
         default:
-            cout << "unexpected bound type " << row_with_range->m_type << " at line " << m_line_number << endl;
+            (*m_message_stream) << "unexpected bound type " << row_with_range->m_type << " at line " << m_line_number << std::endl;
             set_m_ok_to_false();
             throw;
         }
@@ -655,7 +654,7 @@ class mps_reader {
         case mps_reader::Greater_or_equal: return lp_relation::Greater_or_equal;
         case mps_reader::Equal: return lp_relation::Equal;
         default:
-            std::cout << "Unexpected rt " << rt << endl;
+            (*m_message_stream) << "Unexpected rt " << rt << std::endl;
             set_m_ok_to_false();
             throw;
         }
@@ -703,7 +702,7 @@ class mps_reader {
 
     void set_solver_cost(row * row, lp_solver<T, X> *solver) {
         for (auto s : row->m_row_columns) {
-            string name = s.first;
+            std::string name = s.first;
             lean_assert(m_columns.find(name) != m_columns.end());
             mps_reader::column * col = m_columns[name];
             solver->set_cost_for_column(col->m_index, s.second);
@@ -711,8 +710,13 @@ class mps_reader {
     }
 
 public:
-    std::vector<string> column_names() {
-        std::vector<string> v;
+
+    void set_message_stream(std::ostream * o) {
+        lean_assert(o != nullptr);
+        m_message_stream = o;
+    }
+    std::vector<std::string> column_names() {
+        std::vector<std::string> v;
         for (auto s : m_columns) {
             v.push_back(s.first);
         }
@@ -733,7 +737,7 @@ public:
         }
     }
 
-    mps_reader(string file_name):
+    mps_reader(std::string file_name):
         m_file_name(file_name), m_file_stream(file_name) {
     }
     void read() {
@@ -771,7 +775,7 @@ public:
         case Greater_or_equal: return GE;
         case Equal: return EQ;
         default:
-            std::cout << "Unexpected rt " << rt << endl;
+            (*m_message_stream) << "Unexpected rt " << rt << std::endl;
             set_m_ok_to_false();
             throw;
         }
@@ -780,10 +784,10 @@ public:
     void fill_lar_solver_on_row(row * row, lar_solver *solver)  {
         if (row->m_name != m_cost_row_name) {
             auto kind = get_lar_relation_from_row(row->m_type);
-            std::vector<pair<mpq, var_index>> ls;
+            std::vector<std::pair<mpq, var_index>> ls;
             for (auto s : row->m_row_columns) {
                 var_index i = solver->add_var(s.first);
-                ls.push_back(make_pair(s.second, i));
+                ls.push_back(std::make_pair(s.second, i));
             }
             solver->add_constraint(ls, kind, row->m_right_side);
         } else {
@@ -799,23 +803,23 @@ public:
     }
 
     void create_low_constraint_for_var(column* col, bound * b, lar_solver *solver) {
-        std::vector<pair<mpq, var_index>> ls;
+        std::vector<std::pair<mpq, var_index>> ls;
         var_index i = solver->add_var(col->m_name);
-        ls.push_back(make_pair(numeric_traits<T>::one(), i));
+        ls.push_back(std::make_pair(numeric_traits<T>::one(), i));
         solver->add_constraint(ls, GE, b->m_low);
     }
 
     void create_upper_constraint_for_var(column* col, bound * b, lar_solver *solver) {
         var_index i = solver->add_var(col->m_name);
-        std::vector<pair<mpq, var_index>> ls;
-        ls.push_back(make_pair(numeric_traits<T>::one(), i));
+        std::vector<std::pair<mpq, var_index>> ls;
+        ls.push_back(std::make_pair(numeric_traits<T>::one(), i));
         solver->add_constraint(ls, LE, b->m_upper);
     }
 
     void create_equality_contraint_for_var(column* col, bound * b, lar_solver *solver) {
         var_index i = solver->add_var(col->m_name);
-        std::vector<pair<mpq, var_index>> ls;
-        ls.push_back(make_pair(numeric_traits<T>::one(), i));
+        std::vector<std::pair<mpq, var_index>> ls;
+        ls.push_back(std::make_pair(numeric_traits<T>::one(), i));
         solver->add_constraint(ls, EQ, b->m_fixed_value);
     }
 

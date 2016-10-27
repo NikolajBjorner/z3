@@ -191,15 +191,15 @@ public:
     }
 
  
-    void print_bound_evidence(const bound_evidence& be) {
-        std::cout << "evidence\n";
+    void print_bound_evidence(const bound_evidence& be, std::ostream & out) {
+        out << "evidence\n";
         for (auto & p : be.m_evidence) {
-            std::cout << p.first << std::endl;
-            print_constraint(p.second, std::cout);
+            out << p.first << std::endl;
+            print_constraint(p.second, out);
         }
-        std::cout << "after summing up the constraints we get\n";
-        print_linear_combination_of_column_indices(m_vec_of_canonic_left_sides()[be.m_j].m_coeffs, std::cout);
-        std::cout << " " << lconstraint_kind_string(be.m_kind) << " "  << be.m_bound << std::endl;
+        out << "after summing up the constraints we get\n";
+        print_linear_combination_of_column_indices(m_vec_of_canonic_left_sides()[be.m_j].m_coeffs, out);
+        out << " " << lconstraint_kind_string(be.m_kind) << " "  << be.m_bound << std::endl;
     }
     
     void bound_evidence_is_correct(bound_evidence & be) {
@@ -1066,7 +1066,7 @@ public:
 
     bool x_is_correct() const {
         if (m_x.size() != m_A.column_count()) {
-            std::cout << "the size is off " << m_x.size() << ", " << m_A.column_count() << std::endl;
+            //            std::cout << "the size is off " << m_x.size() << ", " << m_A.column_count() << std::endl;
             return false;
         }
         for (unsigned i = 0; i < m_A.row_count(); i++) {
@@ -1077,7 +1077,7 @@ public:
                 // std::cout << "left side = " << m_A.dot_product_with_row(i, m_x) << ' ';
                 // std::cout << "delta = " << delta << ' ';
                 // std::cout << "iters = " << total_iterations() << ")" << std::endl;
-                std::cout << "row " << i << " is off" << std::endl;
+                // std::cout << "row " << i << " is off" << std::endl;
                 return false;
             }
         }

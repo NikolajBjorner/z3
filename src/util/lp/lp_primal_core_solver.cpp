@@ -609,7 +609,7 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
     }
     do {
         char const* str = (m_using_inf_costs? "stage 1 " : "stage 2 ");
-        if (this->print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over(str)) {
+        if (this->print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over(str, * this->m_settings.get_message_ostream())) {
             return this->total_iterations();
         }
         lean_assert(m_current_x_is_feasible == calc_current_x_is_feasible());
@@ -721,7 +721,6 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::update_co
                                                1 + tp * tp);
              }
     }
-    this->m_column_norms[entering] = 1;
 }
 
 template <typename T, typename X>    T lp_primal_core_solver<T, X>::calculate_norm_of_entering_exactly() {
