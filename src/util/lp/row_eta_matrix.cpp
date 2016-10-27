@@ -93,8 +93,8 @@ void row_eta_matrix<T, X>::apply_from_right(indexed_vector<T> & w) {
     const T & w_row = w[m_row];
     if (numeric_traits<T>::is_zero(w_row)) return;
 #ifdef LEAN_DEBUG
-    std::vector<T> wcopy(w.m_data);
-    apply_from_right(wcopy);
+    // std::vector<T> wcopy(w.m_data);
+    // apply_from_right(wcopy);
 #endif
     if (numeric_traits<T>::precise()) {
         for (auto & it : m_row_vector.m_data) {
@@ -131,7 +131,7 @@ void row_eta_matrix<T, X>::apply_from_right(indexed_vector<T> & w) {
         }
     }
 #ifdef LEAN_DEBUG
-    lean_assert(vectors_are_equal(wcopy, w.m_data));
+    // lean_assert(vectors_are_equal(wcopy, w.m_data));
 
 #endif
 }

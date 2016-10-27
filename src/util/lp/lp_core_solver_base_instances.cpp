@@ -30,6 +30,7 @@ template lean::lp_core_solver_base<double, double>::lp_core_solver_base(
     lean::lp_settings&, const column_namer&, const std::vector<lean::column_type, std::allocator<lean::column_type> >&, std::vector<double, std::allocator<double> >&, std::vector<double, std::allocator<double> >&);
 
 template bool lean::lp_core_solver_base<double, double>::print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over(char const*);
+template bool lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over(char const*);
 template void lean::lp_core_solver_base<double, double>::restore_x(unsigned int, double const&);
 template void lean::lp_core_solver_base<double, double>::set_non_basic_x_to_correct_bounds();
 template void lean::lp_core_solver_base<double, double>::snap_xN_to_bounds_and_free_columns_to_zeroes();
@@ -97,6 +98,7 @@ template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq>
 template void lean::lp_core_solver_base<double, double>::init_lu();
 template void lean::lp_core_solver_base<lean::mpq, lean::mpq>::init_lu();
 template int lean::lp_core_solver_base<double, double>::pivots_in_column_and_row_are_different(int, int) const;
+template int lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::pivots_in_column_and_row_are_different(int, int) const;
 template int lean::lp_core_solver_base<lean::mpq, lean::mpq>::pivots_in_column_and_row_are_different(int, int) const;
 template bool lean::lp_core_solver_base<double, double>::calc_current_x_is_feasible_include_non_basis(void)const;
 template bool lean::lp_core_solver_base<lean::mpq, lean::mpq>::calc_current_x_is_feasible_include_non_basis(void)const;
@@ -107,3 +109,7 @@ template bool lean::lp_core_solver_base<lean::mpq, lean::mpq>::column_is_feasibl
 // template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::print_linear_combination_of_column_indices(std::vector<std::pair<lean::mpq, unsigned int>, std::allocator<std::pair<lean::mpq, unsigned int> > > const&, std::ostream&) const;
 template bool lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::column_is_feasible(unsigned int) const;
 template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::snap_non_basic_x_to_bound();
+template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::init_lu();
+template bool lean::lp_core_solver_base<rational, lean::numeric_pair<lean::mpq> >::A_mult_x_is_off_on_index(std::vector<unsigned int, std::allocator<unsigned int> > const&) const;
+template bool lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::find_x_by_solving();
+template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::restore_x(unsigned int, lean::numeric_pair<lean::mpq> const&);

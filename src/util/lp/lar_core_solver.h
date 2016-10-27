@@ -14,10 +14,11 @@
 #include "util/lp/binary_heap_priority_queue.h"
 #include "util/lp/breakpoint.h"
 #include "util/lp/stacked_unordered_set.h"
+#include "util/lp/lp_primal_core_solver.h"
 namespace lean {
 
 template <typename T, typename X>
-class lar_core_solver : public lp_core_solver_base<T, X> {
+class lar_core_solver : public lp_primal_core_solver<T, X> {
     // m_sign_of_entering is set to 1 if the entering variable needs
     // to grow and is set to -1  otherwise
     int m_sign_of_entering_delta;
@@ -50,11 +51,9 @@ public:
         return m_infeasible_row;
     }
 
-    void init_costs();
+    void init_costs(bool first_time);
 
     void init_cost_for_column(unsigned j);
-
-    void init_local();
 
     // returns m_sign_of_alpha_r
     int column_is_out_of_bounds(unsigned j);
@@ -118,11 +117,9 @@ public:
     bool find_evidence_row();
 
 
-    bool done();
+    bool is_done();
 
     void move_as_many_as_possible_fixed_columns_to_non_basis();
-
-    bool non_basis_columns_are_set_correctly() const; 
 
     void prefix();
 
@@ -150,7 +147,8 @@ public:
     bool improves_pivot_row_inf(unsigned j, int inf_sign);
 
     int choose_entering_column_for_row_inf_strategy();
-
+    int choose_entering_column_for_row_inf_strategy_randomly();
+    int choose_entering_column_for_row_inf_strategy_by_min_col_norm();
     void fill_evidence(unsigned row);
 
 
@@ -235,31 +233,16 @@ public:
             this->m_factorization = nullptr;
         }
     }
+    
+    int grab_first_infeasible_row_and_set_infeasible_row_sign();
 
-    bool non_basis_column_is_set_correctly(unsigned j) const {
-        if (j >= this->m_n())
-            return false;
-        switch (this->m_column_types[j]) {
-        case fixed:
-        case boxed:
-            if (!this->x_is_at_bound(j))
-                return false;
-            break;
-        case low_bound:
-            if (!this->x_is_at_low_bound(j))
-                return false;
-            break;
-        case upper_bound:
-            if (!this->x_is_at_upper_bound(j))
-                return false;
-            break;
-        case free_column:
-            break;
-        default:
-            lean_assert(false);
-            break;
-        }
-        return true;
-    }
+    int pick_randomly_infeasible_row_and_set_infeasible_row_sign();
+
+    int pick_min_infeasible_row_and_set_infeasible_row_sign();
+
+    int pick_infeasible_row_with_min_norm_and_set_infeasible_row_sign();
+
+    T get_norm_of_pivot_row(unsigned i);    
+    
 };
 }

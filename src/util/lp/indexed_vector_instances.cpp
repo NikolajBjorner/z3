@@ -34,4 +34,5 @@ template void lean::print_vector<std::string>(std::vector<std::string, std::allo
 template void lean::print_vector<lean::numeric_pair<lean::mpq> >(std::vector<lean::numeric_pair<lean::mpq>, std::allocator<lean::numeric_pair<lean::mpq> > > const&, std::ostream&);
 template void lean::indexed_vector<double>::resize(unsigned int);
 template void lean::print_vector< lean::mpq>(std::vector< lean::mpq, std::allocator< lean::mpq> > const &, std::basic_ostream<char, std::char_traits<char> > &);
+template void lean::print_vector<std::pair<lean::mpq, unsigned int> >(std::vector<std::pair<lean::mpq, unsigned int>, std::allocator<std::pair<lean::mpq, unsigned int> > > const&, std::ostream&);
 template void lean::indexed_vector<lean::numeric_pair<lean::mpq> >::erase_from_index(unsigned int);

@@ -18,6 +18,20 @@ namespace lean {
 typedef unsigned var_index;
 typedef unsigned constraint_index;
 
+enum lar_infeasible_row_search_strategy {
+    grab_first,
+    uniform_random,
+    minimal_index,
+    min_row_norm,
+};
+
+enum lar_infeasible_column_search_strategy {
+    grab_first_col,
+    uniform_random_col,
+    total_min_column_norm,
+    min_col_norm,
+};
+
 enum column_type  {
     fixed,
     boxed,
@@ -206,8 +220,8 @@ public:
         return is_eps_small_general<T>(t, tolerance_for_artificials);
     }
     // the method of lar solver to use
-    bool row_feasibility = true;
-    bool use_double_solver_for_lar = false;
+    bool lar_row_feasibility_only = false;  // we are going away from row_feasibility_loop - remove this field (todo)
+    bool presolve_with_double_solver_for_lar = false;
     int report_frequency = 1000;
     bool print_statistics = false;
     unsigned column_norms_update_frequency = 1000;
@@ -217,6 +231,8 @@ public:
     static unsigned ddd; // used for debugging
 #endif
     bool tighten_bounds = false;
+    lar_infeasible_row_search_strategy infeasible_row_search_strategy = grab_first;
+    lar_infeasible_column_search_strategy infeasible_column_search_strategy = min_col_norm;
 }; // end of lp_settings class
 
 

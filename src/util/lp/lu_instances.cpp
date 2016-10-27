@@ -31,6 +31,8 @@ template void lean::print_matrix<double, double>(lean::static_matrix<double, dou
 template bool lean::lu<double, double>::is_correct(const std::vector<unsigned>& basis);
 template bool lean::lu<lean::mpq, lean::numeric_pair<lean::mpq> >::is_correct( std::vector<unsigned int,class std::allocator<unsigned int> > const &);
 template lean::dense_matrix<double, double> lean::get_B<double, double>(lean::lu<double, double>&, const std::vector<unsigned>& basis);
+template lean::dense_matrix<lean::mpq, lean::mpq> lean::get_B<lean::mpq, lean::mpq>(lean::lu<lean::mpq, lean::mpq>&, std::vector<unsigned int, std::allocator<unsigned int> > const&);
+
 #endif
 
 template bool lean::lu<double, double>::pivot_the_row(int); // NOLINT

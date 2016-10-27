@@ -21,4 +21,5 @@ template lean::dense_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >& lean::de
 template lean::dense_matrix<lean::mpq, lean::numeric_pair<lean::mpq> > lean::operator*<lean::mpq, lean::numeric_pair<lean::mpq> >(lean::matrix<lean::mpq, lean::numeric_pair<lean::mpq> >&, lean::matrix<lean::mpq, lean::numeric_pair<lean::mpq> >&);
 template void lean::dense_matrix<lean::mpq, lean::numeric_pair< lean::mpq> >::apply_from_right( std::vector< lean::mpq, std::allocator< lean::mpq> > &);
 template void lean::dense_matrix<double,double>::apply_from_right(class std::vector<double,class std::allocator<double> > &);
+template void lean::dense_matrix<lean::mpq, lean::mpq>::apply_from_left(std::vector<lean::mpq, std::allocator<lean::mpq> >&);
 #endif

@@ -71,8 +71,8 @@ void eta_matrix<T, X>::apply_from_right(indexed_vector<T> & w) {
     if (w.m_index.size() == 0)
         return;
 #ifdef LEAN_DEBUG
-    std::vector<T> wcopy(w.m_data);
-    apply_from_right(wcopy);
+    // std::vector<T> wcopy(w.m_data);
+    // apply_from_right(wcopy);
 #endif
     T & t = w[m_column_index];
     t /= m_diagonal_element;
@@ -105,8 +105,8 @@ void eta_matrix<T, X>::apply_from_right(indexed_vector<T> & w) {
     }
     
 #ifdef LEAN_DEBUG
-// lean_assert(w.is_OK());
-// lean_assert(vectors_are_equal<T>(wcopy, w.m_data));
+    // lean_assert(w.is_OK());
+    // lean_assert(vectors_are_equal<T>(wcopy, w.m_data));
 #endif
 }
 #ifdef LEAN_DEBUG

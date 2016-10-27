@@ -324,7 +324,6 @@ public:
         m_basis_heading[leaving] = -place_in_non_basis - 1;
         m_nbasis[place_in_non_basis] = leaving;
     }
-
     
     void change_basis(unsigned entering, unsigned leaving) {
         lean_assert(m_basis_heading[entering] < 0);
@@ -361,6 +360,37 @@ public:
         change_basis(leaving, entering);
     }
 
+    bool non_basis_column_is_set_correctly(unsigned j) const {
+        if (j >= this->m_n())
+            return false;
+        switch (this->m_column_types[j]) {
+        case fixed:
+        case boxed:
+            if (!this->x_is_at_bound(j))
+                return false;
+            break;
+        case low_bound:
+            if (!this->x_is_at_low_bound(j))
+                return false;
+            break;
+        case upper_bound:
+            if (!this->x_is_at_upper_bound(j))
+                return false;
+            break;
+        case free_column:
+            break;
+        default:
+            lean_assert(false);
+            break;
+        }
+        return true;
+    }
+    bool non_basis_columns_are_set_correctly() const {
+        for (unsigned j : this->m_nbasis)
+            if (!non_basis_column_is_set_correctly(j))
+                return false;
+        return true;
+    }
 };
 
 }

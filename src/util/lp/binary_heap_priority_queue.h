@@ -36,7 +36,13 @@ public:
     // The capacity will be enlarged two times automatically if needed
     binary_heap_priority_queue(unsigned n);
 
-    void clear() { m_heap_size = 0;   }
+    void clear() {
+        for (unsigned i = 0; i < m_heap_size; i++) {
+            unsigned o = m_heap[i+1];
+            m_heap_inverse[o] = -1;
+        }
+        m_heap_size = 0;
+    }
 
     void resize(unsigned n);
     void put_to_heap(unsigned i, unsigned o);

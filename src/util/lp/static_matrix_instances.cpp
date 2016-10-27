@@ -70,4 +70,6 @@ template mpq static_matrix<mpq, numeric_pair<mpq> >::dot_product_with_column(std
 template mpq static_matrix<mpq, numeric_pair<mpq> >::get_elem(unsigned int, unsigned int) const;
 template void static_matrix<mpq, numeric_pair<mpq> >::init_empty_matrix(unsigned int, unsigned int);
 template void static_matrix<mpq, numeric_pair<mpq> >::set(unsigned int, unsigned int, mpq const&);
+template void lean::static_matrix<lean::mpq, lean::mpq>::copy_column_to_vector(unsigned int, std::vector<lean::mpq, std::allocator<lean::mpq> >&) const;
+template void lean::static_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::copy_column_to_vector(unsigned int, std::vector<lean::mpq, std::allocator<lean::mpq> >&) const;
 }

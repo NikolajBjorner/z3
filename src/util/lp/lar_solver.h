@@ -181,7 +181,7 @@ public:
         return j - m_terms_start_index;
     }
     
-    constraint_index add_var_bound(var_index j, lconstraint_kind kind, mpq right_side)  {
+    constraint_index add_var_bound(var_index j, lconstraint_kind kind, const mpq & right_side)  {
         if (j < m_A.column_count()) { // j is a var
             const canonic_left_side& cls = m_vec_of_canonic_left_sides[j];
             return add_constraint(cls, kind, right_side);
@@ -541,7 +541,7 @@ public:
 
  
     bool need_to_presolve_with_double_solver() const {
-        return m_settings.use_double_solver_for_lar
+        return m_settings.presolve_with_double_solver_for_lar
             && m_A.row_count() > 0; // todo, add more conditions
     }
 
@@ -595,7 +595,6 @@ public:
         m_touched_columns.resize(i + 1);
 
         lean_assert(m_heading.size() == i); // as m_A.column_count() on the entry to the method
-        lean_assert(m_nbasis.size() == i - m_A.row_count());
         if (register_in_basis) {
             m_A.add_row();
             m_heading.push_back(m_basis.size());
