@@ -250,8 +250,8 @@ protected:
 
     T get_column_value_with_core_solver(unsigned column, lp_core_solver_base<T, X> * core_solver) const;
     void set_scaled_cost(unsigned j);
-    void print_statistics_on_A()  {
-        std::cout << "extended A[" << this->m_A->row_count() << "," << this->m_A->column_count() << "]" << std::endl;
+    void print_statistics_on_A(std::ostream & out)  {
+        out << "extended A[" << this->m_A->row_count() << "," << this->m_A->column_count() << "]" << std::endl;
     }
 
     struct row_tighten_stats {
@@ -348,34 +348,27 @@ protected:
         lean_assert (ct != m_constraints.end());
         auto &constr = ct->second;
         const T & rs = constr.m_rs;
-        print_linear_iterator(it, std::cout);
-        std::cout << " = " << rs << std::endl;
-        std::cout << "lows ";
         unsigned i = 0;
         for (auto ct: col_types) {
             switch (ct) {
             case fixed:
             case boxed:
             case low_bound:
-                std::cout <<low_bounds[i] << " ";
                 break;
-            default: std::cout << " __ ";
-                    
+            default: 
+                break;
             }
             i++;
         }
-        std::cout << std::endl;
-        std::cout << "uppe ";
         i = 0;
         for (auto ct: col_types) {
             switch (ct) {
             case fixed:
             case boxed:
             case upper_bound:
-                std::cout << upper_bounds[i] << " ";
                 break;
-            default: std::cout << " __ ";
-                    
+            default:
+                break;
             }
             i++;
         }
@@ -531,5 +524,12 @@ protected:
     
 public:
     lp_settings & settings() { return m_settings;}
+    void print_model(std::ostream & s) const {
+        s << "objective = " << get_current_cost() << std::endl;
+        s << "column values\n";
+        for (auto & it : m_names_to_columns) {
+            s << it.first << " = " << get_column_value(it.second) << std::endl;
+        }
+    }
 };
 }

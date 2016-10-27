@@ -74,9 +74,9 @@ public:
 
     bool bounds_hold(std::unordered_map<std::string, T> const & solution);
 
-    T get_row_value(unsigned i, std::unordered_map<std::string, T> const & solution, bool print);
+    T get_row_value(unsigned i, std::unordered_map<std::string, T> const & solution, std::ostream * out);
 
-    bool row_constraint_holds(unsigned i, std::unordered_map<std::string, T> const & solution, bool print);
+    bool row_constraint_holds(unsigned i, std::unordered_map<std::string, T> const & solution, std::ostream * out);
 
     bool row_constraints_hold(std::unordered_map<std::string, T> const & solution);
 

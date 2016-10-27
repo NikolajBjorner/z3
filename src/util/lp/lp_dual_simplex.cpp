@@ -133,7 +133,8 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::fill_x_with_zeros(
 template <typename T, typename X> void lp_dual_simplex<T, X>::stage1() {
     lean_assert(m_core_solver == nullptr);
     this->m_x.resize(this->m_A->column_count(), numeric_traits<T>::zero());
-    this->print_statistics_on_A();
+    if (this->m_settings.get_message_ostream() != nullptr)
+        this->print_statistics_on_A(*this->m_settings.get_message_ostream());
     m_core_solver = new lp_dual_core_solver<T, X>(
                                                   *this->m_A,
                                                   m_can_enter_basis,

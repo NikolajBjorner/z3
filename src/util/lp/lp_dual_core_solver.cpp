@@ -509,7 +509,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::recover_leavin
 }
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::revert_to_previous_basis() {
-    std::cout << "revert to previous basis on ( " << m_p << ", " << m_q << ")" << std::endl;
+    LP_OUT(this->m_settings, "revert to previous basis on ( " << m_p << ", " << m_q << ")" << std::endl);
     this->change_basis_unconditionally(m_p, m_q);
     init_factorization(this->m_factorization, this->m_A, this->m_basis, this->m_settings);
     if (this->m_factorization->get_status() != LU_status::OK) {
@@ -779,7 +779,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::solve() { // s
     this->set_total_iterations(0);
     this->m_iters_with_no_cost_growing = 0;
     do {
-        if (this->print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over("")){
+        if (this->print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over("", *this->m_settings.get_message_ostream())){
             return;
         }
         one_iteration();

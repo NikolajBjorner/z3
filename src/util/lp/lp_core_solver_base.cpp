@@ -297,35 +297,39 @@ update_x(unsigned entering, X delta) {
 
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
-print_statistics(char const* str, X cost) {
-    LP_OUT(m_settings, str << "iterations = " << (total_iterations() - 1) << ", cost = " << T_to_string(cost)
-                           << ", nonzeros = " << m_factorization->get_number_of_nonzeroes() << std::endl);
+print_statistics(char const* str, X cost, std::ostream & out) {
+    out << "iterations = " << (total_iterations() - 1) << ", cost = " << T_to_string(cost)
+        << ", nonzeros = " << m_factorization->get_number_of_nonzeroes() << std::endl;
 }
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
-print_statistics_with_iterations_and_check_that_the_time_is_over() {
+print_statistics_with_iterations_and_check_that_the_time_is_over(std::ostream & str) {
     unsigned total_iterations = inc_total_iterations();
-    if (m_settings.print_statistics && (total_iterations % m_settings.report_frequency == 0)) {
-        print_statistics("", X());
+    if (m_settings.report_frequency != 0)  {
+        if (m_settings.print_statistics && (total_iterations % m_settings.report_frequency == 0)) {
+            print_statistics("", X(), str);
+        }
     }
     return time_is_over();
 }
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
-print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over(char const* str) {
+print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over(char const* str, std::ostream & out) {
     unsigned total_iterations = inc_total_iterations();
-    if (m_settings.print_statistics && (total_iterations % m_settings.report_frequency == 0)) {
-        print_statistics(str, get_cost());
-    }
+    if (m_settings.report_frequency != 0)
+        if (m_settings.print_statistics && (total_iterations % m_settings.report_frequency == 0)) {
+            print_statistics(str, get_cost(), out);
+        }
     return time_is_over();
 }
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
-print_statistics_with_cost_and_check_that_the_time_is_over(X cost) {
+print_statistics_with_cost_and_check_that_the_time_is_over(X cost, std::ostream & out) {
     unsigned total_iterations = inc_total_iterations();
-    if (m_settings.print_statistics && (total_iterations % m_settings.report_frequency == 0)) {
-        print_statistics("", cost);
-    }
+    if (m_settings.report_frequency != 0)
+        if (m_settings.print_statistics && (total_iterations % m_settings.report_frequency == 0)) {
+            print_statistics("", cost, out);
+        }
     return time_is_over();
 }
 

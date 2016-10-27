@@ -229,7 +229,8 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::solve_with_total
     this->m_costs.clear();
     this->m_costs.resize(total_vars, zero_of_type<T>());
     fill_A_x_and_basis_for_stage_one_total_inf();
-    this->print_statistics_on_A();
+    if (this->m_settings.get_message_ostream() != nullptr)
+        this->print_statistics_on_A(*this->m_settings.get_message_ostream());
     unsigned j = this->m_A->column_count() - 1;
     unsigned core_solver_cols = this->number_of_core_structurals();
     while (j >= core_solver_cols) {
@@ -281,7 +282,7 @@ template <typename T, typename X> bool lp_primal_simplex<T, X>::bounds_hold(std:
     return true;
 }
 
-template <typename T, typename X> T lp_primal_simplex<T, X>::get_row_value(unsigned i, std::unordered_map<std::string, T> const & solution, bool print) {
+template <typename T, typename X> T lp_primal_simplex<T, X>::get_row_value(unsigned i, std::unordered_map<std::string, T> const & solution, std::ostream * out) {
     auto it = this->m_A_values.find(i);
     if (it == this->m_A_values.end()) {
         std::stringstream s;
@@ -296,26 +297,27 @@ template <typename T, typename X> T lp_primal_simplex<T, X>::get_row_value(unsig
         auto sol_it = solution.find(ci->get_name());
         lean_assert(sol_it != solution.end());
         T column_val = sol_it->second;
-        if (print) {
-            std::cout << pair.second << "(" << ci->get_name() << "=" << column_val << ") ";
+        if (out != nullptr) {
+            (*out) << pair.second << "(" << ci->get_name() << "=" << column_val << ") ";
         }
         ret += pair.second * column_val;
     }
-    if (print) {
-        std::cout << " = " << ret << std::endl;
+    if (out != nullptr) {
+        (*out) << " = " << ret << std::endl;
     }
     return ret;
 }
 
-template <typename T, typename X> bool lp_primal_simplex<T, X>::row_constraint_holds(unsigned i, std::unordered_map<std::string, T> const & solution, bool print) {
-    T row_val = get_row_value(i, solution, print);
+template <typename T, typename X> bool lp_primal_simplex<T, X>::row_constraint_holds(unsigned i, std::unordered_map<std::string, T> const & solution, std::ostream *out) {
+    T row_val = get_row_value(i, solution, out);
     auto & constraint = this->m_constraints[i];
     T rs = constraint.m_rs;
+    bool print = out != nullptr;
     switch (constraint.m_relation) {
     case Equal:
         if (fabs(numeric_traits<T>::get_double(row_val - rs)) > 0.00001) {
             if (print) {
-                std::cout << "should be = " << rs << std::endl;
+                (*out) << "should be = " << rs << std::endl;
             }
             return false;
         }
@@ -323,7 +325,7 @@ template <typename T, typename X> bool lp_primal_simplex<T, X>::row_constraint_h
     case Greater_or_equal:
         if (numeric_traits<T>::get_double(row_val - rs) < -0.00001) {
             if (print) {
-                std::cout << "should be >= " << rs << std::endl;
+                (*out) << "should be >= " << rs << std::endl;
             }
             return false;
         }
@@ -332,7 +334,7 @@ template <typename T, typename X> bool lp_primal_simplex<T, X>::row_constraint_h
     case Less_or_equal:
         if (numeric_traits<T>::get_double(row_val - rs) > 0.00001) {
             if (print) {
-                std::cout << "should be <= " << rs << std::endl;
+                (*out) << "should be <= " << rs << std::endl;
             }
             return false;
         }
@@ -344,8 +346,8 @@ template <typename T, typename X> bool lp_primal_simplex<T, X>::row_constraint_h
 
 template <typename T, typename X> bool lp_primal_simplex<T, X>::row_constraints_hold(std::unordered_map<std::string, T> const & solution) {
     for (auto it : this->m_A_values) {
-        if (!row_constraint_holds(it.first, solution, false)) {
-            row_constraint_holds(it.first, solution, true);
+        if (!row_constraint_holds(it.first, solution, nullptr)) {
+            row_constraint_holds(it.first, solution, nullptr);
             return false;
         }
     }
