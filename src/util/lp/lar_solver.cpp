@@ -505,7 +505,7 @@ void lar_solver::get_infeasibility_evidence(std::vector<std::pair<mpq, constrain
         fill_evidence_from_canonic_left_side(evidence);
         return;
     }
-    if (m_mpq_lar_core_solver.get_infeasible_row_sign() == 0) {
+    if (m_mpq_lar_core_solver.get_infeasible_sum_sign() == 0) {
         return;
     }
     // the infeasibility sign
@@ -727,7 +727,6 @@ void lar_solver::pop(unsigned k) {
     m_touched_columns.resize(n);
     pop_basis(k);
     lean_assert(m_mpq_lar_core_solver.basis_heading_is_correct());
-    m_mpq_lar_core_solver.update_columns_out_of_bounds();
     m_touched_columns.clear();
     m_touched_rows.resize(m_A.row_count());
     m_touched_rows.clear();

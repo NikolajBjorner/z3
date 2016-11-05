@@ -44,7 +44,7 @@ lp_core_solver_base(static_matrix<T, X> & A,
     m_column_types(column_types),
     m_low_bounds(low_bound_values),
     m_upper_bounds(upper_bound_values),
-    m_column_norms(m_n(), T(1)),
+    m_column_norms(m_n()),
     m_copy_of_xB(m_m()),
     m_steepest_edge_coefficients(A.column_count()) {
         init();
@@ -201,7 +201,7 @@ A_mult_x_is_off() const {
         X eps = feps * (one + T(0.1) * abs(m_b[i]));
 
         if (delta > eps) {
-#if 0
+#if 1
             LP_OUT(m_settings, "x is off ("
                 << "m_b[" << i  << "] = " << m_b[i] << " "
                 << "left side = " << m_A.dot_product_with_row(i, m_x) << ' '
@@ -287,9 +287,12 @@ update_x(unsigned entering, X delta) {
     if (is_zero(delta)) {
         return;
     }
+
     m_x[entering] += delta;
+
     for (unsigned i : m_ed.m_index) {
-        m_copy_of_xB[i] = m_x[m_basis[i]];
+        if (!numeric_traits<X>::precise()) 
+            m_copy_of_xB[i] = m_x[m_basis[i]];
         m_x[m_basis[i]] -= delta * m_ed[i];
     }
 }
@@ -298,6 +301,8 @@ update_x(unsigned entering, X delta) {
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 print_statistics(char const* str, X cost, std::ostream & out) {
+    if (str!= nullptr)
+        out << str << " ";
     out << "iterations = " << (total_iterations() - 1) << ", cost = " << T_to_string(cost)
         << ", nonzeros = " << m_factorization->get_number_of_nonzeroes() << std::endl;
 }
@@ -472,6 +477,7 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::calc_current_x
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 update_basis_and_x(int entering, int leaving, X const & tt) {
+    
     if (!is_zero(tt)) {
         update_x(entering, tt);
         if ((!numeric_traits<T>::precise()) && A_mult_x_is_off_on_index(m_ed.m_index) && !find_x_by_solving()) {

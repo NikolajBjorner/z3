@@ -1041,7 +1041,6 @@ public:
         for (unsigned i : m_column_buffer.m_index) {
             unsigned jb = m_basis[i];
             m_x[jb] -= delta * m_column_buffer[i];
-            m_mpq_lar_core_solver.update_column_out_of_bounds(jb);
             lean_assert(m_touched_rows.data_size() > i);
             m_touched_rows.set_value_as_in_dictionary(i);
         }

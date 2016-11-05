@@ -46,7 +46,7 @@ public:
     std::vector<X> & m_upper_bounds;
     std::vector<T> m_column_norms; // the approximate squares of column norms that help choosing a profitable column
     std::vector<X> m_copy_of_xB;
-    unsigned m_sort_counter = 0;
+    unsigned m_basis_sort_counter = 0;
     std::vector<T> m_steepest_edge_coefficients;
     unsigned m_m() const { return m_A.row_count(); } // it is the length of basis. The matrix m_A has m_m rows and the dimension of the matrix A is m_m
     unsigned m_n() const { return m_A.column_count(); } // the number of columns in the matrix m_A

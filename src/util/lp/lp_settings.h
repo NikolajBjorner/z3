@@ -229,7 +229,7 @@ public:
     bool presolve_with_double_solver_for_lar = false;
     int report_frequency = 1000;
     bool print_statistics = false;
-    unsigned column_norms_update_frequency = 1000;
+    unsigned column_norms_update_frequency = 12000;
     bool scale_with_ratio = true;
     double density_threshold = 0.7; // need to tune it up, todo
 #ifdef LEAN_DEBUG
@@ -238,6 +238,8 @@ public:
     bool tighten_bounds = false;
     lar_infeasible_row_search_strategy infeasible_row_search_strategy = grab_first;
     lar_infeasible_column_search_strategy infeasible_column_search_strategy = min_col_norm;
+    bool use_breakpoints_in_feasibility_search = false;
+
 }; // end of lp_settings class
 
 
@@ -250,9 +252,17 @@ std::string T_to_string(const T & t) {
     return strs.str();
 }
 
+inline std::string T_to_string(const numeric_pair<mpq> & t) {
+    std::ostringstream strs;
+    double r = (t.x + t.y / mpq(1000)).get_double();
+    strs << r;
+    return strs.str();
+}
+
+
 inline std::string T_to_string(const mpq & t) {
     std::ostringstream strs;
-    strs << t;
+    strs << t.get_double();
     return strs.str();
 }
 
