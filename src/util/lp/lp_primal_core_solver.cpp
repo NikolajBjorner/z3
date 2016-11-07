@@ -1046,30 +1046,6 @@ void lp_primal_core_solver<T, X>::init_reduced_costs() {
     this->init_reduced_costs_for_one_iteration();
 }
 
-// j is the basic column, x is the value at x[j]
-// d is the coefficient before m_entering in the row with j as the basis column
-template <typename T, typename X>    void lar_core_solver<T, X>::try_add_breakpoint(unsigned j, const X & x, const T & d, breakpoint_type break_type, const X & break_value) {
-    X diff = x - break_value;
-    if (is_zero(diff)) {
-        switch (break_type) {
-        case low_break:
-            if (!same_sign_with_entering_delta(d))
-                return; // no breakpoint
-            break;
-        case upper_break:
-            if (same_sign_with_entering_delta(d))
-                return; // no breakpoint
-            break;
-        default: break;
-        }
-        add_breakpoint(j, zero_of_type<X>(), break_type);
-        return;
-    }
-    auto delta_j =  diff / d;
-    if (same_sign_with_entering_delta(delta_j))
-        add_breakpoint(j, delta_j, break_type);
-}
-
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::change_slope_on_breakpoint(unsigned entering, breakpoint<X> * b, T & slope_at_entering) {
     if (b->m_j == entering) {
         lean_assert(b->m_type != fixed_break && (!is_zero(b->m_delta)));

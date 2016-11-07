@@ -54,42 +54,8 @@ public:
     // returns m_sign_of_alpha_r
     int column_is_out_of_bounds(unsigned j);
 
-    bool can_enter_basis_mpq(unsigned j);
-
     void calculate_pivot_row(unsigned i);
-
-    X get_deb_inf_column(unsigned j);
-
-    X get_deb_inf();
-
-    bool debug_profit_delta(unsigned j, const T & delta, std::ostream & out);
-
-    bool debug_profit(unsigned j, std::ostream & out);
-
-    int choose_column_entering_basis();
-
-    void one_iteration();
-
-
-    void decide_on_status_when_cannot_enter();
-    template <typename L>
-    bool same_sign_with_entering_delta(const L & a) {
-        return (a > zero_of_type<L>() && m_sign_of_entering_delta > 0) || (a < zero_of_type<L>() && m_sign_of_entering_delta < 0);
-    }
-
-    // j is the basic column, x is the value at x[j]
-    // d is the coefficient before m_entering in the row with j as the basis column
-    void try_add_breakpoint(unsigned j, const X & x, const T & d, breakpoint_type break_type, const X & break_value);
-    void add_breakpoint(unsigned j, X delta, breakpoint_type type);
-
-    void try_add_breakpoint_in_row(unsigned i);
-
-    void clear_breakpoints();
-
-    void fill_breakpoints_array(unsigned entering);
-
-    void advance_on_entering(unsigned entering);
-
+    
     void print_cost(std::ostream & out);
 
     void update_basis_and_x_with_comparison(unsigned entering, unsigned leaving, X delta);
@@ -115,50 +81,16 @@ public:
 
     bool is_empty() const { return this->m_m() == 0 && this->m_n() == 0; }
 
-    void feasibility_loop();
-
-    unsigned get_number_of_inf_rows() const;
-
-
-    void row_feasibility_loop();
-
-    int find_infeasible_row_and_set_infeasible_row_sign();
-
-    int get_infeasibility_sign(unsigned j) const;
-
-
     template <typename L>
     int get_sign(const L & v) {
         return v > zero_of_type<L>() ? 1 : (v < zero_of_type<L>() ? -1 : 0);
     }
 
-    bool improves_pivot_row_inf(unsigned j, int inf_sign);
 
-    int choose_entering_column_for_row_inf_strategy();
-    int choose_entering_column_for_row_inf_strategy_randomly();
-    int choose_entering_column_for_row_inf_strategy_by_min_col_norm();
+
     void fill_evidence(unsigned row);
 
 
-    void update_delta_of_entering_and_leaving_candidates(X del, X & delta,
-                                                         std::vector<unsigned> & leaving_candidates,
-                                                         unsigned bj);
-
-    void update_delta_of_entering(int delta_sign, unsigned row, X & delta,
-                                  std::vector<unsigned> & leaving_candidates);
-
-    unsigned find_leaving_for_inf_row_strategy(std::vector<unsigned> & leaving_candidates) {
-        lean_assert(leaving_candidates.size() > 0);
-        return leaving_candidates[my_random() % leaving_candidates.size()]; // more randomness
-    }
-
-    X find_initial_delta_and_its_sign(unsigned row, unsigned entering,
-                                      int & entering_delta_sign,
-                                      std::vector<unsigned> & leaving_candidates);
-
-    void advance_on_infeasible_row_and_entering(unsigned inf_row, unsigned entering);
-
-    void advance_on_infeasible_row(unsigned i);
 
     void solve();
 
@@ -173,16 +105,6 @@ public:
         }
     }
     
-    int grab_first_infeasible_row_and_set_infeasible_row_sign();
-
-    int pick_randomly_infeasible_row_and_set_infeasible_row_sign();
-
-    int pick_min_infeasible_row_and_set_infeasible_row_sign();
-
-    int pick_infeasible_row_with_min_norm_and_set_infeasible_row_sign();
-
-    T get_norm_of_pivot_row(unsigned i);    
-
     void fill_not_improvable_zero_sum();
     
 };

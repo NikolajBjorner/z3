@@ -513,6 +513,5 @@ public:
     }
     
     friend core_solver_pretty_printer<T, X>;
-    
 };
 }

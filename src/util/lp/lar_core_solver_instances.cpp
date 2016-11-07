@@ -24,8 +24,5 @@ template lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::lar_c
 template void lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::solve();
 template void lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::prefix();
 template void lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::print_column_info(unsigned int, std::ostream & out) const;
-#ifdef LEAN_DEBUG
-template lean::numeric_pair<lean::mpq> lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::get_deb_inf();
-#endif
 template bool lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::is_empty() const;
 template void lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::calculate_pivot_row(unsigned int);
