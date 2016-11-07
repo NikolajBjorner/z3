@@ -61,7 +61,7 @@ void random_updater::diminish_interval_for_basic_var(numeric_pair<mpq>& nb_x, un
         }
         break;
     case upper_bound:
-        delta = m_core_solver.m_upper_bounds[j] - m_core_solver.m_x[j];
+        delta = m_core_solver.m_upper_bounds()[j] - m_core_solver.m_x[j];
         lean_assert(delta >= zero_of_type<numeric_pair<mpq>>());
         if (a > 0) {
             r.set_low_bound(nb_x - delta / a);
@@ -74,11 +74,11 @@ void random_updater::diminish_interval_for_basic_var(numeric_pair<mpq>& nb_x, un
             delta = m_core_solver.m_x[j] - m_core_solver.m_low_bounds[j];
             lean_assert(delta >= zero_of_type<numeric_pair<mpq>>());
             r.set_upper_bound(nb_x + delta / a);
-            delta = m_core_solver.m_upper_bounds[j] - m_core_solver.m_x[j];
+            delta = m_core_solver.m_upper_bounds()[j] - m_core_solver.m_x[j];
             lean_assert(delta >= zero_of_type<numeric_pair<mpq>>());
             r.set_low_bound(nb_x - delta / a);
         } else { // a < 0
-            delta = m_core_solver.m_upper_bounds[j] - m_core_solver.m_x[j];
+            delta = m_core_solver.m_upper_bounds()[j] - m_core_solver.m_x[j];
             lean_assert(delta >= zero_of_type<numeric_pair<mpq>>());
             r.set_upper_bound(nb_x - delta / a);
             delta = m_core_solver.m_x[j] - m_core_solver.m_low_bounds[j];

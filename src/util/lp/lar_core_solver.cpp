@@ -15,26 +15,24 @@
 #include "util/lp/lar_core_solver.h"
 namespace lean {
 template <typename T, typename X>
-lar_core_solver<T, X>::lar_core_solver(std::vector<X> & x, const std::vector<column_type> & column_types,
-                                       std::vector<X> & low_bounds, std::vector<X> & upper_bounds,
+lar_core_solver<T, X>::lar_core_solver(
                                        std::vector<unsigned> & basis,
                                        std::vector<unsigned> & nbasis,
                                        std::vector<int> & heading,
                                        static_matrix<T, X> & A,
                                        lp_settings & settings,
-                                       const column_namer & column_names,
-                                       std::unordered_set<unsigned> & columns_out_of_bounds
+                                       const column_namer & column_names
 ):
     lp_primal_core_solver<T, X>(A,
                               m_right_sides_dummy,
-                              x,
+                              m_x,
                               basis,
                               nbasis,
                               heading,
                               m_costs_dummy,
-                              column_types,
-                              low_bounds,
-                              upper_bounds,
+                              m_column_types(),
+                              const_cast<std::vector<numeric_pair<mpq>> &>(m_low_bounds()),
+                              const_cast<std::vector<numeric_pair<mpq>> &>(m_upper_bounds()),
                               settings,
                               column_names) {}
 

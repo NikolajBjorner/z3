@@ -15,6 +15,7 @@
 #include "util/lp/breakpoint.h"
 #include "util/lp/stacked_unordered_set.h"
 #include "util/lp/lp_primal_core_solver.h"
+#include "util/lp/stacked_vector.h"
 namespace lean {
 
 template <typename T, typename X>
@@ -27,17 +28,18 @@ class lar_core_solver : public lp_primal_core_solver<T, X> {
     std::vector<X> m_right_sides_dummy;
     std::vector<T> m_costs_dummy;
 public:
-    lar_core_solver(std::vector<X> & x,
-                    const std::vector<column_type> & column_types,
-                    std::vector<X> & low_bounds,
-                    std::vector<X> & upper_bounds,
+    std::vector<numeric_pair<mpq>> m_x; // the solution
+    stacked_vector<column_type> m_column_types;
+    stacked_vector<numeric_pair<mpq>> m_low_bounds;
+    stacked_vector<numeric_pair<mpq>> m_upper_bounds;
+
+    lar_core_solver(
                     std::vector<unsigned> & basis,
                     std::vector<unsigned> & nbasis,
                     std::vector<int> & heading,
                     static_matrix<T, X> & A,
                     lp_settings & settings,
-                    const column_namer & column_names,
-                    std::unordered_set<unsigned> & columns_out_of_bounds
+                    const column_namer & column_names
                     );
 
     int get_infeasible_sum_sign() const { return m_infeasible_sum_sign;   }
