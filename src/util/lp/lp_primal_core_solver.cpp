@@ -537,6 +537,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::init_run(
     init_reduced_costs();
     this->m_column_norm_update_counter = 0;
     init_column_norms();
+    sort_non_basis();
 }
 
 
