@@ -16,25 +16,21 @@
 namespace lean {
 template <typename T, typename X>
 lar_core_solver<T, X>::lar_core_solver(
-                                       std::vector<unsigned> & basis,
-                                       std::vector<unsigned> & nbasis,
-                                       std::vector<int> & heading,
-                                       static_matrix<T, X> & A,
                                        lp_settings & settings,
                                        const column_namer & column_names
 ):
-    lp_primal_core_solver<T, X>(A,
-                              m_right_sides_dummy,
-                              m_x,
-                              basis,
-                              nbasis,
-                              heading,
-                              m_costs_dummy,
-                              m_column_types(),
-                              const_cast<std::vector<numeric_pair<mpq>> &>(m_low_bounds()),
-                              const_cast<std::vector<numeric_pair<mpq>> &>(m_upper_bounds()),
-                              settings,
-                              column_names) {}
+    m_primal_solver(m_A,
+                    m_right_sides_dummy,
+                    m_x,
+                    m_basis,
+                    m_nbasis,
+                    m_heading,
+                    m_costs_dummy,
+                    m_column_types(),
+                    const_cast<std::vector<numeric_pair<mpq>> &>(m_low_bounds()),
+                    const_cast<std::vector<numeric_pair<mpq>> &>(m_upper_bounds()),
+                    settings,
+                    column_names) {}
 
 template <typename T, typename X> void lar_core_solver<T, X>::init_costs(bool first_time) {
     lean_assert(false); // should not be called
@@ -136,8 +132,8 @@ template <typename T, typename X>    int lar_core_solver<T, X>::column_is_out_of
 
 
 template <typename T, typename X>    void lar_core_solver<T, X>::calculate_pivot_row(unsigned i) {
-    this->calculate_pivot_row_of_B_1(i);
-    this->calculate_pivot_row_when_pivot_row_of_B1_is_ready();
+    m_primal_solver.calculate_pivot_row_of_B_1(i);
+    m_primal_solver.calculate_pivot_row_when_pivot_row_of_B1_is_ready();
 }
 
 template <typename T, typename X> void lar_core_solver<T, X>::print_cost(std::ostream & out) {
@@ -206,21 +202,21 @@ template <typename T, typename X>  void lar_core_solver<T, X>::move_as_many_as_p
 
 
 template <typename T, typename X> void lar_core_solver<T, X>::prefix() {
-    this->m_b.resize(this->m_m());
-    this->m_breakpoint_indices_queue.resize(this->m_n());
-    this->m_copy_of_xB.resize(this->m_n());
-    this->m_costs.resize(this->m_n());
-    this->m_d.resize(this->m_n());
-    this->m_ed.resize(this->m_m());
-    this->m_pivot_row.resize(this->m_n());
-    this->m_pivot_row_of_B_1.resize(this->m_m());
-    this->m_w.resize(this->m_m());
-    this->m_y.resize(this->m_m());
-    this->m_steepest_edge_coefficients.resize(this->m_n());
-    this->m_column_norms.clear();
-    this->m_column_norms.resize(this->m_n(), one_of_type<mpq>());
-    this->m_inf_set.clear();
-    this->m_inf_set.resize(this->m_n());
+    m_primal_solver.m_b.resize(m_primal_solver.m_m());
+    m_primal_solver.m_breakpoint_indices_queue.resize(m_primal_solver.m_n());
+    m_primal_solver.m_copy_of_xB.resize(m_primal_solver.m_n());
+    m_primal_solver.m_costs.resize(m_primal_solver.m_n());
+    m_primal_solver.m_d.resize(m_primal_solver.m_n());
+    m_primal_solver.m_ed.resize(m_primal_solver.m_m());
+    m_primal_solver.m_pivot_row.resize(m_primal_solver.m_n());
+    m_primal_solver.m_pivot_row_of_B_1.resize(m_primal_solver.m_m());
+    m_primal_solver.m_w.resize(m_primal_solver.m_m());
+    m_primal_solver.m_y.resize(m_primal_solver.m_m());
+    m_primal_solver.m_steepest_edge_coefficients.resize(m_primal_solver.m_n());
+    m_primal_solver.m_column_norms.clear();
+    m_primal_solver.m_column_norms.resize(m_primal_solver.m_n(), one_of_type<mpq>());
+    m_primal_solver.m_inf_set.clear();
+    m_primal_solver.m_inf_set.resize(m_primal_solver.m_n());
 }
 
 
@@ -241,18 +237,18 @@ template <typename T, typename X>    void lar_core_solver<T, X>::fill_evidence(u
 
 template <typename T, typename X> void lar_core_solver<T, X>::fill_not_improvable_zero_sum() {
     //  reusing the existing mechanism for row_feasibility_loop
-    m_infeasible_sum_sign = this->m_settings.use_breakpoints_in_feasibility_search? -1 : 1;
+    m_infeasible_sum_sign = m_primal_solver.m_settings.use_breakpoints_in_feasibility_search? -1 : 1;
     m_infeasible_sum.clear();
-    for (auto j : this->m_basis) {
-        const T & cost_j = this->m_costs[j];
+    for (auto j : m_primal_solver.m_basis) {
+        const T & cost_j = m_primal_solver.m_costs[j];
         if (!numeric_traits<T>::is_zero(cost_j)) {
             m_infeasible_sum.push_back(std::make_pair(cost_j, j));
         }
     }
     // m_costs are expressed by m_d ( additional costs), substructing the latter gives 0
-    for (unsigned j = 0; j < this->m_n(); j++) {
-        if (this->m_basis_heading[j] >= 0) continue;
-        const T & d_j = this->m_d[j];
+    for (unsigned j = 0; j < m_primal_solver.m_n(); j++) {
+        if (m_primal_solver.m_basis_heading[j] >= 0) continue;
+        const T & d_j = m_primal_solver.m_d[j];
         if (!numeric_traits<T>::is_zero(d_j)) {
             m_infeasible_sum.push_back(std::make_pair(-d_j, j));
         }
@@ -264,17 +260,17 @@ template <typename T, typename X> void lar_core_solver<T, X>::fill_not_improvabl
 template <typename T, typename X> void lar_core_solver<T, X>::solve() {
     prefix();
     if (is_empty()) {
-        this->m_status = OPTIMAL;
+        m_primal_solver.m_status = OPTIMAL;
         return;
     }
 
-    lean_assert(!this->A_mult_x_is_off());
-    lean_assert(this->non_basis_columns_are_set_correctly());
-    this->find_feasible_solution();
-    if (this->m_status == INFEASIBLE) {
+    lean_assert(!m_primal_solver.A_mult_x_is_off());
+    lean_assert(m_primal_solver.non_basis_columns_are_set_correctly());
+    m_primal_solver.find_feasible_solution();
+    if (m_primal_solver.m_status == INFEASIBLE) {
         fill_not_improvable_zero_sum();
     } else  {
-        this->m_status = OPTIMAL;
+        m_primal_solver.m_status = OPTIMAL;
     }
 }
 template <typename T, typename X> void lar_core_solver<T, X>::print_column_info(unsigned j, std::ostream & out) const {

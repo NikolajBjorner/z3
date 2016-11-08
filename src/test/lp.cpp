@@ -1679,7 +1679,7 @@ void solve_some_mps(argument_parser & args_parser) {
             }
         }
     } else {
-        unsigned i = 0;
+        //        unsigned i = 0;
         for (auto& s : file_names) {
             // if (i++ > 9) return;
             try {

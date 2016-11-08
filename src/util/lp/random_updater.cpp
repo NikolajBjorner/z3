@@ -45,7 +45,7 @@ random_updater::interval random_updater::get_interval_of_non_basic_var(unsigned 
 void random_updater::diminish_interval_for_basic_var(numeric_pair<mpq>& nb_x, unsigned j,
                                                      mpq & a,
                                                      interval & r) {
-    lean_assert(m_core_solver.m_basis_heading[j] >= 0);
+    lean_assert(m_core_solver.m_heading[j] >= 0);
     numeric_pair<mpq> delta;
     lean_assert(a != zero_of_type<mpq>());
     switch (m_core_solver.get_column_type(j)) {
@@ -112,22 +112,22 @@ random_updater::interval random_updater::find_shift_interval(unsigned j) {
 
 void random_updater::shift_var(unsigned j, interval & r) {
     lean_assert(r.contains(m_core_solver.m_x[j]));
-    lean_assert(m_core_solver.column_is_feasible(j));
+    lean_assert(m_core_solver.m_primal_solver.column_is_feasible(j));
     auto old_x = m_core_solver.m_x[j];
     remove_value(old_x);
     auto new_val = m_core_solver.m_x[j] = get_random_from_interval(r);
     add_value(new_val);
 
     lean_assert(r.contains(m_core_solver.m_x[j]));
-    lean_assert(m_core_solver.column_is_feasible(j));
+    lean_assert(m_core_solver.m_primal_solver.column_is_feasible(j));
     auto delta = m_core_solver.m_x[j] - old_x;
 
     for (unsigned i : m_column_j.m_index) {
         unsigned bj = m_core_solver.m_basis[i];
         m_core_solver.m_x[bj] -= m_column_j[i] * delta;
-        lean_assert(m_core_solver.column_is_feasible(bj));
+        lean_assert(m_core_solver.m_primal_solver.column_is_feasible(bj));
     }
-    lean_assert(m_core_solver.A_mult_x_is_off() == false);
+    lean_assert(m_core_solver.m_primal_solver.A_mult_x_is_off() == false);
 }
 
 numeric_pair<mpq> random_updater::get_random_from_interval(interval & r) {
@@ -143,7 +143,7 @@ numeric_pair<mpq> random_updater::get_random_from_interval(interval & r) {
 }
 
 void random_updater::random_shift_var(unsigned j) {
-    m_core_solver.solve_Bd(j, m_column_j);
+    m_core_solver.m_primal_solver.solve_Bd(j, m_column_j);
     interval interv = find_shift_interval(j);
     if (interv.is_empty()) {
         return;
@@ -178,14 +178,14 @@ void random_updater::remove_value(numeric_pair<mpq>& v) {
 }
 
 void random_updater::add_column_to_sets(unsigned j) {
-    if (m_core_solver.m_basis_heading[j] < 0) {
+    if (m_core_solver.m_heading[j] < 0) {
         m_var_set.insert(j);
         add_value(m_core_solver.m_x[j]);
     } else {
-        unsigned row = m_core_solver.m_basis_heading[j];
+        unsigned row = m_core_solver.m_heading[j];
         for (auto row_c : m_core_solver.m_A.m_rows[row]) {
             unsigned cj = row_c.m_j;
-            if (m_core_solver.m_basis_heading[cj] < 0) {
+            if (m_core_solver.m_heading[cj] < 0) {
                 m_var_set.insert(cj);
                 add_value(m_core_solver.m_x[cj]);
             }

@@ -386,6 +386,9 @@ lp_primal_core_solver(static_matrix<T, X> & A,
     m_beta(A.row_count()),
     m_converted_harris_eps(convert_struct<T, double>::convert(this->m_settings.harris_feasibility_tolerance)),
     m_inf_set(A.column_count()) {
+
+    std::cout << "primal_constr" << std::endl;
+    
     lean_assert(initial_x_is_correct());
     m_low_bounds_dummy.resize(A.column_count(), zero_of_type<T>());
     m_enter_price_eps = numeric_traits<T>::precise() ? numeric_traits<T>::zero() : T(1e-5);

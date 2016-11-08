@@ -63,11 +63,6 @@ struct lar_term {
 class lar_solver : public column_namer {
     //////////////////// fields //////////////////////////
     // fields used in m_mpq_lar_core_solver
-    stacked_vector<unsigned> m_pushed_basis;
-    std::vector<unsigned> m_basis;
-    std::vector<unsigned> m_nbasis;
-    std::vector<int> m_heading;
-    static_matrix<mpq, numeric_pair<mpq>> m_A;
     lp_settings m_settings;
     // end of fields used in m_mpq_lar_core_solver
     
@@ -88,7 +83,9 @@ class lar_solver : public column_namer {
     indexed_vector<mpq> m_column_buffer;
     
     ////////////////// methods ////////////////////////////////
-    static_matrix<mpq, numeric_pair<mpq>> & A() { return m_A;}
+    static_matrix<mpq, numeric_pair<mpq>> & A() { return m_mpq_lar_core_solver.m_A;}
+    static_matrix<mpq, numeric_pair<mpq>> const & A() const { return m_mpq_lar_core_solver.m_A;}
+    
     canonic_left_side create_or_fetch_existing_left_side(const std::vector<std::pair<mpq, var_index>>& left_side_par, var_index & j);
     static mpq find_ratio_of_original_constraint_to_normalized(const canonic_left_side & ls, const lar_constraint & constraint);
 
@@ -146,11 +143,6 @@ public:
 
 
     lar_solver() : m_mpq_lar_core_solver(
-
-                                         m_basis,
-                                         m_nbasis,
-                                         m_heading,
-                                         m_A,
                                          m_settings,
                                          *this
                                          ) {}
@@ -173,7 +165,7 @@ public:
     }
     
     constraint_index add_var_bound(var_index j, lconstraint_kind kind, const mpq & right_side)  {
-        if (j < m_A.column_count()) { // j is a var
+        if (j < A().column_count()) { // j is a var
             const canonic_left_side& cls = m_vec_of_canonic_left_sides[j];
             return add_constraint(cls, kind, right_side);
         }
@@ -232,7 +224,7 @@ public:
     }
 
     void analyze_new_bounds_on_row(std::vector<implied_bound_evidence_signature<mpq, numeric_pair<mpq>>>& evidence_vector, unsigned row_index) {
-        iterator_on_pivot_row<mpq> it(m_mpq_lar_core_solver.m_pivot_row, m_basis[row_index]); 
+        iterator_on_pivot_row<mpq> it(m_mpq_lar_core_solver.get_pivot_row(), m_mpq_lar_core_solver.m_basis[row_index]); 
         bound_analyzer_on_row<mpq, numeric_pair<mpq>> ra_pos(it,
                                                              m_mpq_lar_core_solver.m_low_bounds(),
                                                              m_mpq_lar_core_solver.m_upper_bounds(),
@@ -333,10 +325,10 @@ public:
     void propagate_bound(var_index j, std::vector<bound_evidence> & bound_evidences, 
         std::unordered_map<unsigned, unsigned> & improved_low_bounds, 
         std::unordered_map<unsigned, unsigned> & improved_upper_bounds) {
-        m_mpq_lar_core_solver.solve_Bd(j);
-        for (unsigned i = 0; i < m_mpq_lar_core_solver.m_ed.m_index.size();i++) {
+        m_mpq_lar_core_solver.m_primal_solver.solve_Bd(j);
+        for (unsigned i = 0; i < m_mpq_lar_core_solver.m_primal_solver.m_ed.m_index.size();i++) {
             std::vector<implied_bound_evidence_signature<mpq, numeric_pair<mpq>>> evidence_vector;
-            calculate_implied_bound_evidences(m_mpq_lar_core_solver.m_ed.m_index[i], evidence_vector);
+            calculate_implied_bound_evidences(m_mpq_lar_core_solver.m_primal_solver.m_ed.m_index[i], evidence_vector);
             process_new_implied_evidences(evidence_vector, bound_evidences, improved_low_bounds, improved_upper_bounds);
         }
 #if LEAN_DEBUG
@@ -389,7 +381,7 @@ public:
     constraint_index add_var_bound_with_bound_propagation(var_index j, lconstraint_kind kind, mpq right_side, std::vector<bound_evidence> & bound_evidences)  {
         std::unordered_map<unsigned, unsigned> improved_low_bounds; // serves as a guard
         std::unordered_map<unsigned, unsigned> improved_upper_bounds; // serves as a guard
-        if (j < m_A.column_count()) { // j is a var
+        if (j < A().column_count()) { // j is a var
             constraint_index ret = add_var_bound(j, kind, right_side);
             propagate_bound(j, bound_evidences, improved_low_bounds, improved_upper_bounds);
             return ret;
@@ -481,16 +473,17 @@ public:
     mpq get_left_side_val(const lar_constraint &  cns, const std::unordered_map<var_index, mpq> & var_map) const;
 
     void print_constraint(const lar_base_constraint * c, std::ostream & out) const;
-    unsigned get_total_iterations() const { return m_mpq_lar_core_solver.total_iterations(); }
+    unsigned get_total_iterations() const { return m_mpq_lar_core_solver.m_primal_solver.total_iterations(); }
 // see http://research.microsoft.com/projects/z3/smt07.pdf
 // This method searches for a feasible solution with as many different values of variables, reverenced in vars, as it can find
 // Attention, after a call to this method the non-basic variables don't necesserarly stick to their bounds anymore
     void random_update(unsigned sz, var_index const* vars);
     void try_pivot_fixed_vars_from_basis();
     void fill_var_set_for_random_update(unsigned sz, var_index const * vars, std::vector<unsigned>& column_list);
+    
     std::vector<unsigned> get_list_of_all_var_indices() const {
         std::vector<unsigned> ret;
-        for (unsigned j = 0; j < m_heading.size(); j++)
+        for (unsigned j = 0; j < m_mpq_lar_core_solver.m_heading.size(); j++)
             ret.push_back(j);
         return ret;
     }
@@ -512,7 +505,7 @@ public:
     }
 
     void fill_basis_from_canonic_left_sides() {
-        auto & b = m_basis;
+        auto & b = m_mpq_lar_core_solver.m_basis;
         b.clear();
         for (auto & t : m_map_of_canonic_left_sides_to_ul_pairs()) {
             if (t.first.size() > 1)
@@ -533,7 +526,7 @@ public:
  
     bool need_to_presolve_with_double_solver() const {
         return m_settings.presolve_with_double_solver_for_lar
-            && m_A.row_count() > 0; // todo, add more conditions
+            && A().row_count() > 0; // todo, add more conditions
     }
 
     bool low_bound_is_set(unsigned j) const {
@@ -569,12 +562,12 @@ public:
         pop_core_solver_params(1);
     }
      void pop_core_solver_params(unsigned k) {
-        m_A.pop(k);
+        A().pop(k);
      }
 
     void add_new_var_to_core_fields(bool register_in_basis, numeric_pair<mpq> val) {
-        unsigned i = m_A.column_count();
-        m_A.add_column();
+        unsigned i = A().column_count();
+        A().add_column();
         lean_assert(m_mpq_lar_core_solver.m_x.size() == i);
         lean_assert(m_mpq_lar_core_solver.m_column_types.size() == i);
         m_mpq_lar_core_solver.m_column_types.push_back(free_column);
@@ -585,15 +578,15 @@ public:
         m_mpq_lar_core_solver.m_x.push_back(val);
         m_touched_columns.resize(i + 1);
 
-        lean_assert(m_heading.size() == i); // as m_A.column_count() on the entry to the method
+        lean_assert(m_mpq_lar_core_solver.m_heading.size() == i); // as A().column_count() on the entry to the method
         if (register_in_basis) {
-            m_A.add_row();
-            m_heading.push_back(m_basis.size());
-            m_basis.push_back(i);
-            m_touched_rows.resize(m_A.row_count());
+            A().add_row();
+            m_mpq_lar_core_solver.m_heading.push_back(m_mpq_lar_core_solver.m_basis.size());
+            m_mpq_lar_core_solver.m_basis.push_back(i);
+            m_touched_rows.resize(A().row_count());
         }else {
-            m_heading.push_back(- static_cast<int>(m_nbasis.size()) - 1);
-            m_nbasis.push_back(i);
+            m_mpq_lar_core_solver.m_heading.push_back(- static_cast<int>(m_mpq_lar_core_solver.m_nbasis.size()) - 1);
+            m_mpq_lar_core_solver.m_nbasis.push_back(i);
         }
     }
 
@@ -937,7 +930,7 @@ public:
     void substitute_terms(const mpq & mult, const std::vector<std::pair<mpq, var_index>>& left_side_with_terms,std::vector<std::pair<mpq, var_index>> &left_side, mpq & right_side) const {
         for (auto & t : left_side_with_terms) {
             if (t.second < m_terms_start_index) {
-                lean_assert(t.second < m_A.column_count());
+                lean_assert(t.second < A().column_count());
                 left_side.push_back(std::pair<mpq, var_index>(mult * t.first, t.second));
             } else {
                 const lar_term & term = m_terms[adjust_term_index(t.second)];
@@ -947,40 +940,6 @@ public:
         }
     }
 
-    void pop_basis(unsigned k) {
-        // restore by using m_sorted
-        m_pushed_basis.pop(k);
-        m_heading.clear();
-        m_heading.resize(m_A.column_count(), -1);
-        m_basis.clear();
-        for (unsigned i = 0; i < m_pushed_basis.size(); i++ ) {
-            unsigned j = m_pushed_basis[i];
-            m_heading[j] = i;
-            m_basis.push_back(j);
-        }
-        
-        m_nbasis.clear();
-        for (unsigned j = 0; j < m_heading.size(); j++) {
-            int & pos = m_heading[j]; // we are going to change it!
-            if (pos < 0 ) { // j is in nbasis
-                pos = -1 - static_cast<int>(m_nbasis.size());
-                m_nbasis.push_back(j);
-            }
-        }
-    }
-
-    
-    void sort_and_push_basis() {
-        lean_assert(m_pushed_basis.size() <= m_basis.size());
-        for (unsigned i = 0; i < m_basis.size();i++) {
-            if (i == m_pushed_basis.size()) {
-                m_pushed_basis.push_back(m_basis[i]);
-            } else {
-                m_pushed_basis[i] = m_basis[i];
-            }
-        }
-        m_pushed_basis.push();
-    }
 
     numeric_pair<mpq> get_delta_of_touched_nb_column(unsigned j) {
         switch (m_mpq_lar_core_solver.m_column_types[j]) {
@@ -1008,23 +967,23 @@ public:
     }
     
     void fix_touched_column(unsigned j) {
-        if (m_heading[j] >= 0) { // it is a basic column
+        if (m_mpq_lar_core_solver.m_heading[j] >= 0) { // it is a basic column
             // just mark the row at touched and exit
-            m_touched_rows.set_value_as_in_dictionary(m_heading[j]);
+            m_touched_rows.set_value_as_in_dictionary(m_mpq_lar_core_solver.m_heading[j]);
             return;
         }
         numeric_pair<mpq> delta = get_delta_of_touched_nb_column(j);
         if (delta.is_zero())
             return;
 
-        if (m_A.row_count() != m_column_buffer.data_size())
-            m_column_buffer.resize(m_A.row_count());
+        if (A().row_count() != m_column_buffer.data_size())
+            m_column_buffer.resize(A().row_count());
         else
             m_column_buffer.clear();
-        m_mpq_lar_core_solver.solve_Bd(j, m_column_buffer);
+        m_mpq_lar_core_solver.m_primal_solver.solve_Bd(j, m_column_buffer);
         m_mpq_lar_core_solver.m_x[j] += delta;
         for (unsigned i : m_column_buffer.m_index) {
-            unsigned jb = m_basis[i];
+            unsigned jb = m_mpq_lar_core_solver.m_basis[i];
             m_mpq_lar_core_solver.m_x[jb] -= delta * m_column_buffer[i];
             lean_assert(m_touched_rows.data_size() > i);
             m_touched_rows.set_value_as_in_dictionary(i);
@@ -1032,8 +991,8 @@ public:
     }
 
     void find_more_touched_columns() { // todo. can it be optimized during pop() ?
-        for (unsigned j : m_nbasis) {
-            if (!m_mpq_lar_core_solver.non_basis_column_is_set_correctly(j))
+        for (unsigned j : m_mpq_lar_core_solver.m_nbasis) {
+            if (!m_mpq_lar_core_solver.m_primal_solver.non_basis_column_is_set_correctly(j))
                 m_touched_columns.set_value_as_in_dictionary(j);
         }
     }
@@ -1049,16 +1008,16 @@ public:
     }
 
     bool x_is_correct() const {
-        if (m_mpq_lar_core_solver.m_x.size() != m_A.column_count()) {
-            //            std::cout << "the size is off " << m_mpq_lar_core_solver.m_x.size() << ", " << m_A.column_count() << std::endl;
+        if (m_mpq_lar_core_solver.m_x.size() != A().column_count()) {
+            //            std::cout << "the size is off " << m_mpq_lar_core_solver.m_x.size() << ", " << A().column_count() << std::endl;
             return false;
         }
-        for (unsigned i = 0; i < m_A.row_count(); i++) {
-            numeric_pair<mpq> delta =  m_A.dot_product_with_row(i, m_mpq_lar_core_solver.m_x);
+        for (unsigned i = 0; i < A().row_count(); i++) {
+            numeric_pair<mpq> delta =  A().dot_product_with_row(i, m_mpq_lar_core_solver.m_x);
             if (!delta.is_zero()) {
                 // std::cout << "x is off (";
                 // std::cout << "m_b[" << i  << "] = " << m_b[i] << " ";
-                // std::cout << "left side = " << m_A.dot_product_with_row(i, m_mpq_lar_core_solver.m_x) << ' ';
+                // std::cout << "left side = " << A().dot_product_with_row(i, m_mpq_lar_core_solver.m_x) << ' ';
                 // std::cout << "delta = " << delta << ' ';
                 // std::cout << "iters = " << total_iterations() << ")" << std::endl;
                 // std::cout << "row " << i << " is off" << std::endl;
