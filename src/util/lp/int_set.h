@@ -15,6 +15,7 @@ class int_set {
 public:
     std::vector<int> m_index;
     int_set(unsigned size): m_data(size, -1) {}
+    int_set() {}
     bool contains(unsigned j) const {
         if (j >= m_data.size())
             return false;

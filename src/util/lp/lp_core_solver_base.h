@@ -48,6 +48,29 @@ public:
     std::vector<X> m_copy_of_xB;
     unsigned m_basis_sort_counter = 0;
     std::vector<T> m_steepest_edge_coefficients;
+    std::vector<unsigned> m_trace_of_basis_change_vector; // the even positions are entering, the odd positions are leaving
+    bool m_tracing_basis_changes = false;
+    void start_tracing_basis_changed() {
+        m_tracing_basis_changes = true;
+    }
+        
+    void stop_tracing_basis_changed() {
+        m_tracing_basis_changes = false;
+    }
+
+    void trace_basis_change(unsigned entering, unsigned leaving) {
+        if (!m_tracing_basis_changes) return;
+        unsigned size = m_trace_of_basis_change_vector.size();
+        if (size >= 2 && m_trace_of_basis_change_vector[size-2] == leaving
+                &&  m_trace_of_basis_change_vector[size -1] == entering) {
+            m_trace_of_basis_change_vector.pop_back();
+            m_trace_of_basis_change_vector.pop_back();
+        } else {
+            m_trace_of_basis_change_vector.push_back(entering);
+            m_trace_of_basis_change_vector.push_back(leaving);
+        }
+    }
+    
     unsigned m_m() const { return m_A.row_count(); } // it is the length of basis. The matrix m_A has m_m rows and the dimension of the matrix A is m_m
     unsigned m_n() const { return m_A.column_count(); } // the number of columns in the matrix m_A
 
@@ -276,7 +299,7 @@ public:
 
     void init_reduced_costs_for_one_iteration();
 
-    non_basic_column_value_position get_non_basic_column_value_position(unsigned j);
+    non_basic_column_value_position get_non_basic_column_value_position(unsigned j) const;
 
     void init_lu();
     int pivots_in_column_and_row_are_different(int entering, int leaving) const;
@@ -323,6 +346,8 @@ public:
         m_basis[place_in_basis] = entering;
         m_basis_heading[leaving] = -place_in_non_basis - 1;
         m_nbasis[place_in_non_basis] = leaving;
+        trace_basis_change(entering, leaving);
+        
     }
     
     void change_basis(unsigned entering, unsigned leaving) {
@@ -351,6 +376,7 @@ public:
             m_basis_heading[leaving] = -100000000; // some huge negative number
             m_nbasis.resize(last); // shrink by one and forget the fixed column
         }
+        trace_basis_change(entering, leaving);
     }
 
     void restore_basis_change(unsigned entering, unsigned leaving) {
@@ -387,10 +413,64 @@ public:
     }
     bool non_basis_columns_are_set_correctly() const {
         for (unsigned j : this->m_nbasis)
-            if (!non_basis_column_is_set_correctly(j))
+            if (!non_basis_column_is_set_correctly(j)) {
+                print_column_info(j, std::cout);
                 return false;
+            }
         return true;
     }
+
+    void print_column_info(unsigned j, std::ostream & out) const {
+        out << "column " << j << " type = " << column_type_to_string(m_column_types[j]) << std::endl;
+        switch (m_column_types[j]) {
+        case fixed:
+        case boxed:
+            out << "(" << m_low_bounds[j] << ", " << m_upper_bounds[j] << ")" << std::endl;
+            break;
+        case low_bound:
+            out << m_low_bounds[j] << std::endl;
+            break;
+        case upper_bound:
+            out << m_upper_bounds[j] << std::endl;
+            break;
+        default:
+            lean_assert(false);
+        }
+        std::cout << "x = " << T_to_string(m_x[j]) << std::endl;
+    }
+
+    bool column_is_free(unsigned j) { return this->m_column_type[j] == free; }
+
+    bool column_has_upper_bound(unsigned j) {
+        switch(m_column_types[j]) {
+        case free_column:
+        case low_bound:
+            return false;
+        default:
+            return true;
+        }
+    }
+
+    bool bounds_for_boxed_are_set_correctly() const {
+        for (unsigned j = 0; j < m_column_types.size(); j++) {
+            if (m_column_types[j] != boxed) continue;
+            if (m_low_bounds[j] > m_upper_bounds[j])
+                return false;
+        }
+        return true;
+    }
+    
+    bool column_has_low_bound(unsigned j) {
+        switch(m_column_types[j]) {
+        case free_column:
+        case upper_bound:
+            return false;
+        default:
+            return true;
+        }
+    }
+
+    
 };
 
 }

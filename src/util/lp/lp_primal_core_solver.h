@@ -104,14 +104,6 @@ public:
 
     void get_bound_on_variable_and_update_leaving_precisely(unsigned j, std::vector<unsigned> & leavings, T m, X & t, T & abs_of_d_of_leaving);
 
-    bool column_is_free(unsigned j) { return this->m_column_type[j] == free; }
-
-    bool column_has_upper_bound(unsigned j) {
-        return ((unsigned)this->m_column_types[j]) < 2;
-    }
-
-    bool column_has_low_bound(unsigned j) { return this->m_column_types[j] != free_column; }
-
     std::vector<T> m_low_bounds_dummy; // needed for the base class only
 
     X get_max_bound(std::vector<X> & b);

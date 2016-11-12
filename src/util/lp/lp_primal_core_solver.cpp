@@ -400,12 +400,12 @@ template <typename T, typename X> bool lp_primal_core_solver<T, X>::initial_x_is
         basis_set.insert(this->m_basis[i]);
     }
     for (unsigned j = 0; j < this->m_n(); j++) {
-        if (column_has_low_bound(j) && this->m_x[j] < numeric_traits<T>::zero()) {
+        if (this->column_has_low_bound(j) && this->m_x[j] < numeric_traits<T>::zero()) {
             LP_OUT(this->m_settings, "low bound for variable " << j << " does not hold: this->m_x[" << j << "] = " << this->m_x[j] << " is negative " << std::endl);
             return false;
         }
 
-        if (column_has_upper_bound(j) && this->m_x[j] > this->m_upper_bounds[j]) {
+        if (this->column_has_upper_bound(j) && this->m_x[j] > this->m_upper_bounds[j]) {
             LP_OUT(this->m_settings, "upper bound for " << j << " does not hold: "  << this->m_upper_bounds[j] << ">" << this->m_x[j] << std::endl);
             return false;
         }
@@ -440,8 +440,8 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::check_the
 }
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::check_bound(unsigned i) {
-    lean_assert (!(column_has_low_bound(i) && (numeric_traits<T>::zero() > this->m_x[i])));
-    lean_assert (!(column_has_upper_bound(i) && (this->m_upper_bounds[i] < this->m_x[i])));
+    lean_assert (!(this->column_has_low_bound(i) && (numeric_traits<T>::zero() > this->m_x[i])));
+    lean_assert (!(this->column_has_upper_bound(i) && (this->m_upper_bounds[i] < this->m_x[i])));
 }
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::check_correctness() {
@@ -525,7 +525,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::init_run(
     this->set_total_iterations(0);
     this->m_iters_with_no_cost_growing = 0;
     m_using_infeas_costs = false;
-    backup_and_normalize_costs();
+    backup_and_normalize_costs(); // todo : now always needed
     init_inf_set();
     if (current_x_is_feasible() && m_look_for_feasible_solution_only)
         return;

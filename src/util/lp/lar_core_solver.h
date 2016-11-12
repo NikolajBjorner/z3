@@ -16,6 +16,7 @@
 #include "util/lp/stacked_unordered_set.h"
 #include "util/lp/lp_primal_core_solver.h"
 #include "util/lp/stacked_vector.h"
+#include "util/lp/lar_solution_signature.h"
 namespace lean {
 
 template <typename T, typename X>
@@ -38,12 +39,15 @@ public:
     std::vector<unsigned> m_nbasis;
     std::vector<int> m_heading;
     lp_primal_core_solver<T, X> m_primal_solver;
-
+    
     lar_core_solver(
                     lp_settings & settings,
                     const column_namer & column_names
                     );
 
+    lp_settings & settings() { return m_primal_solver.m_settings;}
+    const lp_settings & settings() const { return m_primal_solver.m_settings;}
+    
     int get_infeasible_sum_sign() const { return m_infeasible_sum_sign;   }
 
     const std::vector<std::pair<mpq, unsigned>> & get_infeasibility_info(int & inf_sign) const {
@@ -110,9 +114,6 @@ public:
 
     bool low_bounds_are_set() const { return true; }
 
-    void print_column_info(unsigned j, std::ostream & out) const;
-
-
     const indexed_vector<T> & get_pivot_row() const {
         return m_primal_solver.m_pivot_row;
     }
@@ -174,5 +175,276 @@ public:
         pop_basis(k);
         lean_assert(m_primal_solver.basis_heading_is_correct());
     }
+
+    bool need_to_presolve_with_double_solver() const {
+        return settings().presolve_with_double_solver_for_lar  && m_A.row_count() > 0;
+    }
+
+    template <typename L>
+    bool is_zero_vector(const std::vector<L> & b) {
+        for (const L & m: b)
+            if (!is_zero(m)) return false;
+        return true;
+    }
+
+    template <typename L, typename K>
+    void prepare_solver_x_with_signature(const lar_solution_signature & signature, lp_primal_core_solver<L,K> & s) {
+        for (auto &t : signature) {
+            unsigned j = t.first;
+            lean_assert(m_heading[j] < 0);
+            auto pos_type = t.second;
+            switch (pos_type) {
+            case at_low_bound:
+                s.m_x[j] = s.m_low_bounds[j];
+                break;
+            case at_fixed:
+            case at_upper_bound:
+                s.m_x[j] = s.m_upper_bounds[j];
+                break;
+            case free_of_bounds: {
+                s.m_x[j] = zero_of_type<K>();
+                continue;
+            }
+            default:
+                lean_unreachable();
+            }
+        }
+
+        lean_assert(is_zero_vector(s.m_b));
+        s.solve_Ax_eq_b();
+        lean_assert(s.A_mult_x_is_off()==false);
+    }
+
+
+    void catch_up_in_lu(const std::vector<unsigned> & trace_of_basis_change) {
+        if (m_primal_solver.m_factorization->m_refactor_counter + trace_of_basis_change.size() >= 200) {
+            for (unsigned i = 0; i < trace_of_basis_change.size(); i+= 2) {
+                //  entering basis_delta[i], leaving nbasis_delta[i]
+                unsigned entering = trace_of_basis_change[i];
+                unsigned leaving = trace_of_basis_change[i+1];
+                m_primal_solver.change_basis_unconditionally(entering, leaving);
+            }
+            if (m_primal_solver.m_factorization != nullptr)
+                delete m_primal_solver.m_factorization;
+            m_primal_solver.m_factorization = nullptr;
+        } else {
+            indexed_vector<mpq> w(m_A.row_count());
+            lu<mpq, numeric_pair<mpq>> * l = m_primal_solver.m_factorization;
+            lean_assert(l->get_status() == LU_status::OK);
+            bool replace = true;
+            for (unsigned i = 0; i < trace_of_basis_change.size(); i+= 2) {
+                //  entering basis_delta[i], leaving nbasis_delta[i]
+                unsigned entering = trace_of_basis_change[i];
+                unsigned leaving = trace_of_basis_change[i+1];
+                lean_assert(m_heading[entering] < 0);
+                lean_assert(m_heading[leaving] >= 0);
+                if (replace) {
+                    l->prepare_entering(entering, w); // to init vector w
+                    l->replace_column(zero_of_type<mpq>(), w, m_heading[leaving]);
+                }
+                if (l->get_status() != LU_status::OK) {
+                    replace = false;
+                    if (m_primal_solver.m_factorization != nullptr)
+                        delete m_primal_solver.m_factorization;
+                    m_primal_solver.m_factorization = nullptr;
+                }
+                m_primal_solver.change_basis_unconditionally(entering, leaving);
+            }
+        }
+        if (m_primal_solver.m_factorization == nullptr) {
+            init_factorization(m_primal_solver.m_factorization, m_A, m_basis, settings());
+        }
+    }
+
+    
+    void solve_on_signature(const lar_solution_signature & signature, const std::vector<unsigned> & changes_of_basis) {
+        if (m_primal_solver.m_factorization == nullptr) {
+            for (unsigned j = 0; j < changes_of_basis.size(); j+=2) {
+                unsigned entering = changes_of_basis[j];
+                unsigned leaving = changes_of_basis[j + 1];
+                m_primal_solver.change_basis_unconditionally(entering, leaving);
+                init_factorization(m_primal_solver.m_factorization, m_A, m_basis, settings());
+            }
+        } else {
+            catch_up_in_lu(changes_of_basis);
+        }
+            
+        prepare_solver_x_with_signature(signature, m_primal_solver);
+        m_primal_solver.find_feasible_solution();
+    }
+
+    void create_double_matrix(static_matrix<double, double> & A) {
+        for (unsigned i = 0; i < m_A.row_count(); i++) {
+            auto & row = m_A.m_rows[i];
+            for (row_cell<mpq> & c : row) {
+                A.set(i, c.m_j, c.get_val().get_double());
+            }
+        }
+    }
+
+    void fill_basis_d(
+                      std::vector<unsigned>& basis_d,
+                      std::vector<int>& heading_d,
+                      std::vector<unsigned>& nbasis_d){
+        basis_d = m_basis;
+        heading_d = m_heading;
+        nbasis_d = m_nbasis;
+    }
+
+    template <typename L, typename K>
+    void extract_signature_from_lp_core_solver(const lp_primal_core_solver<L, K> & solver, lar_solution_signature & signature) {
+        signature.clear();
+        lean_assert(signature.size() == 0);
+        for (unsigned j = 0; j < solver.m_basis_heading.size(); j++) {
+            if (solver.m_basis_heading[j] < 0)
+                signature[j] = solver.get_non_basic_column_value_position(j);
+        }
+    }
+
+    void get_bounds_for_double_solver(std::vector<double> & low_bounds, std::vector<double> & upper_bounds) {
+        lean_assert(m_primal_solver.A_mult_x_is_off() == false);
+        lean_assert(low_bounds.size() == upper_bounds.size() && upper_bounds.size() == m_A.column_count());
+        double delta = find_delta_for_strict_boxed_bounds().get_double();
+        for (unsigned j = 0; j < low_bounds.size(); j++) {
+            if (low_bound_is_set(j)) {
+                auto & lb = m_primal_solver.m_low_bounds[j];
+                low_bounds[j] = lb.x.get_double() + delta * lb.y.get_double();
+            }
+            if (upper_bound_is_set(j)) {
+                auto & ub = m_primal_solver.m_upper_bounds[j];
+                upper_bounds[j] = ub.x.get_double() + delta * ub.y.get_double();
+            }
+        }
+    }
+
+    void scale_problem_for_doubles(
+                        static_matrix<double, double>& A,        
+                        std::vector<double> & low_bounds,
+                        std::vector<double> & upper_bounds) {
+        std::vector<double> column_scale_vector;
+        std::vector<double> right_side_vector(A.column_count());
+        scaler<double, double > scaler(right_side_vector,
+                                       A,
+                                       settings().scaling_minimum,
+                                       settings().scaling_maximum,
+                                       column_scale_vector,
+                                       settings());
+        if (! scaler.scale()) {
+            // the scale did not succeed, unscaling
+            A.clear();
+            create_double_matrix(A);
+            std::cout << "scaler failed\n";
+        } else {
+            for (unsigned j = 0; j < A.column_count(); j++) {
+                if (m_primal_solver.column_has_upper_bound(j)) {
+                    upper_bounds[j] /= column_scale_vector[j];
+                }
+                if (m_primal_solver.column_has_low_bound(j)) {
+                    low_bounds[j] /= column_scale_vector[j];
+                }
+            }
+        }
+        
+    }
+    // returns the trace of basis changes
+    std::vector<unsigned> find_solution_signature_with_doubles(lar_solution_signature & signature) {
+        unsigned m = m_A.row_count();
+        unsigned n = m_A.column_count();
+        static_matrix<double, double> A(m, n);        
+        create_double_matrix(A);
+        std::vector<double> x(n), low_bounds(n), upper_bounds(n);
+        get_bounds_for_double_solver(low_bounds, upper_bounds);
+        std::vector<double> right_side_vector(A.row_count(), 0);
+        std::vector<int>  heading_d;
+        std::vector<unsigned> basis_d, nbasis_d;
+        fill_basis_d(basis_d, heading_d, nbasis_d);
+        scale_problem_for_doubles(A, low_bounds, upper_bounds);
+        std::vector<double> costs(A.column_count());
+        auto core_solver = lp_primal_core_solver<double, double>(A,
+                                                                 right_side_vector,
+                                                                 x,
+                                                                 basis_d,
+                                                                 nbasis_d,
+                                                                 heading_d,
+                                                                 costs,
+                                                                 m_column_types(),
+                                                                 low_bounds,
+                                                                 upper_bounds,
+                                                                 settings(),
+                                                                 m_primal_solver.m_column_names);
+        extract_signature_from_lp_core_solver(m_primal_solver, signature);
+        prepare_solver_x_with_signature(signature, core_solver);
+        core_solver.start_tracing_basis_changed();
+        core_solver.find_feasible_solution();
+        extract_signature_from_lp_core_solver(core_solver, signature);
+        return core_solver.m_trace_of_basis_change_vector;
+    }
+
+
+    bool low_bound_is_set(unsigned j) const {
+        switch (m_column_types[j]) {
+        case free_column:
+        case upper_bound:
+            return false;
+        case low_bound:
+        case boxed:
+        case fixed:
+            return true;
+        default:
+            lean_assert(false);
+        }
+        return false;
+    }
+    
+    bool upper_bound_is_set(unsigned j) const {
+        switch (m_column_types[j]) {
+        case free_column:
+        case low_bound:
+            return false;
+        case upper_bound:
+        case boxed:
+        case fixed:
+            return true;
+        default:
+            lean_assert(false);
+        }
+        return false;
+    }
+
+    void update_delta(mpq& delta, numeric_pair<mpq> const& l, numeric_pair<mpq> const& u) const {
+        lean_assert(l <= u);
+        if (l.x < u.x && l.y > u.y) {
+            mpq delta1 = (u.x - l.x) / (l.y - u.y);
+            if (delta1 < delta) {
+                delta = delta1;
+            }
+        }
+        lean_assert(l.x + delta * l.y <= u.x + delta * u.y);
+    }
+
+
+    mpq find_delta_for_strict_boxed_bounds() const{
+        mpq delta = numeric_traits<mpq>::one();
+        for (unsigned j = 0; j < m_A.column_count(); j++ ) {
+            if (m_column_types[j] != boxed)
+                continue;
+            update_delta(delta, m_low_bounds[j], m_upper_bounds[j]);
+
+        }
+        return delta;
+    }
+
+    
+    mpq find_delta_for_strict_bounds() const{
+        mpq delta = numeric_traits<mpq>::one();
+        for (unsigned j = 0; j < m_A.column_count(); j++ ) {
+            if (low_bound_is_set(j))
+                update_delta(delta, m_low_bounds[j], m_x[j]);
+            if (upper_bound_is_set(j))
+                update_delta(delta, m_x[j], m_upper_bounds[j]);
+        }
+        return delta;
+    }
+
 };
 }

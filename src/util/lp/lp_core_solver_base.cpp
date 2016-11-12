@@ -47,9 +47,10 @@ lp_core_solver_base(static_matrix<T, X> & A,
     m_column_norms(m_n()),
     m_copy_of_xB(m_m()),
     m_steepest_edge_coefficients(A.column_count()) {
-        init();
-        init_basis_heading();
-    }
+    lean_assert(bounds_for_boxed_are_set_correctly());    
+    init();
+    init_basis_heading();
+}
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 allocate_basis_heading() { // the rest of initilization will be handled by the factorization class
@@ -178,22 +179,23 @@ restore_m_ed(T * buffer) {
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 A_mult_x_is_off() const {
     lean_assert(m_x.size() == m_A.column_count());
-    if (numeric_traits<T>::precise()) return false;
-#if RUN_A_MULT_X_IS_OFF_FOR_PRECESE
-    for (unsigned i = 0; i < m_m(); i++) {
-        X delta = m_b[i] - m_A.dot_product_with_row(i, m_x);
-        if (delta != numeric_traits<X>::zero()) {
-            // std::cout << "x is off (";
-            // std::cout << "m_b[" << i  << "] = " << m_b[i] << " ";
-            // std::cout << "left side = " << m_A.dot_product_with_row(i, m_x) << ' ';
-            // std::cout << "delta = " << delta << ' ';
-            // std::cout << "iters = " << total_iterations() << ")" << std::endl;
-            return true;
-        }
+#if 1
+    if (numeric_traits<T>::precise()) {
+        return false;
+        // for (unsigned i = 0; i < m_m(); i++) {
+        //     X delta = m_b[i] - m_A.dot_product_with_row(i, m_x);
+        //     if (delta != numeric_traits<X>::zero()) {
+        //         std::cout << "precise x is off (";
+        //         std::cout << "m_b[" << i  << "] = " << m_b[i] << " ";
+        //         std::cout << "left side = " << m_A.dot_product_with_row(i, m_x) << ' ';
+        //         std::cout << "delta = " << delta << ' ';
+        //         std::cout << "iters = " << total_iterations() << ")" << std::endl;
+        //         return true;
+        //     }
+        // }
+        //      return false;
     }
-    return false;
 #endif
-    // todo(levnach) run on m_ed.m_index only !!!!!
     T feps = convert_struct<T, double>::convert(m_settings.refactor_tolerance);
     X one = convert_struct<X, double>::convert(1.0);
     for (unsigned i = 0; i < m_m(); i++) {
@@ -468,8 +470,9 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::column_is_feas
 template <typename T, typename X> bool lp_core_solver_base<T, X>::calc_current_x_is_feasible_include_non_basis() const {
     unsigned j = this->m_n();
     while (j--) {
-        if (!column_is_feasible(j))
+        if (!column_is_feasible(j)) {
             return false;
+        }
     }
     return true;
 }
@@ -748,7 +751,7 @@ init_reduced_costs_for_one_iteration() {
 }
 
 template <typename T, typename X> non_basic_column_value_position lp_core_solver_base<T, X>::
-get_non_basic_column_value_position(unsigned j) {
+get_non_basic_column_value_position(unsigned j) const {
     switch (m_column_types[j]) {
     case fixed:
         return at_fixed;
@@ -822,7 +825,7 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_v
                 break;
             }
         }
-        lean_assert(m_factorization->get_status()== LU_status::OK)
+        lean_assert(m_factorization->get_status()== LU_status::OK);
     }
 }
 

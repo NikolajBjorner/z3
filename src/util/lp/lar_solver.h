@@ -17,7 +17,6 @@
 #include "util/lp/lar_core_solver.h"
 #include <algorithm>
 #include "util/lp/numeric_pair.h"
-#include "util/lp/lar_solution_signature.h"
 #include "util/lp/scaler.h"
 #include "util/lp/lp_primal_core_solver.h"
 #include "util/lp/random_updater.h"
@@ -74,7 +73,7 @@ class lar_solver : public column_namer {
     stacked_vector<lar_normalized_constraint> m_normalized_constraints;
     stacked_vector<canonic_left_side> m_vec_of_canonic_left_sides;
     // the set of column indices j such that m_x[j] does not satisfy one of its bounds
-    indexed_vector<unsigned> m_touched_columns;
+    int_set m_touched_columns;
     indexed_vector<unsigned> m_touched_rows;
     lar_core_solver<mpq, numeric_pair<mpq>> m_mpq_lar_core_solver;
     stacked_value<canonic_left_side> m_infeasible_canonic_left_side; // such can be found at the initialization step
@@ -123,12 +122,6 @@ class lar_solver : public column_namer {
     template <typename V>
     void resize_and_init_x_with_zeros(std::vector<V> & x);
 
-    template <typename V>
-    void resize_and_init_x_with_signature(std::vector<V> & x, std::vector<V> & low_bound,
-                                          std::vector<V> & upper_bound, const lar_solution_signature & signature);
-
-    template <typename V> V get_column_val(std::vector<V> & low_bound, std::vector<V> & upper_bound, non_basic_column_value_position pos_type, unsigned j);
-
     void register_in_map(std::unordered_map<var_index, mpq> & coeffs, const lar_constraint & cn, const mpq & a);
 
     const column_info<mpq> & get_column_info_from_var_index(var_index vi) const;
@@ -145,7 +138,7 @@ public:
     lar_solver() : m_mpq_lar_core_solver(
                                          m_settings,
                                          *this
-                                         ) {}
+                                         )   {}
 
     virtual ~lar_solver(){}
 
@@ -419,23 +412,6 @@ public:
 
     mpq sum_of_right_sides_of_evidence(const std::vector<std::pair<mpq, unsigned>> & evidence);
 
-    template <typename U, typename V>
-    void prepare_core_solver_fields(static_matrix<U, V> & A, std::vector<V> & x,
-                                     std::vector<V> & low_bound,
-                                     std::vector<V> & upper_bound);
-
-    template <typename U, typename V>
-    void prepare_core_solver_fields_with_signature(static_matrix<U, V> & A, std::vector<V> & x,
-                                                   std::vector<V> & low_bound,
-                                                   std::vector<V> & upper_bound, const lar_solution_signature & signature);
-
-    void find_solution_signature_with_doubles(lar_solution_signature & signature);
-
-    template <typename U, typename V>
-    void extract_signature_from_lp_core_solver(lp_primal_core_solver<U, V> & core_solver, lar_solution_signature & signature);
-
-    void solve_on_signature(const lar_solution_signature & signature);
-
     lp_status solve();
 
     void get_infeasibility_evidence(std::vector<std::pair<mpq, constraint_index>> & evidence);
@@ -446,9 +422,6 @@ public:
                                                  int inf_sign);
 
 
-    mpq find_delta_for_strict_bounds() const;
-
-    void update_delta(mpq& delta, numeric_pair<mpq> const& l, numeric_pair<mpq> const& u) const;
 
     void get_model(std::unordered_map<var_index, mpq> & variable_values) const;
 
@@ -523,40 +496,7 @@ public:
         return m_terms[j - m_terms_start_index];
     }
 
- 
-    bool need_to_presolve_with_double_solver() const {
-        return m_settings.presolve_with_double_solver_for_lar
-            && A().row_count() > 0; // todo, add more conditions
-    }
 
-    bool low_bound_is_set(unsigned j) const {
-        switch (m_mpq_lar_core_solver.m_column_types[j]) {
-        case free_column:
-        case upper_bound:
-            return false;
-        case low_bound:
-        case boxed:
-        case fixed:
-            return true;
-        default:
-            lean_assert(false);
-        }
-        return false;
-    }
-    bool upper_bound_is_set(unsigned j) const {
-        switch (m_mpq_lar_core_solver.m_column_types[j]) {
-        case free_column:
-        case low_bound:
-            return false;
-        case upper_bound:
-        case boxed:
-        case fixed:
-            return true;
-        default:
-            lean_assert(false);
-        }
-        return false;
-    }
 
     void pop_core_solver_params() {
         pop_core_solver_params(1);
@@ -631,7 +571,7 @@ public:
             {
                 auto up = numeric_pair<mpq>(right_side, y_of_bound);
                 m_mpq_lar_core_solver.m_upper_bounds[j] = up;
-                m_touched_columns.set_value_as_in_dictionary(j);
+                m_touched_columns.insert(j);
             }
             set_upper_bound_witness(constr_ind);
             break;
@@ -643,14 +583,14 @@ public:
             {
                 auto low = numeric_pair<mpq>(right_side, y_of_bound);
                 m_mpq_lar_core_solver.m_low_bounds[j] = low;
-                m_touched_columns.set_value_as_in_dictionary(j);
+                m_touched_columns.insert(j);
             }
             set_low_bound_witness(constr_ind);
             break;
         case EQ:
             m_mpq_lar_core_solver.m_column_types[j] = fixed;
             m_mpq_lar_core_solver.m_low_bounds[j] = m_mpq_lar_core_solver.m_upper_bounds[j] = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
-            m_touched_columns.set_value_as_in_dictionary(j);
+            m_touched_columns.insert(j);
             set_upper_bound_witness(constr_ind);
             set_low_bound_witness(constr_ind);
             break;
@@ -673,7 +613,7 @@ public:
                 if (up < m_mpq_lar_core_solver.m_upper_bounds()[j]) {
                     m_mpq_lar_core_solver.m_upper_bounds[j] = up;
                     set_upper_bound_witness(ci);
-                    m_touched_columns.set_value_as_in_dictionary(j);
+                    m_touched_columns.insert(j);
                 }
             }
             break;
@@ -685,7 +625,7 @@ public:
                 auto low = numeric_pair<mpq>(right_side, y_of_bound);
                 m_mpq_lar_core_solver.m_low_bounds[j] = low;
                 set_low_bound_witness(ci);
-                m_touched_columns.set_value_as_in_dictionary(j);
+                m_touched_columns.insert(j);
                 if (low > m_mpq_lar_core_solver.m_upper_bounds[j]) {
                     m_status = INFEASIBLE;
                     m_infeasible_canonic_left_side = m_normalized_constraints()[ci].m_canonic_left_side;
@@ -703,7 +643,7 @@ public:
                     m_infeasible_canonic_left_side = m_normalized_constraints()[ci].m_canonic_left_side;
                 } else {
                     m_mpq_lar_core_solver.m_low_bounds[j] = m_mpq_lar_core_solver.m_upper_bounds[j] = v;
-                    m_touched_columns.set_value_as_in_dictionary(j);
+                    m_touched_columns.insert(j);
                     set_low_bound_witness(ci);
                     set_upper_bound_witness(ci);
                     m_mpq_lar_core_solver.m_column_types[j] = fixed;
@@ -731,7 +671,7 @@ public:
                     m_mpq_lar_core_solver.m_upper_bounds[j] = up;
                     set_upper_bound_witness(ci);
                 }
-                m_touched_columns.set_value_as_in_dictionary(j);
+                m_touched_columns.insert(j);
 
                 if (up < m_mpq_lar_core_solver.m_low_bounds[j]) {
                     m_status = INFEASIBLE;
@@ -749,7 +689,7 @@ public:
                 auto low = numeric_pair<mpq>(right_side, y_of_bound);
                 if (low > m_mpq_lar_core_solver.m_low_bounds[j]) {
                     m_mpq_lar_core_solver.m_low_bounds[j] = low;
-                    m_touched_columns.set_value_as_in_dictionary(j);
+                    m_touched_columns.insert(j);
                     set_low_bound_witness(ci);
                 }
                 if (low > m_mpq_lar_core_solver.m_upper_bounds[j]) {
@@ -777,7 +717,7 @@ public:
                     set_upper_bound_witness(ci);
                     m_mpq_lar_core_solver.m_column_types[j] = fixed;
                 }
-                m_touched_columns.set_value_as_in_dictionary(j);
+                m_touched_columns.insert(j);
                 
                 break;
             }
@@ -798,7 +738,7 @@ public:
                 auto up = numeric_pair<mpq>(right_side, y_of_bound);
                 m_mpq_lar_core_solver.m_upper_bounds[j] = up;
                 set_upper_bound_witness(ci);
-                m_touched_columns.set_value_as_in_dictionary(j);
+                m_touched_columns.insert(j);
 
                 if (up < m_mpq_lar_core_solver.m_low_bounds[j]) {
                     m_status = INFEASIBLE;
@@ -815,7 +755,7 @@ public:
                 auto low = numeric_pair<mpq>(right_side, y_of_bound);
                 if (low > m_mpq_lar_core_solver.m_low_bounds[j]) {
                     m_mpq_lar_core_solver.m_low_bounds[j] = low;
-                    m_touched_columns.set_value_as_in_dictionary(j);
+                    m_touched_columns.insert(j);
                     set_low_bound_witness(ci);
                 }
             }
@@ -833,7 +773,7 @@ public:
                     set_upper_bound_witness(ci);
                     m_mpq_lar_core_solver.m_column_types[j] = fixed;
                 }
-                m_touched_columns.set_value_as_in_dictionary(j);
+                m_touched_columns.insert(j);
                 break;
             }
 
@@ -993,7 +933,7 @@ public:
     void find_more_touched_columns() { // todo. can it be optimized during pop() ?
         for (unsigned j : m_mpq_lar_core_solver.m_nbasis) {
             if (!m_mpq_lar_core_solver.m_primal_solver.non_basis_column_is_set_correctly(j))
-                m_touched_columns.set_value_as_in_dictionary(j);
+                m_touched_columns.insert(j);
         }
     }
     

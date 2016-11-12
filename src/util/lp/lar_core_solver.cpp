@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 #include "util/lp/lar_core_solver.h"
+#include "util/lp/lar_solution_signature.h"
 namespace lean {
 template <typename T, typename X>
 lar_core_solver<T, X>::lar_core_solver(
@@ -233,8 +234,6 @@ template <typename T, typename X>    void lar_core_solver<T, X>::fill_evidence(u
     }
 }
 
-
-
 template <typename T, typename X> void lar_core_solver<T, X>::fill_not_improvable_zero_sum() {
     //  reusing the existing mechanism for row_feasibility_loop
     m_infeasible_sum_sign = m_primal_solver.m_settings.use_breakpoints_in_feasibility_search? -1 : 1;
@@ -263,33 +262,22 @@ template <typename T, typename X> void lar_core_solver<T, X>::solve() {
         m_primal_solver.m_status = OPTIMAL;
         return;
     }
-
     lean_assert(!m_primal_solver.A_mult_x_is_off());
     lean_assert(m_primal_solver.non_basis_columns_are_set_correctly());
-    m_primal_solver.find_feasible_solution();
+    if (need_to_presolve_with_double_solver()) {
+        lar_solution_signature solution_signature;
+        std::vector<unsigned> changes_of_basis = find_solution_signature_with_doubles(solution_signature);
+        solve_on_signature(solution_signature, changes_of_basis);
+    } else {
+        m_primal_solver.find_feasible_solution();
+    }
     if (m_primal_solver.m_status == INFEASIBLE) {
         fill_not_improvable_zero_sum();
     } else  {
         m_primal_solver.m_status = OPTIMAL;
     }
 }
-template <typename T, typename X> void lar_core_solver<T, X>::print_column_info(unsigned j, std::ostream & out) const {
-    out << "type = " << column_type_to_string(this->m_column_types[j]) << std::endl;
-    switch (this->m_column_types[j]) {
-    case fixed:
-    case boxed:
-        out << "(" << this->m_low_bounds[j] << ", " << this->m_upper_bounds[j] << ")" << std::endl;
-        break;
-    case low_bound:
-        out << this->m_low_bounds[j] << std::endl;
-        break;
-    case upper_bound:
-        out << this->m_upper_bounds[j] << std::endl;
-        break;
-    default:
-        lean_assert(false);
-    }
-}
+
 
 }
 
