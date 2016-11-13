@@ -853,15 +853,6 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::update_ba
 }
 
 
-template <typename T, typename X> bool lp_primal_core_solver<T, X>::calc_current_x_is_feasible() const {
-    unsigned i = this->m_m();
-    while (i--) {
-        if (!this->column_is_feasible(this->m_basis[i]))
-            return false;
-    }
-    return true;
-}
-
 template <typename T, typename X> void lp_primal_core_solver<T, X>::clear_breakpoints() {
     m_breakpoints.clear();
     m_breakpoint_indices_queue.clear();
