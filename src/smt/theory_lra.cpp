@@ -90,6 +90,7 @@ namespace lp {
         unsigned m_bound_propagations1;
         unsigned m_bound_propagations2;
         unsigned m_assert_diseq;
+        unsigned m_make_feasible;
         stats() { reset(); }
         void reset() {
             memset(this, 0, sizeof(*this));
@@ -855,6 +856,7 @@ namespace smt {
             m_scopes.resize(old_size);            
             if (!m_delay_constraints) m_solver->pop(num_scopes);
             m_new_bounds.reset();
+            VERIFY(l_false != make_feasible());
             TRACE("arith", tout << m_scopes.size() << "\n";);
         }
 
@@ -1843,6 +1845,7 @@ namespace smt {
             //static unsigned m_count = 0;
             //std::cout << "check feasible " << m_count++ << "\n";
             reset_variable_values();
+            ++m_stats.m_make_feasible;
             TRACE("arith_verbose", display(tout););
             stopwatch sw;
             sw.start();
@@ -2024,6 +2027,7 @@ namespace smt {
             st.update("arith-bound-propagations-lp", m_stats.m_bound_propagations1);
             st.update("arith-bound-propagations-cheap", m_stats.m_bound_propagations2);
             st.update("arith-diseq", m_stats.m_assert_diseq);
+            st.update("arith-make-feasible", m_stats.m_make_feasible);
         }        
     };
     
