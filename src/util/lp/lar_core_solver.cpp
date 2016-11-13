@@ -258,7 +258,7 @@ template <typename T, typename X> void lar_core_solver<T, X>::fill_not_improvabl
 
 template <typename T, typename X> void lar_core_solver<T, X>::solve() {
     prefix();
-    if (is_empty()) {
+    if (is_empty() ||  m_primal_solver.calc_current_x_is_feasible()) {
         m_primal_solver.m_status = OPTIMAL;
         return;
     }

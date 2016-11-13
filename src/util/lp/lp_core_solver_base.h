@@ -470,7 +470,15 @@ public:
         }
     }
 
-    
+    // only check for basic columns
+    bool calc_current_x_is_feasible() const {
+        unsigned i = this->m_m();
+        while (i--) {
+            if (!column_is_feasible(m_basis[i]))
+                return false;
+        }
+        return true;
+    }
 };
 
 }

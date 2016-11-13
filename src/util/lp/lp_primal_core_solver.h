@@ -209,8 +209,6 @@ public:
 
     void update_basis_and_x_with_comparison(unsigned entering, unsigned leaving, X delta);
 
-    bool calc_current_x_is_feasible() const;
-
     void decide_on_status_when_cannot_find_entering() {
         lean_assert(!need_to_switch_costs());
         this->m_status = current_x_is_feasible()? OPTIMAL: INFEASIBLE;

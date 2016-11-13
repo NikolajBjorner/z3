@@ -304,15 +304,16 @@ public:
     void get_bounds_for_double_solver(std::vector<double> & low_bounds, std::vector<double> & upper_bounds) {
         lean_assert(m_primal_solver.A_mult_x_is_off() == false);
         lean_assert(low_bounds.size() == upper_bounds.size() && upper_bounds.size() == m_A.column_count());
-        double delta = find_delta_for_strict_boxed_bounds().get_double();
+        mpq delta = find_delta_for_strict_boxed_bounds();
         for (unsigned j = 0; j < low_bounds.size(); j++) {
             if (low_bound_is_set(j)) {
                 auto & lb = m_primal_solver.m_low_bounds[j];
-                low_bounds[j] = lb.x.get_double() + delta * lb.y.get_double();
+                low_bounds[j] = (lb.x + delta * lb.y).get_double();
             }
             if (upper_bound_is_set(j)) {
                 auto & ub = m_primal_solver.m_upper_bounds[j];
-                upper_bounds[j] = ub.x.get_double() + delta * ub.y.get_double();
+                upper_bounds[j] = (ub.x + delta * ub.y).get_double();
+                lean_assert(!low_bound_is_set(j) || (upper_bounds[j] >= low_bounds[j]));
             }
         }
     }
