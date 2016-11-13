@@ -43,8 +43,8 @@ canonic_left_side lar_solver::create_or_fetch_existing_left_side(const std::vect
         m_map_of_canonic_left_sides_to_ul_pairs[left_side] = ul;
         lean_assert(m_column_names.size() == j);
         m_vec_of_canonic_left_sides.push_back(left_side);
-        add_new_var_to_core_fields(true, left_side.value(m_x)); // true for registering in basis
-        fill_last_row_of_A(m_A, left_side);
+        add_new_var_to_core_fields(true, left_side.value(m_mpq_lar_core_solver.m_x)); // true for registering in basis
+        fill_last_row_of_A(A(), left_side);
         register_new_var_name(get_column_name(j)); // it will create a default name
     } else {
         j= it->second.m_j;
@@ -131,37 +131,7 @@ void lar_solver::resize_and_init_x_with_zeros(std::vector<V> & x) {
     x.resize(A().column_count(), zero_of_type<V>()); // init with zeroes, todo - is it necessery?
 }
 
-template <typename V>
-void lar_solver::resize_and_init_x_with_signature(std::vector<V> & x, std::vector<V> & low_bound,
-                                                  std::vector<V> & upper_bound,
-                                                  const std::unordered_map<unsigned, non_basic_column_value_position>  & signature) {
-    x.resize(low_bound.size());
-    for (auto & t : signature) {
-        x[t.first] = get_column_val(low_bound, upper_bound, t.second, t.first);
-    }
-}
 
-template <typename V> V lar_solver::get_column_val(std::vector<V> & low_bound, std::vector<V> & upper_bound, non_basic_column_value_position pos_type, unsigned j) {
-    lean_assert(false);// not impl
-    // switch (pos_type) {
-    // case at_low_bound: return low_bound[j];
-    // case at_fixed:
-    // case at_upper_bound: return upper_bound[j];
-    // case free_of_bounds: {
-    //     const auto & it = m_vec_of_canonic_left_sides().find(j);
-    //     lean_assert(it != m_vec_of_canonic_left_sides().end());
-    //     const auto & ci = it->second.m_column_info;
-    //     if (ci.low_bound_is_set())
-    //         return low_bound[j];
-    //     if (ci.upper_bound_is_set())
-    //         return upper_bound[j];
-    //     return zero_of_type<V>();
-    // }
-    // default:
-    //     lean_unreachable();
-    // }
-    return zero_of_type<V>(); // it is unreachable
-}
 
 
 var_index lar_solver::add_var(std::string s) {
@@ -169,8 +139,8 @@ var_index lar_solver::add_var(std::string s) {
     if (m_var_names_to_var_index.try_get_value(s, i)) {
         return i;
     }
-    lean_assert(m_vec_of_canonic_left_sides.size() == m_A.column_count());
-    i = m_A.column_count();
+    lean_assert(m_vec_of_canonic_left_sides.size() == A().column_count());
+    i = A().column_count();
     canonic_left_side ls;
     ls.m_coeffs.emplace_back(1, i); 
     m_vec_of_canonic_left_sides.push_back(ls);
@@ -240,6 +210,7 @@ bool lar_solver::all_constraints_hold() const {
     
     for (unsigned i = 0; i < m_normalized_constraints.size(); i++) {
         if (!constraint_holds(m_normalized_constraints()[i].m_origin_constraint, var_map)) {
+            print_constraint(i, std::cout);
             return false;
         }
     }
@@ -261,13 +232,14 @@ bool lar_solver::constraint_holds(const lar_constraint & constr, std::unordered_
 }
 
 void lar_solver::solve_with_core_solver() {
-    if (m_mpq_lar_core_solver.m_factorization != nullptr)
-        m_mpq_lar_core_solver.m_factorization->add_last_rows_to_B(m_heading);
+    auto & f = m_mpq_lar_core_solver.m_primal_solver.m_factorization;
+    if (f != nullptr)
+        f->add_last_rows_to_B(m_mpq_lar_core_solver.m_heading);
     else
-        init_factorization(m_mpq_lar_core_solver.m_factorization, m_A, m_basis, m_settings);
+        init_factorization(f, A(), m_mpq_lar_core_solver.m_basis, m_settings);
     fix_touched_columns(); // todo : should they be up to date?
     m_mpq_lar_core_solver.solve();
-    m_status = m_mpq_lar_core_solver.m_status;
+    m_status = m_mpq_lar_core_solver.m_primal_solver.m_status;
     lean_assert(m_status != OPTIMAL || all_constraints_hold());
     lean_assert(m_status != INFEASIBLE || evidence_is_correct());
 }
@@ -372,57 +344,57 @@ mpq lar_solver::sum_of_right_sides_of_evidence(const std::vector<std::pair<mpq, 
     return ret;
 }
 
-template <typename U, typename V>
-void lar_solver::prepare_core_solver_fields_with_signature(static_matrix<U, V> & A, std::vector<V> & x,
-                                                           std::vector<V> & low_bound,
-                                                           std::vector<V> & upper_bound, const lar_solution_signature & signature) {
-    create_matrix_A(A);
-    fill_bounds_for_core_solver(low_bound, upper_bound);
-    if (m_status == INFEASIBLE) {
-        lean_assert(false); // not implemented
-    }
+// template <typename U, typename V>
+// void lar_solver::prepare_core_solver_fields_with_signature(static_matrix<U, V> & A, std::vector<V> & x,
+//                                                            std::vector<V> & low_bound,
+//                                                            std::vector<V> & upper_bound, const lar_solution_signature & signature) {
+//     create_matrix_A(A);
+//     fill_bounds_for_core_solver(low_bound, upper_bound);
+//     if (m_status == INFEASIBLE) {
+//         lean_assert(false); // not implemented
+//     }
 
-    resize_and_init_x_with_signature(x, low_bound, upper_bound, signature);
-    lean_assert(A.column_count() == x.size());
-}
+//     resize_and_init_x_with_signature(x, low_bound, upper_bound, signature);
+//     lean_assert(A.column_count() == x.size());
+// }
 
-void lar_solver::find_solution_signature_with_doubles(lar_solution_signature & signature) {
-    static_matrix<double, double> A;
-    std::vector<double> x, low_bounds, upper_bounds;
-    lean_assert(false); // not implemented
-    // prepare_core_solver_fields<double, double>(A, x, low_bounds, upper_bounds);
-    std::vector<double> column_scale_vector;
-    std::vector<double> right_side_vector(A.row_count(), 0);
+// void lar_solver::find_solution_signature_with_doubles(lar_solution_signature & signature) {
+//     static_matrix<double, double> A;
+//     std::vector<double> x, low_bounds, upper_bounds;
+//     lean_assert(false); // not implemented
+//     // prepare_core_solver_fields<double, double>(A, x, low_bounds, upper_bounds);
+//     std::vector<double> column_scale_vector;
+//     std::vector<double> right_side_vector(A.row_count(), 0);
 
-    scaler<double, double > scaler(right_side_vector,
-        A,
-        m_settings.scaling_minimum,
-        m_settings.scaling_maximum,
-        column_scale_vector,
-        m_settings);
-    if (!scaler.scale()) {
-        // the scale did not succeed, unscaling
-        A.clear();
-        create_matrix_A(A);
-        for (auto & s : column_scale_vector)
-            s = 1.0;
-    }
-    std::vector<double> costs(A.column_count());
-    auto core_solver = lp_primal_core_solver<double, double>(A,
-                                                             right_side_vector,
-                                                             x,
-                                                             m_basis,
-                                                             m_nbasis,
-                                                             m_heading,
-                                                             costs,
-                                                             m_column_types(),
-                                                             low_bounds,
-                                                             upper_bounds,
-                                                             m_settings,
-                                                             *this);
-    core_solver.find_feasible_solution();
-    extract_signature_from_lp_core_solver(core_solver, signature);
-}
+//     scaler<double, double > scaler(right_side_vector,
+//         A,
+//         m_settings.scaling_minimum,
+//         m_settings.scaling_maximum,
+//         column_scale_vector,
+//         m_settings);
+//     if (!scaler.scale()) {
+//         // the scale did not succeed, unscaling
+//         A.clear();
+//         create_matrix_A(A);
+//         for (auto & s : column_scale_vector)
+//             s = 1.0;
+//     }
+//     std::vector<double> costs(A.column_count());
+//     auto core_solver = lp_primal_core_solver<double, double>(A,
+//                                                              right_side_vector,
+//                                                              x,
+//                                                              m_mpq_lar_core_solver.m_basis,
+//                                                              m_mpq_lar_core_solver.m_nbasis,
+//                                                              m_mpq_lar_core_solver.m_heading,
+//                                                              costs,
+//                                                              m_mpq_lar_core_solver.m_column_types(),
+//                                                              low_bounds,
+//                                                              upper_bounds,
+//                                                              m_settings,
+//                                                              *this);
+//     core_solver.find_feasible_solution();
+//     extract_signature_from_lp_core_solver(core_solver, signature);
+// }
 
     bool lar_solver::has_lower_bound(var_index var, constraint_index& ci, mpq& value, bool& is_strict) {
 
@@ -434,7 +406,7 @@ void lar_solver::find_solution_signature_with_doubles(lar_solution_signature & s
         const ul_pair & ul = m_map_of_canonic_left_sides_to_ul_pairs[ls];
         ci = ul.m_low_bound_witness;
         if (ci != static_cast<constraint_index>(-1)) {
-            auto& p = m_low_bounds()[var];
+            auto& p = m_mpq_lar_core_solver.m_low_bounds()[var];
             value = p.x;
             is_strict = p.y.is_pos();
             return true;
@@ -454,7 +426,7 @@ void lar_solver::find_solution_signature_with_doubles(lar_solution_signature & s
         const ul_pair & ul = m_map_of_canonic_left_sides_to_ul_pairs[ls];
         ci = ul.m_upper_bound_witness;
         if (ci != static_cast<constraint_index>(-1)) {
-            auto& p = m_upper_bounds()[var];
+            auto& p = m_mpq_lar_core_solver.m_upper_bounds()[var];
             value = p.x;
             is_strict = p.y.is_neg();
             return true;
@@ -464,30 +436,13 @@ void lar_solver::find_solution_signature_with_doubles(lar_solution_signature & s
         }
     }
 
-template <typename U, typename V>
-void lar_solver::extract_signature_from_lp_core_solver(lp_primal_core_solver<U, V> & core_solver, lar_solution_signature & signature) {
-    for (auto j : core_solver.m_nbasis)
-        signature[j] = core_solver.get_non_basic_column_value_position(j);
-}
-
-void lar_solver::solve_on_signature(const lar_solution_signature & signature) {
-    //    prepare_core_solver_fields_with_signature(m_A, m_x, m_low_bounds, m_upper_bounds, signature);
-    lean_assert(false); // it seems broken now
-    solve_with_core_solver();
-}
 
 lp_status lar_solver::solve() {
     if (m_status == INFEASIBLE)
         return m_status;
-    if (need_to_presolve_with_double_solver()) {
-        lar_solution_signature solution_signature;
-        find_solution_signature_with_doubles(solution_signature);
-        // here the basis that is kept in m_basis is the same that was used in the double solver
-        solve_on_signature(solution_signature);
-    }
-    else {
-        solve_with_core_solver();
-    }    
+
+    solve_with_core_solver();
+       
     return m_status;
 }
 
@@ -505,7 +460,7 @@ void lar_solver::get_infeasibility_evidence(std::vector<std::pair<mpq, constrain
         fill_evidence_from_canonic_left_side(evidence);
         return;
     }
-    if (m_mpq_lar_core_solver.get_infeasible_row_sign() == 0) {
+    if (m_mpq_lar_core_solver.get_infeasible_sum_sign() == 0) {
         return;
     }
     // the infeasibility sign
@@ -535,34 +490,11 @@ void lar_solver::get_infeasibility_evidence_for_inf_sign(std::vector<std::pair<m
 
 
 
-mpq lar_solver::find_delta_for_strict_bounds() const{
-    mpq delta = numeric_traits<mpq>::one();
-    for (unsigned j = 0; j < m_map_of_canonic_left_sides_to_ul_pairs().size(); j++ ) {
-        if (low_bound_is_set(j))
-            update_delta(delta, m_low_bounds[j], m_x[j]);
-        if (upper_bound_is_set(j))
-            update_delta(delta, m_x[j], m_upper_bounds[j]);
-    }
-    return delta;
-}
-
-void lar_solver::update_delta(mpq& delta, numeric_pair<mpq> const& l, numeric_pair<mpq> const& u) const {
-    lean_assert(l <= u);
-    if (l.x < u.x && l.y > u.y) {
-        mpq delta1 = (u.x - l.x) / (l.y - u.y);
-        if (delta1 < delta) {
-            delta = delta1;
-        }
-    }
-    lean_assert(l.x + delta * l.y <= u.x + delta * u.y);
-}
-
-
 void lar_solver::get_model(std::unordered_map<var_index, mpq> & variable_values) const {
     lean_assert(m_status == OPTIMAL);
-    mpq delta = find_delta_for_strict_bounds();
-    for (unsigned i = 0; i < m_x.size(); i++ ) {
-        const numeric_pair<mpq> & rp = m_x[i];
+    mpq delta = m_mpq_lar_core_solver.find_delta_for_strict_bounds();
+    for (unsigned i = 0; i < m_mpq_lar_core_solver.m_x.size(); i++ ) {
+        const numeric_pair<mpq> & rp = m_mpq_lar_core_solver.m_x[i];
         variable_values[i] = rp.x + delta * rp.y;
     }
 }
@@ -682,7 +614,7 @@ void lar_solver::random_update(unsigned sz, var_index const * vars) {
 
 
 void lar_solver::try_pivot_fixed_vars_from_basis() {
-    m_mpq_lar_core_solver.pivot_fixed_vars_from_basis();
+    m_mpq_lar_core_solver.m_primal_solver.pivot_fixed_vars_from_basis();
 }
 
 void lar_solver::push() {
@@ -693,11 +625,7 @@ void lar_solver::push() {
     m_var_names_to_var_index.push();
     m_infeasible_canonic_left_side.push();
     m_terms.push();
-    m_A.push();
-    m_column_types.push();
-    m_low_bounds.push();
-    m_upper_bounds.push();
-    sort_and_push_basis();
+    m_mpq_lar_core_solver.push();
 }
 
 void lar_solver::pop() {
@@ -712,24 +640,12 @@ void lar_solver::pop(unsigned k) {
     m_var_names_to_var_index.pop(k);
     m_infeasible_canonic_left_side.pop(k);
     m_terms.pop(k);
-    m_A.pop(k);
-    m_low_bounds.pop(k);
-    m_upper_bounds.pop(k);
-    m_column_types.pop(k);
-    if (m_mpq_lar_core_solver.m_factorization != nullptr) {
-        delete m_mpq_lar_core_solver.m_factorization;
-        m_mpq_lar_core_solver.m_factorization = nullptr;
-    }
-    //    m_mpq_lar_core_solver.m_pivot_row.clear();
     unsigned n = m_var_names_to_var_index.size();
     m_column_names.resize(n);
-    m_x.resize(n);
+    m_mpq_lar_core_solver.pop(k);
     m_touched_columns.resize(n);
-    pop_basis(k);
-    lean_assert(m_mpq_lar_core_solver.basis_heading_is_correct());
-    m_mpq_lar_core_solver.update_columns_out_of_bounds();
     m_touched_columns.clear();
-    m_touched_rows.resize(m_A.row_count());
+    m_touched_rows.resize(A().row_count());
     m_touched_rows.clear();
 }
 }

@@ -10,22 +10,10 @@
 #include <vector>
 #include <functional>
 #include "util/lp/lar_core_solver.cpp"
-template lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::lar_core_solver(std::vector<lean::numeric_pair<lean::mpq>, std::allocator<lean::numeric_pair<lean::mpq> > >&,
-                                                                                           const std::vector<lean::column_type, std::allocator<lean::column_type> >&,
-                                                                                           std::vector<lean::numeric_pair<lean::mpq>, std::allocator<lean::numeric_pair<lean::mpq> > >&,
-                                                                                           std::vector<lean::numeric_pair<lean::mpq>, std::allocator<lean::numeric_pair<lean::mpq> > >&,
-                                                                                           std::vector<unsigned int, std::allocator<unsigned int> >&,
-                                                                                           std::vector<unsigned> &,
-                                                                                           std::vector<int> &,
-                                                                                           lean::static_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >&,
+template lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::lar_core_solver(
                                                                                            lean::lp_settings&,
-                                                                                           const column_namer&,
-                                                                                           std::unordered_set<unsigned> & columns_out_of_bounds);
+                                                                                           const column_namer&);
 template void lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::solve();
 template void lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::prefix();
-template void lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::print_column_info(unsigned int, std::ostream & out) const;
-#ifdef LEAN_DEBUG
-template lean::numeric_pair<lean::mpq> lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::get_deb_inf();
-#endif
 template bool lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::is_empty() const;
 template void lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::calculate_pivot_row(unsigned int);

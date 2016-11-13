@@ -435,7 +435,8 @@ template <typename T, typename X>
 void sparse_matrix<T, X>::solve_y_U_indexed(indexed_vector<T> & y, const lp_settings & settings) {
 #ifdef LEAN_DEBUG
     std::vector<T> ycopy(y.m_data);
-    solve_y_U(ycopy);
+    if (numeric_traits<T>::precise() == false)
+        solve_y_U(ycopy);
 #endif
     std::vector<unsigned> sorted_active_columns;
     extend_and_sort_active_rows(y.m_index, sorted_active_columns);
@@ -458,7 +459,8 @@ void sparse_matrix<T, X>::solve_y_U_indexed(indexed_vector<T> & y, const lp_sett
 
     lean_assert(y.is_OK());
 #ifdef LEAN_DEBUG
-    lean_assert(vectors_are_equal(ycopy, y.m_data));
+    if (numeric_traits<T>::precise() == false)
+        lean_assert(vectors_are_equal(ycopy, y.m_data));
 #endif
 }
 

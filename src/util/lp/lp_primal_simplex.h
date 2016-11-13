@@ -215,6 +215,12 @@ public:
         }
         LP_OUT(this->m_settings, "tighthened " << n << " bounds\n");
     }
- 
+    void set_logical_costs_to_zero() {
+        unsigned j = this->m_A->column_count() - 1;
+        unsigned core_solver_cols = this->number_of_core_structurals();
+        while (j >= core_solver_cols) {
+            this->m_costs[j--] = numeric_traits<T>::zero();
+        }
+    }
 };
 }

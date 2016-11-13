@@ -448,7 +448,12 @@ void lu<T, X>::find_error_of_yB_indexed(const indexed_vector<T>& y, const std::v
 template <typename T, typename X>
 void lu<T, X>::solve_yB_with_error_check_indexed(indexed_vector<T> & y, const std::vector<int>& heading,  const std::vector<unsigned> & basis, const lp_settings & settings) {
     if (numeric_traits<T>::precise()) {
-        solve_yB_indexed(y);
+        if (y.m_index.size() * ratio_of_index_size_to_all_size<T>() * 3 < m_A.column_count()) {
+            solve_yB_indexed(y);
+        } else {
+            solve_yB(y.m_data);
+            y.restore_index_and_clean_from_data();
+        }
         return;
     }
     lean_assert(m_y_copy.is_OK());
@@ -630,7 +635,13 @@ void lu<T, X>::check_apply_lp_lists_to_w(T * w) {
 template <typename T, typename X>
 void lu<T, X>::process_column(int j) {
     unsigned pi, pj;
-    m_U.get_pivot_for_column(pi, pj, m_settings.c_partial_pivoting, j);
+    bool success = m_U.get_pivot_for_column(pi, pj, m_settings.c_partial_pivoting, j);
+    if (!success) {
+        LP_OUT(m_settings, "get_pivot returned false: cannot find the pivot for column " << j << std::endl);
+        m_failure = true;
+        return;
+    }
+
     if (static_cast<int>(pi) == -1) {
         LP_OUT(m_settings, "cannot find the pivot for column " << j << std::endl);
         m_failure = true;

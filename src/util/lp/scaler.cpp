@@ -43,6 +43,7 @@ template <typename T, typename X>    T scaler<T, X>::A_max() const {
 template <typename T, typename X>    T scaler<T, X>::get_A_ratio() const {
     T min = A_min();
     T max = A_max();
+    lean_assert(!m_settings.abs_val_is_smaller_than_zero_tolerance(min));
     T ratio = max / min;
     return ratio;
 }
@@ -51,7 +52,9 @@ template <typename T, typename X>    T scaler<T, X>::get_max_ratio_on_rows() con
     T ret = T(1);
     unsigned i = m_A.row_count();
     while (i--) {
-        T t = m_A.get_max_abs_in_row(i)/m_A.get_min_abs_in_row(i);
+        T den = m_A.get_min_abs_in_row(i);
+        lean_assert(!m_settings.abs_val_is_smaller_than_zero_tolerance(den));
+        T t = m_A.get_max_abs_in_row(i)/ den;
         if (t > ret)
             ret = t;
     }
@@ -62,7 +65,10 @@ template <typename T, typename X>    T scaler<T, X>::get_max_ratio_on_columns() 
     T ret = T(1);
     unsigned i = m_A.column_count();
     while (i--) {
-        T t = m_A.get_max_abs_in_column(i)/m_A.get_min_abs_in_column(i);
+        T den = m_A.get_min_abs_in_column(i);
+        if (m_settings.abs_val_is_smaller_than_zero_tolerance(den))
+            continue; // got a zero column
+        T t = m_A.get_max_abs_in_column(i)/den;
         if (t > ret)
             ret = t;
     }
@@ -75,7 +81,12 @@ template <typename T, typename X>    void scaler<T, X>::scale_rows_with_geometri
         T max = m_A.get_max_abs_in_row(i);
         T min = m_A.get_min_abs_in_row(i);
         lean_assert(max > zero_of_type<T>() && min > zero_of_type<T>());
+        if (is_zero(max) || is_zero(min))
+            continue;
         T gm = T(sqrt(numeric_traits<T>::get_double(max*min)));
+        if (m_settings.is_eps_small_general(gm, 0.01)) {
+            continue;
+        }
         m_A.divide_row_by_constant(i, gm);
         m_b[i] /= gm;
     }
@@ -86,9 +97,15 @@ template <typename T, typename X>    void scaler<T, X>::scale_columns_with_geome
     while (i--) {
         T max = m_A.get_max_abs_in_column(i);
         T min = m_A.get_min_abs_in_column(i);
-        T gm = T(1)/T(sqrt(numeric_traits<T>::get_double(max*min)));
+        T den = T(sqrt(numeric_traits<T>::get_double(max*min)));
+        if (m_settings.is_eps_small_general(den, 0.01))
+            continue; // got a zero column
+        T gm = T(1)/ den;
+        T cs = m_column_scale[i] * gm;
+        if (m_settings.is_eps_small_general(cs, 0.1))
+            continue;
         m_A.scale_column(i, gm);
-        m_column_scale[i]*=gm;
+        m_column_scale[i] = cs;
     }
 }
 
@@ -125,6 +142,7 @@ template <typename T, typename X>    void scaler<T, X>::bring_row_maximums_to_on
     unsigned i = m_A.row_count();
     while (i--) {
         T t = m_A.get_max_abs_in_row(i);
+        if (m_settings.abs_val_is_smaller_than_zero_tolerance(t)) continue;
         m_A.divide_row_by_constant(i, t);
         m_b[i] /= t;
     }
@@ -133,7 +151,9 @@ template <typename T, typename X>    void scaler<T, X>::bring_row_maximums_to_on
 template <typename T, typename X>    void scaler<T, X>::bring_column_maximums_to_one() {
     unsigned i = m_A.column_count();
     while (i--) {
-        T t = T(1) / m_A.get_max_abs_in_column(i);
+        T max = m_A.get_max_abs_in_column(i);
+        if (m_settings.abs_val_is_smaller_than_zero_tolerance(max)) continue;
+        T t = T(1) / max;
         m_A.scale_column(i, t);
         m_column_scale[i] *= t;
     }

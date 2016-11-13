@@ -21,7 +21,7 @@ Author: Lev Nachmanson
 #include <utility>
 #include "util/lp/lp_utils.h"
 #include "util/lp/lp_primal_simplex.h"
-#include "mps_reader.h"
+#include "util/lp/mps_reader.h"
 #include "smt_reader.h"
 #include "util/lp/binary_heap_priority_queue.h"
 #include "argument_parser.h"
@@ -32,6 +32,7 @@ Author: Lev Nachmanson
 #include "util/lp/binary_heap_upair_queue.h"
 #include "util/lp/stacked_value.h"
 #include "util/lp/stacked_unordered_set.h"
+#include "util/lp/int_set.h"
 namespace lean {
 unsigned seed = 1;
 
@@ -1678,9 +1679,9 @@ void solve_some_mps(argument_parser & args_parser) {
             }
         }
     } else {
-        unsigned i = 0;
+        //        unsigned i = 0;
         for (auto& s : file_names) {
-            if (i++ > 9) return;
+            // if (i++ > 9) return;
             try {
                 solve_mps_in_rational(s, dual, args_parser);
             }
@@ -1893,6 +1894,7 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_help_string("--eti"," run a small evidence test for total infeasibility scenario");
     parser.add_option_with_help_string("--row_inf", "forces row infeasibility search");
     parser.add_option_with_help_string("-pd", "presolve with double solver");
+    parser.add_option_with_help_string("--test_int_set", "test int_set");
 }
 
 struct fff { int a; int b;};
@@ -1900,8 +1902,8 @@ struct fff { int a; int b;};
 void test_stacked_map_itself() {
     std::vector<int> v(3,0);
     for(auto u : v)
-        std::cout << u << std::endl;
-
+        std::cout << u << std::endl;    
+    
     std::unordered_map<int, fff> foo;
     fff l;
     l.a = 0;
@@ -2911,7 +2913,29 @@ void test_bound_propogation() {
     test_total_case_plus();
     test_total_case_minus();
 }
-   
+
+void test_int_set() {
+    int_set s(4);
+    s.insert(2);
+    s.print(std::cout);
+    s.insert(1);
+    s.insert(2);
+    s.print(std::cout);
+    lean_assert(s.contains(2));
+    lean_assert(s.size() == 2);
+    s.erase(2);
+    lean_assert(s.size() == 1);
+    s.erase(2);
+    lean_assert(s.size() == 1);
+    s.print(std::cout);
+    s.insert(3);
+    s.insert(2);
+    s.clear();
+    lean_assert(s.size() == 0);
+    
+    
+}
+
 void test_lp_local(int argn, char**argv) {
     // initialize_util_module();
     // initialize_numerics_module();
@@ -2927,6 +2951,10 @@ void test_lp_local(int argn, char**argv) {
 
     args_parser.print();
 
+    if (args_parser.option_is_used("--test_int_set")) {
+        test_int_set();
+        return finalize(0);
+    }
     if (args_parser.option_is_used("--bp")) {
         test_bound_propogation();
         return finalize(0);

@@ -23,6 +23,7 @@
 #include "util/lp/lp_core_solver_base.h"
 #include "util/lp/breakpoint.h"
 #include "util/lp/binary_heap_priority_queue.h"
+#include "util/lp/int_set.h"
 namespace lean {
 
 // This core solver solves (Ax=b, low_bound_values \leq x \leq upper_bound_values, maximize costs*x )
@@ -34,75 +35,74 @@ public:
     // to grow and is set to -1  otherwise
     unsigned m_column_norm_update_counter;
     T m_enter_price_eps;
-    X m_infeasibility = zero_of_type<X>();
     int m_sign_of_entering_delta;
     std::vector<breakpoint<X>> m_breakpoints;
     binary_heap_priority_queue<X> m_breakpoint_indices_queue;
-    bool m_using_inf_costs = false;
+    bool m_using_infeas_costs = false;
     bool m_recalc_reduced_costs = false;
     std::set<unsigned> m_forbidden_enterings;
     indexed_vector<T> m_beta; // see Swietanowski working vector beta for column norms
     T m_epsilon_of_reduced_cost = T(1)/T(10000000);
-    bool m_exit_on_feasible_solution = false;
+    bool m_look_for_feasible_solution_only = false;
     std::vector<T> m_costs_backup;
-    bool m_current_x_is_feasible;
+    bool current_x_is_feasible() const { return m_inf_set.size() == 0; }
+    bool current_x_is_infeasible() const { return m_inf_set.size() != 0; }
     T m_converted_harris_eps;
+    int_set m_inf_set;
     //    T m_converted_harris_eps = convert_struct<T, double>::convert(this->m_settings.harris_feasibility_tolerance);
     std::list<unsigned> m_non_basis_list;
     void sort_non_basis();
     int choose_entering_column(unsigned number_of_benefitial_columns_to_go_over);
 
-    int find_leaving_and_t_precisely(unsigned entering, X & t);
+    int find_leaving_and_t_with_breakpoints(unsigned entering, X & t);
 
     static X positive_infinity() {
         return convert_struct<X, unsigned>::convert(std::numeric_limits<unsigned>::max());
     }
-
-    X get_harris_theta();
+    
+    bool get_harris_theta(X & theta);
 
     void restore_harris_eps() { m_converted_harris_eps = convert_struct<T, double>::convert(this->m_settings.harris_feasibility_tolerance); }
     void zero_harris_eps() { m_converted_harris_eps = zero_of_type<T>(); }
-    bool get_current_x_is_feasible() const { return m_current_x_is_feasible; }
-    bool get_current_x_is_infeasible() const { return !m_current_x_is_feasible; }
     int find_leaving_on_harris_theta(X const & harris_theta, X & t);
-    bool try_jump_to_another_bound_on_entering(unsigned entering, const X & theta, X & t);
+    bool try_jump_to_another_bound_on_entering(unsigned entering, const X & theta, X & t, bool & unlimited);
     int find_leaving_and_t(unsigned entering, X & t);
 
-    void limit_theta_on_basis_column_for_inf_case_m_neg_upper_bound(unsigned j, const T & m, X & theta) {
+    void limit_theta(const X & lim, X & theta, bool & unlimited) {
+        if (unlimited) {
+            theta = lim;
+            unlimited = false;
+        } else {
+            theta = std::min(lim, theta);
+        }
+    }
+
+    void limit_theta_on_basis_column_for_inf_case_m_neg_upper_bound(unsigned j, const T & m, X & theta, bool & unlimited) {
         lean_assert(m < 0 && this->m_column_types[j] == upper_bound);
-        limit_inf_on_upper_bound_m_neg(m, this->m_x[j], this->m_upper_bounds[j], theta);
+        limit_inf_on_upper_bound_m_neg(m, this->m_x[j], this->m_upper_bounds[j], theta, unlimited);
     }
 
 
-    void limit_theta_on_basis_column_for_inf_case_m_neg_low_bound(unsigned j, const T & m, X & theta) {
+    void limit_theta_on_basis_column_for_inf_case_m_neg_low_bound(unsigned j, const T & m, X & theta, bool & unlimited) {
         lean_assert(m < 0 && this->m_column_types[j] == low_bound);
-        limit_inf_on_bound_m_neg(m, this->m_x[j], this->m_low_bounds[j], theta);
+        limit_inf_on_bound_m_neg(m, this->m_x[j], this->m_low_bounds[j], theta, unlimited);
     }
 
 
-    void limit_theta_on_basis_column_for_inf_case_m_pos_low_bound(unsigned j, const T & m, X & theta) {
+    void limit_theta_on_basis_column_for_inf_case_m_pos_low_bound(unsigned j, const T & m, X & theta, bool & unlimited) {
         lean_assert(m > 0 && this->m_column_types[j] == low_bound);
-        limit_inf_on_low_bound_m_pos(m, this->m_x[j], this->m_low_bounds[j], theta);
+        limit_inf_on_low_bound_m_pos(m, this->m_x[j], this->m_low_bounds[j], theta, unlimited);
     }
 
-    void limit_theta_on_basis_column_for_inf_case_m_pos_upper_bound(unsigned j, const T & m, X & theta) {
+    void limit_theta_on_basis_column_for_inf_case_m_pos_upper_bound(unsigned j, const T & m, X & theta, bool & unlimited) {
         lean_assert(m > 0 && this->m_column_types[j] == upper_bound);
-        limit_inf_on_bound_m_pos(m, this->m_x[j], this->m_upper_bounds[j], theta);
+        limit_inf_on_bound_m_pos(m, this->m_x[j], this->m_upper_bounds[j], theta, unlimited);
     };
 
     X harris_eps_for_bound(const X & bound) const { return ( convert_struct<X, int>::convert(1) +  abs(bound)/10) * m_converted_harris_eps/3;
     }
 
-
     void get_bound_on_variable_and_update_leaving_precisely(unsigned j, std::vector<unsigned> & leavings, T m, X & t, T & abs_of_d_of_leaving);
-
-    bool column_is_free(unsigned j) { return this->m_column_type[j] == free; }
-
-    bool column_has_upper_bound(unsigned j) {
-        return ((unsigned)this->m_column_types[j]) < 2;
-    }
-
-    bool column_has_low_bound(unsigned j) { return this->m_column_types[j] != free_column; }
 
     std::vector<T> m_low_bounds_dummy; // needed for the base class only
 
@@ -150,7 +150,7 @@ public:
     // 1 if it is way off, and 2 if it is unprofitable
     int refresh_reduced_cost_at_entering_and_check_that_it_is_off(unsigned entering);
 
-    void normalize_costs_and_backup_costs();
+    void backup_and_normalize_costs();
 
     void init_run();
 
@@ -159,8 +159,8 @@ public:
     void advance_on_entering_and_leaving(int entering, int leaving, X & t);
 
     bool need_to_switch_costs() const {
-        lean_assert(calc_current_x_is_feasible() == m_current_x_is_feasible);
-        return get_current_x_is_feasible() == m_using_inf_costs;
+        //        lean_assert(calc_current_x_is_feasible() == current_x_is_feasible());
+        return current_x_is_feasible() == m_using_infeas_costs;
     }
 
 
@@ -172,7 +172,6 @@ public:
 
     void print_column_norms(std::ostream & out);
 
-    void set_current_x_is_feasible() { m_current_x_is_feasible = calc_current_x_is_feasible(); }
     // returns the number of iterations
     unsigned solve();
 
@@ -197,10 +196,6 @@ public:
 
     bool is_tiny() const {return this->m_m < 10 && this->m_n < 20;}
 
-    void calculate_infeasibility();
-
-    void add_column_infeasibility(unsigned j);
-
     void one_iteration();
 
     void fill_breakpoints_array(unsigned entering);
@@ -218,119 +213,129 @@ public:
 
     void decide_on_status_when_cannot_find_entering() {
         lean_assert(!need_to_switch_costs());
-        this->m_status = get_current_x_is_feasible()? OPTIMAL: INFEASIBLE;
+        this->m_status = current_x_is_feasible()? OPTIMAL: INFEASIBLE;
     }
 
-    void limit_theta_on_basis_column_for_feas_case_m_neg(unsigned j, const T & m, X & theta) {
-        lean_assert(m < 0);
-        lean_assert(this->m_column_type[j] == low_bound || this->m_column_type[j] == boxed);
-        const X & eps = harris_eps_for_bound(this->m_low_bounds[j]);
-        if (this->above_bound(this->m_x[j], this->m_low_bounds[j])) {
-            theta = std::min((this->m_low_bounds[j] -this->m_x[j] - eps) / m, theta);
-            if (theta < zero_of_type<X>()) theta = zero_of_type<X>();
-        }
-    }
+    // void limit_theta_on_basis_column_for_feas_case_m_neg(unsigned j, const T & m, X & theta) {
+    //     lean_assert(m < 0);
+    //     lean_assert(this->m_column_type[j] == low_bound || this->m_column_type[j] == boxed);
+    //     const X & eps = harris_eps_for_bound(this->m_low_bounds[j]);
+    //     if (this->above_bound(this->m_x[j], this->m_low_bounds[j])) {
+    //         theta = std::min((this->m_low_bounds[j] -this->m_x[j] - eps) / m, theta);
+    //         if (theta < zero_of_type<X>()) theta = zero_of_type<X>();
+    //     }
+    // }
 
-    void limit_theta_on_basis_column_for_feas_case_m_neg_no_check(unsigned j, const T & m, X & theta) {
+    void limit_theta_on_basis_column_for_feas_case_m_neg_no_check(unsigned j, const T & m, X & theta, bool & unlimited) {
         lean_assert(m < 0);
-        //        lean_assert(this->m_column_type[j] == low_bound || this->m_column_type[j] == boxed);
         const X& eps = harris_eps_for_bound(this->m_low_bounds[j]);
-        theta = std::min((this->m_low_bounds[j] - this->m_x[j] - eps) / m, theta);
+        limit_theta((this->m_low_bounds[j] - this->m_x[j] - eps) / m, theta, unlimited);
         if (theta < zero_of_type<X>()) theta = zero_of_type<X>();
     }
 
-    bool limit_inf_on_bound_m_neg(const T & m, const X & x, const X & bound, X & theta) {
+    bool limit_inf_on_bound_m_neg(const T & m, const X & x, const X & bound, X & theta, bool & unlimited) {
         // x gets smaller
         lean_assert(m < 0);
         const X& eps = harris_eps_for_bound(bound);
         if (this->below_bound(x, bound)) return false;
         if (this->above_bound(x, bound)) {
-            theta = std::min((bound - x - eps) / m, theta);
+            limit_theta((bound - x - eps) / m, theta, unlimited);
         } else {
             theta = zero_of_type<X>();
+            unlimited = false;
         }
         return true;
     }
 
-    bool limit_inf_on_bound_m_pos(const T & m, const X & x, const X & bound, X & theta) {
+    bool limit_inf_on_bound_m_pos(const T & m, const X & x, const X & bound, X & theta, bool & unlimited) {
         // x gets larger
         lean_assert(m > 0);
         const X& eps = harris_eps_for_bound(bound);
         if (this->above_bound(x, bound)) return false;
         if (this->below_bound(x, bound)) {
-            theta = std::min((bound - x + eps) / m, theta);
+            limit_theta((bound - x + eps) / m, theta, unlimited);
         } else {
             theta = zero_of_type<X>();
+            unlimited = false;
         }
         return true;
     }
 
-    void limit_inf_on_low_bound_m_pos(const T & m, const X & x, const X & bound, X & theta) {
+    void limit_inf_on_low_bound_m_pos(const T & m, const X & x, const X & bound, X & theta, bool & unlimited) {
         // x gets larger
         lean_assert(m > 0);
         const X& eps = harris_eps_for_bound(bound);
-        if (this->below_bound(x, bound))
-            theta = std::min((bound - x + eps) / m, theta);
+        if (this->below_bound(x, bound)) {
+            limit_theta((bound - x + eps) / m, theta, unlimited);
+        }
     }
 
-    void limit_inf_on_upper_bound_m_neg(const T & m, const X & x, const X & bound, X & theta) {
+    void limit_inf_on_upper_bound_m_neg(const T & m, const X & x, const X & bound, X & theta, bool & unlimited) {
         // x gets smaller
         lean_assert(m < 0);
         const X& eps = harris_eps_for_bound(bound);
-        if (this->above_bound(x, bound))
-            theta = std::min((bound - x - eps) / m, theta);
+        if (this->above_bound(x, bound)) {
+            limit_theta((bound - x - eps) / m, theta, unlimited);
+        }
     }
 
-    void limit_theta_on_basis_column_for_inf_case_m_pos_boxed(unsigned j, const T & m, X & theta) {
+    void limit_theta_on_basis_column_for_inf_case_m_pos_boxed(unsigned j, const T & m, X & theta, bool & unlimited) {
         //        lean_assert(m > 0 && this->m_column_type[j] == boxed);
         const X & x = this->m_x[j];
         const X & lbound = this->m_low_bounds[j];
 
         if (this->below_bound(x, lbound)) {
             const X& eps = harris_eps_for_bound(this->m_upper_bounds[j]);
-            theta = std::min((lbound - x + eps) / m, theta);
+            limit_theta((lbound - x + eps) / m, theta, unlimited);
         } else {
             const X & ubound = this->m_upper_bounds[j];
             if (this->below_bound(x, ubound)){
                 const X& eps = harris_eps_for_bound(ubound);
-                theta = std::min((ubound - x + eps) / m, theta);
+                limit_theta((ubound - x + eps) / m, theta, unlimited);
             } else if (!this->above_bound(x, ubound)) {
                 theta = zero_of_type<X>();
+                unlimited = false;
             }
         }
     }
 
-    void limit_theta_on_basis_column_for_inf_case_m_neg_boxed(unsigned j, const T & m, X & theta) {
+    void limit_theta_on_basis_column_for_inf_case_m_neg_boxed(unsigned j, const T & m, X & theta, bool & unlimited) {
         //  lean_assert(m < 0 && this->m_column_type[j] == boxed);
         const X & x = this->m_x[j];
         const X & ubound = this->m_upper_bounds[j];
         if (this->above_bound(x, ubound)) {
             const X& eps = harris_eps_for_bound(ubound);
-            theta = std::min((ubound - x - eps) / m, theta);
+            limit_theta((ubound - x - eps) / m, theta, unlimited);
         } else {
             const X & lbound = this->m_low_bounds[j];
             if (this->above_bound(x, lbound)){
                 const X& eps = harris_eps_for_bound(lbound);
-                theta = std::min((lbound - x - eps) / m, theta);
+                limit_theta((lbound - x - eps) / m, theta, unlimited);
             } else if (!this->below_bound(x, lbound)) {
                 theta = zero_of_type<X>();
+                unlimited = false;
             }
         }
     }
-    void limit_theta_on_basis_column_for_feas_case_m_pos(unsigned j, const T & m, X & theta) {
+    void limit_theta_on_basis_column_for_feas_case_m_pos(unsigned j, const T & m, X & theta, bool & unlimited) {
         lean_assert(m > 0);
         const T& eps = harris_eps_for_bound(this->m_upper_bounds[j]);
         if (this->below_bound(this->m_x[j], this->m_upper_bounds[j])) {
-            theta = std::min((this->m_upper_bounds[j] - this->m_x[j] + eps) / m, theta);
-            if (theta < zero_of_type<X>()) theta = zero_of_type<X>();
+            limit_theta((this->m_upper_bounds[j] - this->m_x[j] + eps) / m, theta, unlimited);
+            if (theta < zero_of_type<X>()) {
+                theta = zero_of_type<X>();
+                unlimited = false;
+            }
         }
     }
 
-    void limit_theta_on_basis_column_for_feas_case_m_pos_no_check(unsigned j, const T & m, X & theta) {
+    void limit_theta_on_basis_column_for_feas_case_m_pos_no_check(unsigned j, const T & m, X & theta, bool & unlimited ) {
         lean_assert(m > 0);
         const X& eps = harris_eps_for_bound(this->m_upper_bounds[j]);
-        theta = std::min((this->m_upper_bounds[j] - this->m_x[j] + eps) / m, theta);
-        if (theta < zero_of_type<X>()) theta = zero_of_type<X>();
+        limit_theta( (this->m_upper_bounds[j] - this->m_x[j] + eps) / m, theta, unlimited);
+        if (theta < zero_of_type<X>()) {
+            theta = zero_of_type<X>();
+        }
     }
 
     // j is a basic column or the entering, in any case x[j] has to stay feasible.
@@ -338,54 +343,54 @@ public:
     // x[j] + t * m >=  - harris_feasibility_tolerance ( if m < 0 )
     // or
     // x[j] + t * m <= this->m_upper_bounds[j] + harris_feasibility_tolerance ( if m > 0)
-    void limit_theta_on_basis_column(unsigned j, T m, X & theta) {
+    void limit_theta_on_basis_column(unsigned j, T m, X & theta, bool & unlimited) {
         switch (this->m_column_types[j]) {
         case free_column: break;
         case upper_bound:
-            if (get_current_x_is_feasible()) {
+            if (current_x_is_feasible()) {
                 if (m > 0)
-                    limit_theta_on_basis_column_for_feas_case_m_pos_no_check(j, m, theta);
+                    limit_theta_on_basis_column_for_feas_case_m_pos_no_check(j, m, theta, unlimited);
             } else { // inside of feasibility_loop
                 if (m > 0)
-                    limit_theta_on_basis_column_for_inf_case_m_pos_upper_bound(j, m, theta);
+                    limit_theta_on_basis_column_for_inf_case_m_pos_upper_bound(j, m, theta, unlimited);
                 else
-                    limit_theta_on_basis_column_for_inf_case_m_neg_upper_bound(j, m, theta);
+                    limit_theta_on_basis_column_for_inf_case_m_neg_upper_bound(j, m, theta, unlimited);
             }
             break;
         case low_bound:
-            if (get_current_x_is_feasible()) {
+            if (current_x_is_feasible()) {
                 if (m < 0)
-                    limit_theta_on_basis_column_for_feas_case_m_neg_no_check(j, m, theta);
+                    limit_theta_on_basis_column_for_feas_case_m_neg_no_check(j, m, theta, unlimited);
             } else {
                 if (m < 0)
-                    limit_theta_on_basis_column_for_inf_case_m_neg_low_bound(j, m, theta);
+                    limit_theta_on_basis_column_for_inf_case_m_neg_low_bound(j, m, theta, unlimited);
                 else
-                    limit_theta_on_basis_column_for_inf_case_m_pos_low_bound(j, m, theta);
+                    limit_theta_on_basis_column_for_inf_case_m_pos_low_bound(j, m, theta, unlimited);
             }
             break;
-        // case fixed:
-        //     if (get_current_x_is_feasible()) {
-        //         theta = zero_of_type<X>();
-        //         break;
-        //     }
-        //     if (m < 0)
-        //         limit_theta_on_basis_column_for_inf_case_m_neg_fixed(j, m, theta);
-        //     else
-        //         limit_theta_on_basis_column_for_inf_case_m_pos_fixed(j, m, theta);
-        //     break;
+            // case fixed:
+            //     if (get_current_x_is_feasible()) {
+            //         theta = zero_of_type<X>();
+            //         break;
+            //     }
+            //     if (m < 0)
+            //         limit_theta_on_basis_column_for_inf_case_m_neg_fixed(j, m, theta);
+            //     else
+            //         limit_theta_on_basis_column_for_inf_case_m_pos_fixed(j, m, theta);
+            //     break;
         case fixed:
         case boxed:
-            if (get_current_x_is_feasible()) {
+            if (current_x_is_feasible()) {
                 if (m > 0) {
-                    limit_theta_on_basis_column_for_feas_case_m_pos_no_check(j, m, theta);
+                    limit_theta_on_basis_column_for_feas_case_m_pos_no_check(j, m, theta, unlimited);
                 } else {
-                    limit_theta_on_basis_column_for_feas_case_m_neg_no_check(j, m, theta);
+                    limit_theta_on_basis_column_for_feas_case_m_neg_no_check(j, m, theta, unlimited);
                 }
             } else {
                 if (m > 0) {
-                    limit_theta_on_basis_column_for_inf_case_m_pos_boxed(j, m, theta);
+                    limit_theta_on_basis_column_for_inf_case_m_pos_boxed(j, m, theta, unlimited);
                 } else {
-                    limit_theta_on_basis_column_for_inf_case_m_neg_boxed(j, m, theta);
+                    limit_theta_on_basis_column_for_inf_case_m_neg_boxed(j, m, theta, unlimited);
                 }
             }
 
@@ -393,20 +398,24 @@ public:
         default:
             lean_unreachable();
         }
-        if (theta < zero_of_type<X>())
+        if (!unlimited && theta < zero_of_type<X>()) {
             theta = zero_of_type<X>();
+        }
     }
+
+    
+    bool column_is_benefitial_for_entering_basis(unsigned j) const;
+
+    bool column_is_benefitial_for_entering_on_breakpoints(unsigned j) const;
 
 
     bool can_enter_basis(unsigned j);
     bool done();
-
     void init_infeasibility_costs();
+    void init_infeasibility_cost_for_column(unsigned j);
+    void init_infeasibility_costs_for_changed_basis_only();
 
     void print_column(unsigned j, std::ostream & out);
-
-    void init_infeasibility_cost_for_column(unsigned j);
-
     void add_breakpoint(unsigned j, X delta, breakpoint_type type);
 
     // j is the basic column, x is the value at x[j]
@@ -417,11 +426,84 @@ public:
         return (a > zero_of_type<L>() && m_sign_of_entering_delta > 0) || (a < zero_of_type<L>() && m_sign_of_entering_delta < 0);
     }
 
-    void init_costs_from_backup();
-
     void init_reduced_costs();
 
     bool low_bounds_are_set() const { return true; }
+
+    int advance_on_sorted_breakpoints(unsigned entering, X & t);
+    
+    std::string break_type_to_string(breakpoint_type type);
+
+    void print_breakpoint(const breakpoint<X> * b, std::ostream & out);
+
+    void print_bound_info_and_x(unsigned j, std::ostream & out);
+
+    void init_infeasibility_after_update_x_if_inf(unsigned leaving) {
+        if (m_using_infeas_costs) {
+            init_infeasibility_costs_for_changed_basis_only();
+            this->m_costs[leaving] = zero_of_type<T>();
+            m_inf_set.erase(leaving);
+        } 
+    }
+    
+    void init_inf_set() {
+        m_inf_set.clear();
+        for (unsigned j = 0; j < this->m_n(); j++) {
+            if (this->m_basis_heading[j] < 0)
+                continue;
+            if (!this->column_is_feasible(j))
+                m_inf_set.insert(j);
+        }
+    }
+
+    int get_column_out_of_bounds_delta_sign(unsigned j) {
+        switch (this->m_column_types[j]) {
+        case fixed:
+        case boxed:
+            if (this->x_below_low_bound(j))
+                return -1;
+            if (this->x_above_upper_bound(j))
+                return 1;
+            break;
+        case low_bound:
+            if (this->x_below_low_bound(j))
+                return -1;
+            break;
+        case upper_bound:
+            if (this->x_above_upper_bound(j))
+                return 1;
+            break;
+        case free_column:
+            return 0;
+        default:
+            lean_assert(false);
+        }
+        return 0;
+    }
+
+
+    int x_at_bound_sign(unsigned j) {
+        switch (this->m_column_types[j]) {
+        case fixed:
+            return 0;
+        case boxed:
+            if (this->x_is_at_low_bound(j))
+                return 1;
+            return -1;
+            break;
+        case low_bound:
+            return 1;
+            break;
+        case upper_bound:
+            return -1;
+            break;
+        default:
+            lean_assert(false);
+        }
+        return 0;
+
+    }
+    
     friend core_solver_pretty_printer<T, X>;
 };
 }

@@ -50,7 +50,6 @@ template <typename T, typename X>     column_info<T> * lp_primal_simplex<T, X>::
 template <typename T, typename X> void lp_primal_simplex<T, X>::fill_acceptable_values_for_x() {
     for (auto t : this->m_core_solver_columns_to_external_columns) {
         this->m_x[t.first] = numeric_traits<T>::zero();
-        lean_assert(this->m_x[t.first] >= 0);
     }
 }
 
@@ -213,6 +212,8 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::fill_A_x_and_bas
         this->m_column_types[j] = low_bound;
         this->m_upper_bounds[j] = m_low_bounds[j] = zero_of_type<X>();
         break;
+    default:
+        lean_unreachable();
     }
 }
 
@@ -231,11 +232,7 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::solve_with_total
     fill_A_x_and_basis_for_stage_one_total_inf();
     if (this->m_settings.get_message_ostream() != nullptr)
         this->print_statistics_on_A(*this->m_settings.get_message_ostream());
-    unsigned j = this->m_A->column_count() - 1;
-    unsigned core_solver_cols = this->number_of_core_structurals();
-    while (j >= core_solver_cols) {
-        this->m_costs[j--] = numeric_traits<T>::zero();
-    }
+    set_logical_costs_to_zero();
     set_scaled_costs();
 
     if (this->m_settings.tighten_bounds)
