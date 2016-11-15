@@ -324,6 +324,7 @@ public:
                         std::vector<double> & upper_bounds) {
         std::vector<double> column_scale_vector;
         std::vector<double> right_side_vector(A.column_count());
+        settings().reps_in_scaler = 5;
         scaler<double, double > scaler(right_side_vector,
                                        A,
                                        settings().scaling_minimum,

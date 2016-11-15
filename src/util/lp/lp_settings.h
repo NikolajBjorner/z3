@@ -121,6 +121,7 @@ private:
     stats  m_stats;
 
 public:
+    unsigned reps_in_scaler = 20;
     // when the absolute value of an element is less than pivot_epsilon
     // in pivoting, we treat it as a zero
     double pivot_epsilon = 0.00000001;

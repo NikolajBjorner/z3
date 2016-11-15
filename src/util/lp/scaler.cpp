@@ -126,7 +126,7 @@ template <typename T, typename X>    void scaler<T, X>::scale_once_for_ratio() {
 template <typename T, typename X>    bool scaler<T, X>::scale_with_ratio() {
     T ratio = get_A_ratio();
     // The ratio is greater than or equal to one. We would like to diminish it and bring it as close to 1 as possible
-    unsigned reps = 20;
+    unsigned reps = m_settings.reps_in_scaler;
     do {
         scale_once_for_ratio();
         T new_r = get_A_ratio();
