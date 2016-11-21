@@ -284,7 +284,9 @@ void test_small_lu(lp_settings & settings) {
     heading.push_back(basis.size() - 1);
     basis.push_back(j-1);
     heading.push_back(basis.size() - 1);
-    l.add_last_rows_to_B(heading);
+    
+    auto columns_to_replace = l.get_set_of_columns_to_replace_for_add_last_rows(heading);
+    l.add_last_rows_to_B(heading, columns_to_replace);
     std::cout << "here" << std::endl;
     lean_assert(l.is_correct(basis));
 }

@@ -906,6 +906,7 @@ void lu<T, X>::replace_column(T pivot_elem_for_checking, indexed_vector<T> & w, 
     calculate_r_wave_and_update_U(replaced_column, lowest_row_of_the_bump, m_r_wave);
     auto row_eta = get_row_eta_matrix_and_set_row_vector(replaced_column, lowest_row_of_the_bump, pivot_elem_for_checking);
     if (get_status() == LU_status::Degenerated) {
+        //        std::cout << "1 LU degen" << std::endl;
         m_row_eta_work_vector.clear_all();
         return;
     }
