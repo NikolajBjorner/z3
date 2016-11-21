@@ -38,13 +38,14 @@ canonic_left_side lar_solver::create_or_fetch_existing_left_side(const std::vect
     auto it = m_map_of_canonic_left_sides_to_ul_pairs().find(left_side);
     if (it == m_map_of_canonic_left_sides_to_ul_pairs().end()) { // we need to create a new column/variable for this left side
         // j will be a new variable 
-        j = A().column_count();
+        j = A_r().column_count();
         ul_pair ul(j);
         m_map_of_canonic_left_sides_to_ul_pairs[left_side] = ul;
         lean_assert(m_column_names.size() == j);
         m_vec_of_canonic_left_sides.push_back(left_side);
-        add_new_var_to_core_fields(true, left_side.value(m_mpq_lar_core_solver.m_x)); // true for registering in basis
-        fill_last_row_of_A(A(), left_side);
+        add_new_var_to_core_fields(true, left_side.value(m_mpq_lar_core_solver.m_r_x)); // true for registering in basis
+        fill_last_row_of_A_r(A_r(), left_side);
+        fill_last_row_of_A_d(A_d(), left_side);
         register_new_var_name(get_column_name(j)); // it will create a default name
     } else {
         j= it->second.m_j;
@@ -62,8 +63,8 @@ mpq lar_solver::find_ratio_of_original_constraint_to_normalized(const canonic_le
     return it->second;
 }
 
-// this fills the last row of A and set the basis column: -1 in the last column of the row
-void lar_solver::fill_last_row_of_A(static_matrix<mpq, numeric_pair<mpq>> & A, const canonic_left_side & ls) {    
+// this fills the last row of A_r and sets the basis column: -1 in the last column of the row
+void lar_solver::fill_last_row_of_A_r(static_matrix<mpq, numeric_pair<mpq>> & A, const canonic_left_side & ls) {    
     lean_assert(A.row_count() > 0);
     lean_assert(A.column_count() > 0);
     unsigned i = A.row_count() - 1;
@@ -76,6 +77,21 @@ void lar_solver::fill_last_row_of_A(static_matrix<mpq, numeric_pair<mpq>> & A, c
     unsigned basis_j = A.column_count() - 1;
     A.set(i, basis_j, - mpq(1));
 }
+
+// this fills the last row of A_d and sets the basis column: -1 in the last column of the row
+void lar_solver::fill_last_row_of_A_d(static_matrix<double, double> & A, const canonic_left_side & ls) {
+    lean_assert(A.row_count() > 0);
+    lean_assert(A.column_count() > 0);
+    unsigned i = A.row_count() - 1;
+    lean_assert(A.m_rows[i].size() == 0);
+    for (auto & t : ls.m_coeffs) {
+        var_index j = t.second;
+        A.set(i, j, t.first.get_double() );
+    }
+    unsigned basis_j = A.column_count() - 1;
+    A.set(i, basis_j, - 1 );
+}
+
 
 template <typename U, typename V>
 void lar_solver::create_matrix_A(static_matrix<U, V> & matr) {
@@ -90,10 +106,10 @@ void lar_solver::create_matrix_A(static_matrix<U, V> & matr) {
 
 template <typename U, typename V>
 void lar_solver::copy_from_mpq_matrix(static_matrix<U, V> & matr) {
-    lean_assert(matr.row_count() == A().row_count());
-    lean_assert(matr.column_count() == A().column_count());
+    lean_assert(matr.row_count() == A_r().row_count());
+    lean_assert(matr.column_count() == A_r().column_count());
     for (unsigned i = 0; i < matr.row_count(); i++) {
-        for (auto & it : A().m_rows[i]) {
+        for (auto & it : A_r().m_rows[i]) {
             matr.set(i, it.m_j,  convert_struct<U, mpq>::convert(it.get_val()));
         }
     }
@@ -125,22 +141,13 @@ std::string lar_solver::get_column_name(unsigned j) const
     return m_column_names[j];
 }
 
-template <typename V>
-void lar_solver::resize_and_init_x_with_zeros(std::vector<V> & x) {
-    x.clear();
-    x.resize(A().column_count(), zero_of_type<V>()); // init with zeroes, todo - is it necessery?
-}
-
-
-
-
 var_index lar_solver::add_var(std::string s) {
     var_index i;
     if (m_var_names_to_var_index.try_get_value(s, i)) {
         return i;
     }
-    lean_assert(m_vec_of_canonic_left_sides.size() == A().column_count());
-    i = A().column_count();
+    lean_assert(m_vec_of_canonic_left_sides.size() == A_r().column_count());
+    i = A_r().column_count();
     canonic_left_side ls;
     ls.m_coeffs.emplace_back(1, i); 
     m_vec_of_canonic_left_sides.push_back(ls);
@@ -181,6 +188,7 @@ constraint_index lar_solver::add_constraint(const std::vector<std::pair<mpq, var
     constraint_index constr_ind = m_normalized_constraints.size() - 1;
     update_column_type_and_bound(j, kind, right_side, constr_ind);
     lean_assert(x_is_correct());
+    // print_constraint(constr_ind, std::cout);
     return constr_ind;
 }
 
@@ -231,15 +239,19 @@ bool lar_solver::constraint_holds(const lar_constraint & constr, std::unordered_
     return false; // it is unreachable
 }
 
+
+
+
+
+
 void lar_solver::solve_with_core_solver() {
-    auto & f = m_mpq_lar_core_solver.m_primal_solver.m_factorization;
-    if (f != nullptr)
-        f->add_last_rows_to_B(m_mpq_lar_core_solver.m_heading);
-    else
-        init_factorization(f, A(), m_mpq_lar_core_solver.m_basis, m_settings);
+    add_last_rows_to_lu(m_mpq_lar_core_solver.m_r_solver);
+    if (m_mpq_lar_core_solver.need_to_presolve_with_double_solver()) {
+        add_last_rows_to_lu(m_mpq_lar_core_solver.m_d_solver);
+    }
     fix_touched_columns(); // todo : should they be up to date?
     m_mpq_lar_core_solver.solve();
-    m_status = m_mpq_lar_core_solver.m_primal_solver.m_status;
+    m_status = m_mpq_lar_core_solver.m_r_solver.m_status;
     lean_assert(m_status != OPTIMAL || all_constraints_hold());
     lean_assert(m_status != INFEASIBLE || evidence_is_correct());
 }
@@ -348,7 +360,7 @@ mpq lar_solver::sum_of_right_sides_of_evidence(const std::vector<std::pair<mpq, 
 // void lar_solver::prepare_core_solver_fields_with_signature(static_matrix<U, V> & A, std::vector<V> & x,
 //                                                            std::vector<V> & low_bound,
 //                                                            std::vector<V> & upper_bound, const lar_solution_signature & signature) {
-//     create_matrix_A(A);
+//     create_matrix_A_r(A);
 //     fill_bounds_for_core_solver(low_bound, upper_bound);
 //     if (m_status == INFEASIBLE) {
 //         lean_assert(false); // not implemented
@@ -375,7 +387,7 @@ mpq lar_solver::sum_of_right_sides_of_evidence(const std::vector<std::pair<mpq, 
 //     if (!scaler.scale()) {
 //         // the scale did not succeed, unscaling
 //         A.clear();
-//         create_matrix_A(A);
+//         create_matrix_A_r(A);
 //         for (auto & s : column_scale_vector)
 //             s = 1.0;
 //     }
@@ -406,7 +418,7 @@ mpq lar_solver::sum_of_right_sides_of_evidence(const std::vector<std::pair<mpq, 
         const ul_pair & ul = m_map_of_canonic_left_sides_to_ul_pairs[ls];
         ci = ul.m_low_bound_witness;
         if (ci != static_cast<constraint_index>(-1)) {
-            auto& p = m_mpq_lar_core_solver.m_low_bounds()[var];
+            auto& p = m_mpq_lar_core_solver.m_r_low_bounds()[var];
             value = p.x;
             is_strict = p.y.is_pos();
             return true;
@@ -426,7 +438,7 @@ mpq lar_solver::sum_of_right_sides_of_evidence(const std::vector<std::pair<mpq, 
         const ul_pair & ul = m_map_of_canonic_left_sides_to_ul_pairs[ls];
         ci = ul.m_upper_bound_witness;
         if (ci != static_cast<constraint_index>(-1)) {
-            auto& p = m_mpq_lar_core_solver.m_upper_bounds()[var];
+            auto& p = m_mpq_lar_core_solver.m_r_upper_bounds()[var];
             value = p.x;
             is_strict = p.y.is_neg();
             return true;
@@ -493,8 +505,8 @@ void lar_solver::get_infeasibility_evidence_for_inf_sign(std::vector<std::pair<m
 void lar_solver::get_model(std::unordered_map<var_index, mpq> & variable_values) const {
     lean_assert(m_status == OPTIMAL);
     mpq delta = m_mpq_lar_core_solver.find_delta_for_strict_bounds();
-    for (unsigned i = 0; i < m_mpq_lar_core_solver.m_x.size(); i++ ) {
-        const numeric_pair<mpq> & rp = m_mpq_lar_core_solver.m_x[i];
+    for (unsigned i = 0; i < m_mpq_lar_core_solver.m_r_x.size(); i++ ) {
+        const numeric_pair<mpq> & rp = m_mpq_lar_core_solver.m_r_x[i];
         variable_values[i] = rp.x + delta * rp.y;
     }
 }
@@ -614,7 +626,7 @@ void lar_solver::random_update(unsigned sz, var_index const * vars) {
 
 
 void lar_solver::try_pivot_fixed_vars_from_basis() {
-    m_mpq_lar_core_solver.m_primal_solver.pivot_fixed_vars_from_basis();
+    m_mpq_lar_core_solver.m_r_solver.pivot_fixed_vars_from_basis();
 }
 
 void lar_solver::push() {
@@ -645,7 +657,7 @@ void lar_solver::pop(unsigned k) {
     m_mpq_lar_core_solver.pop(k);
     m_touched_columns.resize(n);
     m_touched_columns.clear();
-    m_touched_rows.resize(A().row_count());
+    m_touched_rows.resize(A_r().row_count());
     m_touched_rows.clear();
 }
 }

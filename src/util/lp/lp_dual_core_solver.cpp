@@ -247,7 +247,7 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::advance_on_kno
         return true;
     }
     this->calculate_pivot_row_of_B_1(m_r);
-    this->calculate_pivot_row_when_pivot_row_of_B1_is_ready();
+    this->calculate_pivot_row_when_pivot_row_of_B1_is_ready(m_r);
     if (!ratio_test()) {
         return true;
     }

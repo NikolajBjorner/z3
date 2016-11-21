@@ -43,7 +43,6 @@ public:
     std::set<unsigned> m_forbidden_enterings;
     indexed_vector<T> m_beta; // see Swietanowski working vector beta for column norms
     T m_epsilon_of_reduced_cost = T(1)/T(10000000);
-    bool m_look_for_feasible_solution_only = false;
     std::vector<T> m_costs_backup;
     bool current_x_is_feasible() const { return m_inf_set.size() == 0; }
     bool current_x_is_infeasible() const { return m_inf_set.size() != 0; }
@@ -52,14 +51,16 @@ public:
     //    T m_converted_harris_eps = convert_struct<T, double>::convert(this->m_settings.harris_feasibility_tolerance);
     std::list<unsigned> m_non_basis_list;
     void sort_non_basis();
+    void sort_non_basis_rational();
     int choose_entering_column(unsigned number_of_benefitial_columns_to_go_over);
+    int choose_entering_column_presize(unsigned number_of_benefitial_columns_to_go_over);
 
     int find_leaving_and_t_with_breakpoints(unsigned entering, X & t);
 
     static X positive_infinity() {
         return convert_struct<X, unsigned>::convert(std::numeric_limits<unsigned>::max());
     }
-    
+
     bool get_harris_theta(X & theta);
 
     void restore_harris_eps() { m_converted_harris_eps = convert_struct<T, double>::convert(this->m_settings.harris_feasibility_tolerance); }
@@ -67,7 +68,8 @@ public:
     int find_leaving_on_harris_theta(X const & harris_theta, X & t);
     bool try_jump_to_another_bound_on_entering(unsigned entering, const X & theta, X & t, bool & unlimited);
     int find_leaving_and_t(unsigned entering, X & t);
-
+    int find_leaving_and_t_precise(unsigned entering, X & t);
+ 
     void limit_theta(const X & lim, X & theta, bool & unlimited) {
         if (unlimited) {
             theta = lim;
@@ -165,7 +167,7 @@ public:
 
 
     void advance_on_entering(int entering);
-
+    void advance_on_entering_precise(int entering);
     void push_forward_offset_in_non_basis(unsigned & offset_in_nb);
 
     unsigned get_number_of_non_basic_column_to_try_for_enter();

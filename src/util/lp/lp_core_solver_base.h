@@ -22,6 +22,8 @@ class lp_core_solver_base {
     unsigned m_total_iterations = 0;
     unsigned inc_total_iterations() { ++m_settings.st().m_total_iterations; return m_total_iterations++; }
 public:
+    std::vector<unsigned> m_columns_nz; // m_columns_nz[i] keeps an approximate value of non zeroes the i-th column
+    std::vector<unsigned> m_rows_nz; // m_rows_nz[i] keeps an approximate value of non zeroes in the i-th row
     indexed_vector<T> m_pivot_row_of_B_1;  // the pivot row of the reverse of B
     indexed_vector<T> m_pivot_row; // this is the real pivot row of the simplex tableu
     static_matrix<T, X> & m_A; // the matrix A
@@ -50,7 +52,9 @@ public:
     std::vector<T> m_steepest_edge_coefficients;
     std::vector<unsigned> m_trace_of_basis_change_vector; // the even positions are entering, the odd positions are leaving
     bool m_tracing_basis_changes = false;
-    void start_tracing_basis_changed() {
+    bool m_look_for_feasible_solution_only = false;
+    void start_tracing_basis_changes() {
+        m_trace_of_basis_change_vector.clear();
         m_tracing_basis_changes = true;
     }
         
@@ -145,7 +149,7 @@ public:
     // from page 182 of Istvan Maros's book
     void calculate_pivot_row_of_B_1(unsigned pivot_row);
 
-    void calculate_pivot_row_when_pivot_row_of_B1_is_ready();
+    void calculate_pivot_row_when_pivot_row_of_B1_is_ready(unsigned pivot_row);
 
     void update_x(unsigned entering, X delta);
 
@@ -172,12 +176,12 @@ public:
     }
 
     bool below_bound(const X & x, const X & bound) const {
-        if (precise<X>()) return x < bound;
+        if (precise()) return x < bound;
         return below_bound_numeric<X>(x, bound, m_settings.primal_feasibility_tolerance);
     }
 
     bool above_bound(const X & x, const X & bound) const {
-        if (precise<X>()) return x > bound;
+        if (precise()) return x > bound;
         return above_bound_numeric<X>(x, bound, m_settings.primal_feasibility_tolerance);
     }
 
@@ -269,29 +273,38 @@ public:
     // recalculates the projection of x to B, such that Ax = b, whereab is the right side
     void solve_Ax_eq_b();
 
-    void snap_column_to_bound(unsigned j) {
+    bool snap_column_to_bound(unsigned j) {
         switch (m_column_types[j]) {
         case fixed:
+            if (x_is_at_bound(j))
+                break;
+            m_x[j] = m_low_bounds[j];
+            return true;
         case boxed:
             if (x_is_at_bound(j))
                 break; // we should preserve x if possible
-            m_x[j] = m_low_bounds[j];
-            break;
+            // snap randomly
+            if (my_random() % 2 == 1) 
+                m_x[j] = m_low_bounds[j];
+            else
+                m_x[j] = m_upper_bounds[j];
+            return true;
         case low_bound:
             if (x_is_at_low_bound(j))
                 break;
             m_x[j] = m_low_bounds[j];
-            break;
+            return true;
         case upper_bound:
             if (x_is_at_upper_bound(j))
                 break;
             m_x[j] = m_upper_bounds[j];
-            break;
+            return true;
         default:
             break;
         }
+        return false;
     }
-    void snap_non_basic_x_to_bound();
+    bool snap_non_basic_x_to_bound();
     void snap_non_basic_x_to_bound_and_free_to_zeroes();
     void snap_xN_to_bounds_and_fill_xB();
 
@@ -479,6 +492,8 @@ public:
         }
         return true;
     }
-};
 
+    bool precise() const { return numeric_traits<T>::precise(); }
+
+};
 }

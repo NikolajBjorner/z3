@@ -14,8 +14,31 @@
 namespace lean {
 // This core solver solves (Ax=b, low_bound_values \leq x \leq upper_bound_values, maximize costs*x )
 // The right side b is given implicitly by x and the basis
+
+template <typename T, typename X>
+void lp_primal_core_solver<T, X>::sort_non_basis_rational() {
+    lean_assert(numeric_traits<T>::precise());
+
+    std::sort(m_nbasis.begin(), m_nbasis.end(), [this](unsigned a, unsigned b) {
+            return m_columns_nz[a] < m_columns_nz[b];
+    });
+
+    m_non_basis_list.clear();
+    // reinit m_basis_heading
+    for (unsigned j = 0; j < this->m_nbasis.size(); j++) {
+        unsigned col = this->m_nbasis[j];
+        this->m_basis_heading[col] = - static_cast<int>(j) - 1;
+        m_non_basis_list.push_back(col);
+    }
+}
+
+
 template <typename T, typename X>
 void lp_primal_core_solver<T, X>::sort_non_basis() {
+    if (numeric_traits<T>::precise()) {
+        sort_non_basis_rational();
+        return;
+    }
     for (unsigned j : this->m_nbasis) {
         T const & da = this->m_d[j];
         this->m_steepest_edge_coefficients[j] = da * da / this->m_column_norms[j];
@@ -101,8 +124,53 @@ bool lp_primal_core_solver<T, X>::column_is_benefitial_for_entering_basis(unsign
 }
 
 template <typename T, typename X>
-int lp_primal_core_solver<T, X>::choose_entering_column(unsigned number_of_benefitial_columns_to_go_over) { // at this moment m_y = cB * B(-1)
+int lp_primal_core_solver<T, X>::choose_entering_column_presize(unsigned number_of_benefitial_columns_to_go_over) { // at this moment m_y = cB * B(-1)
+    lean_assert(numeric_traits<T>::precise());
+    lean_assert(number_of_benefitial_columns_to_go_over > 0);
+    if (this->m_basis_sort_counter == 0) {
+        sort_non_basis();
+        this->m_basis_sort_counter = 20;
+    }
+    else {
+        this->m_basis_sort_counter--;
+    }
+    unsigned j_nz = this->m_m() + 1; // this number is greater than the max column size
+    std::list<unsigned>::iterator entering_iter = m_non_basis_list.end();
+    for (auto non_basis_iter = m_non_basis_list.begin(); number_of_benefitial_columns_to_go_over && non_basis_iter != m_non_basis_list.end(); ++non_basis_iter) {
+        unsigned j = *non_basis_iter;
+        if (m_forbidden_enterings.find(j) != m_forbidden_enterings.end()) {
+            continue;
+        }
+        if (!column_is_benefitial_for_entering_basis(j))
+            continue;
 
+        // if we are here then j is a candidate to enter the basis
+        unsigned t = this->m_columns_nz[j];
+        if (t < j_nz) {
+            j_nz = t;
+            entering_iter = non_basis_iter;
+            if (number_of_benefitial_columns_to_go_over)
+                number_of_benefitial_columns_to_go_over--;
+        } else if (t == j_nz && my_random() % 2 == 0) {
+            entering_iter = non_basis_iter;
+        }
+    }// while (number_of_benefitial_columns_to_go_over && initial_offset_in_non_basis != offset_in_nb);
+    if (entering_iter == m_non_basis_list.end())
+        return -1;
+    unsigned entering = *entering_iter;
+    m_sign_of_entering_delta = this->m_d[entering] > 0 ? 1 : -1;
+    if (m_using_infeas_costs && this->m_settings.use_breakpoints_in_feasibility_search)
+        m_sign_of_entering_delta = -m_sign_of_entering_delta;
+    m_non_basis_list.erase(entering_iter);
+    m_non_basis_list.push_back(entering);
+    return entering;
+}
+
+
+template <typename T, typename X>
+int lp_primal_core_solver<T, X>::choose_entering_column(unsigned number_of_benefitial_columns_to_go_over) { // at this moment m_y = cB * B(-1)
+    if (numeric_traits<T>::precise())
+        return choose_entering_column_presize(number_of_benefitial_columns_to_go_over);
     lean_assert(number_of_benefitial_columns_to_go_over > 0);
     if (this->m_basis_sort_counter == 0) {
         sort_non_basis();
@@ -168,6 +236,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::advance_on_so
 
 template <typename T, typename X> int
 lp_primal_core_solver<T, X>::find_leaving_and_t_with_breakpoints(unsigned entering, X & t){
+    lean_assert(!precise());
     fill_breakpoints_array(entering);
     return advance_on_sorted_breakpoints(entering, t);
 }
@@ -221,7 +290,7 @@ find_leaving_on_harris_theta(X const & harris_theta, X & t) {
         }
         if (++i == this->m_m()) i = 0;
     } while ( i != initial_i);
-    if (!precise<T>())
+    if (!precise())
         restore_harris_eps();
     return leaving;
 }
@@ -256,7 +325,73 @@ template <typename T, typename X> bool lp_primal_core_solver<T, X>::try_jump_to_
     return false;
 }
 
-template <typename T, typename X>    int lp_primal_core_solver<T, X>::find_leaving_and_t(unsigned entering, X & t){
+template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_and_t_precise(unsigned entering, X & t) {
+    if (!current_x_is_feasible() && this->m_settings.use_breakpoints_in_feasibility_search)
+        return find_leaving_and_t_with_breakpoints(entering, t);
+    bool unlimited = true;
+    unsigned i = my_random() % this->m_m();
+    unsigned initial_i = i;
+    unsigned row_min_nz = this->m_n() + 1;
+    std::vector<unsigned> leaving_candidates;
+    do {
+        if (numeric_traits<T>::is_zero(this->m_ed[i])) {
+            if (++i == this->m_m()) i = 0;
+            continue;
+        }
+        unsigned j = this->m_basis[i];
+        limit_theta_on_basis_column(j, -this->m_ed[i] * m_sign_of_entering_delta, t, unlimited);
+        if (!unlimited) {
+            leaving_candidates.push_back(j);
+            row_min_nz = m_rows_nz[i];
+        }
+        if (++i == this->m_m()) i = 0;
+    } while (unlimited && i != initial_i);
+    if (unlimited) {
+        if (try_jump_to_another_bound_on_entering(entering, 1, t, unlimited)) return entering; // the value of the ratio here does not matter because we have an unlimete case
+        else 
+            return -1;
+    }
+
+    X ratio;
+    while (i != initial_i) {
+        if (numeric_traits<T>::is_zero(this->m_ed[i])) {
+            if (++i == this->m_m()) i = 0;
+            continue;
+        }
+        unsigned j = this->m_basis[i];
+        unlimited = true;
+        limit_theta_on_basis_column(j, -this->m_ed[i] * m_sign_of_entering_delta, ratio, unlimited);
+        if (unlimited) {
+            if (++i == this->m_m()) i = 0;
+            continue;
+        }
+        unsigned i_nz = m_rows_nz[i];
+        if (ratio < t) {
+            t = ratio;
+            leaving_candidates.clear();
+            leaving_candidates.push_back(j);
+            row_min_nz = m_rows_nz[i];
+        } else if (ratio == t && i_nz < row_min_nz) {
+            leaving_candidates.clear();
+            leaving_candidates.push_back(j);
+            row_min_nz = m_rows_nz[i];
+        } else if (ratio == t && i_nz == row_min_nz) {
+            leaving_candidates.push_back(j);
+        }
+        if (++i == this->m_m()) i = 0;
+    }
+
+    ratio = t;
+    unlimited = false;
+    if (try_jump_to_another_bound_on_entering(entering, t, ratio, unlimited)) {
+        t = ratio;
+        return entering;
+    }
+    unsigned k = my_random() % leaving_candidates.size();
+    return leaving_candidates[k];
+}
+
+template <typename T, typename X>    int lp_primal_core_solver<T, X>::find_leaving_and_t(unsigned entering, X & t) {
     if (!current_x_is_feasible() && this->m_settings.use_breakpoints_in_feasibility_search)
         return find_leaving_and_t_with_breakpoints(entering, t);
     X theta;
@@ -267,6 +402,7 @@ template <typename T, typename X>    int lp_primal_core_solver<T, X>::find_leavi
         return -1;
     return find_leaving_on_harris_theta(theta, t);
 }
+
 
 
 // m is the multiplier. updating t in a way that holds the following
@@ -510,6 +646,8 @@ template <typename T, typename X>    int lp_primal_core_solver<T, X>::refresh_re
 }
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::backup_and_normalize_costs() {
+    if (this->m_look_for_feasible_solution_only)
+        return; // no need to backup cost, since we are going to use only feasibility costs
     if (numeric_traits<T>::precise()) {
         m_costs_backup = this->m_costs;
     } else {
@@ -527,17 +665,23 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::init_run(
     m_using_infeas_costs = false;
     backup_and_normalize_costs(); // todo : now always needed
     init_inf_set();
-    if (current_x_is_feasible() && m_look_for_feasible_solution_only)
+    if (current_x_is_feasible() && this->m_look_for_feasible_solution_only)
         return;
     m_epsilon_of_reduced_cost = numeric_traits<X>::precise()? zero_of_type<T>(): T(1)/T(10000000);
     m_breakpoint_indices_queue.resize(this->m_n());
     init_reduced_costs();
-    this->m_column_norm_update_counter = 0;
-    init_column_norms();
+    if (!numeric_traits<X>::precise()) {
+        this->m_column_norm_update_counter = 0;
+        init_column_norms();
+    } else {
+        lean_assert(m_columns_nz.size() == this->m_n());
+        lean_assert(m_rows_nz.size() == this->m_m());
+    }
 }
 
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::calc_working_vector_beta_for_column_norms(){
+    lean_assert(numeric_traits<T>::precise() == false);
     lean_assert(this->m_ed.is_OK());
     lean_assert(m_beta.is_OK());
     m_beta = this->m_ed;
@@ -566,15 +710,18 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
         if (m_using_infeas_costs) {
             lean_assert(is_zero(this->m_costs[entering])); 
             init_infeasibility_costs_for_changed_basis_only();
-        } 
-        if (need_to_switch_costs())
+        }
+        if (this->m_look_for_feasible_solution_only && current_x_is_feasible())
+            return;
+        if (need_to_switch_costs()) {
             init_reduced_costs();
+        }
         this->m_iters_with_no_cost_growing = 0;
         return;
     }
     unsigned pivot_row = this->m_basis_heading[leaving];
     this->calculate_pivot_row_of_B_1(pivot_row);
-    this->calculate_pivot_row_when_pivot_row_of_B1_is_ready();
+    this->calculate_pivot_row_when_pivot_row_of_B1_is_ready(pivot_row);
 
     int pivot_compare_result = this->pivots_in_column_and_row_are_different(entering, leaving);
     if (!pivot_compare_result){;}
@@ -587,14 +734,20 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
         lean_assert(pivot_compare_result == 1);
         this->init_lu();
     }
-    calc_working_vector_beta_for_column_norms();
+    if (!numeric_traits<T>::precise())
+        calc_working_vector_beta_for_column_norms();
     if (current_x_is_feasible() || !this->m_settings.use_breakpoints_in_feasibility_search) {
         if (m_sign_of_entering_delta == -1)
             t = -t;
     }
     if (!this->update_basis_and_x(entering, leaving, t)) {
+        std::cout << "failed here\n";
         if (this->m_status == FLOATING_POINT_ERROR)
             return;
+        if (this->m_look_for_feasible_solution_only) {
+            this->m_status = FLOATING_POINT_ERROR;
+            return;
+        }
         init_reduced_costs();
         m_forbidden_enterings.insert(entering);
         return;
@@ -603,21 +756,45 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
     if (!is_zero(t)) {
         this->m_iters_with_no_cost_growing = 0;
     }
-    update_or_init_column_norms(entering, leaving);
     init_infeasibility_after_update_x_if_inf(leaving);
-    if (need_to_switch_costs() || m_recalc_reduced_costs || m_using_infeas_costs)
+    if (this->m_look_for_feasible_solution_only && current_x_is_feasible())
+        return;
+    if (numeric_traits<X>::precise() == false)
+        update_or_init_column_norms(entering, leaving);
+
+    if (need_to_switch_costs() || m_recalc_reduced_costs || m_using_infeas_costs) {
         init_reduced_costs();
-    else
+    }  else {
         update_reduced_costs_from_pivot_row(entering, leaving);
+    }
     lean_assert(!need_to_switch_costs());
     m_forbidden_enterings.clear();
     std::list<unsigned>::iterator it = m_non_basis_list.end();
     it--;
     * it = static_cast<unsigned>(leaving);
 }
+template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_entering_precise(int entering) {
+    lean_assert(numeric_traits<T>::precise());
+    lean_assert(entering > -1);
+    this->solve_Bd(entering);
+    X t;
+    int leaving = find_leaving_and_t_precise(entering, t);
+    if (leaving == -1) {
+        lean_assert(current_x_is_feasible());
+            // we cannot have unbounded with inf costs
 
+            this->m_status = UNBOUNDED;
+            return;
+        
+    }
+    advance_on_entering_and_leaving(entering, leaving, t);
+}
 
 template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_entering(int entering) {
+    if (numeric_traits<T>::precise()) {
+        advance_on_entering_precise(entering);
+        return;
+    }
     lean_assert(entering > -1);
     this->solve_Bd(entering);
     int refresh_result = refresh_reduced_cost_at_entering_and_check_that_it_is_off(entering);
@@ -690,7 +867,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::print_column
 // returns the number of iterations
 template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() {
     init_run();
-    if (current_x_is_feasible() && m_look_for_feasible_solution_only) {
+    if (current_x_is_feasible() && this->m_look_for_feasible_solution_only) {
         this->m_status = FEASIBLE;
         return 0;
     }
@@ -712,7 +889,6 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
             m_forbidden_enterings.clear();
             this->init_lu();
             lean_assert(this->m_factorization->get_status() == LU_status::OK);
-            
             init_reduced_costs();
             if (choose_entering_column(1) == -1) {
                 decide_on_status_when_cannot_find_entering();
@@ -733,7 +909,6 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
             lean_assert(! (numeric_traits<T>::precise()));
             this->init_lu();
             init_reduced_costs();
-            this->m_status = FEASIBLE;
             break;
 
         default:
@@ -749,7 +924,7 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
              &&
              this->total_iterations() <= this->m_settings.max_total_number_of_iterations
              &&
-             !(current_x_is_feasible() && m_look_for_feasible_solution_only));
+             !(current_x_is_feasible() && this->m_look_for_feasible_solution_only));
 
     lean_assert(current_x_is_feasible() == false || this->calc_current_x_is_feasible_include_non_basis());
     return this->total_iterations();
@@ -764,6 +939,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::delete_fa
 
 // according to Swietanowski, " A new steepest edge approximation for the simplex method for linear programming"
 template <typename T, typename X> void lp_primal_core_solver<T, X>::init_column_norms() {
+    lean_assert(numeric_traits<T>::precise() == false);
     for (unsigned j = 0; j < this->m_n(); j++) {
         this->m_column_norms[j] = T(static_cast<int>(this->m_A.m_columns[j].size() + 1)) 
             
@@ -772,7 +948,8 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::init_column_
 }
 
 // debug only
-template <typename T, typename X>    T lp_primal_core_solver<T, X>::calculate_column_norm_exactly(unsigned j) {
+template <typename T, typename X> T lp_primal_core_solver<T, X>::calculate_column_norm_exactly(unsigned j) {
+    lean_assert(numeric_traits<T>::precise() == false);
     indexed_vector<T> w(this->m_m());
     this->m_A.copy_column_to_vector(j, w);
     std::vector<T> d(this->m_m());
@@ -784,6 +961,7 @@ template <typename T, typename X>    T lp_primal_core_solver<T, X>::calculate_co
 }
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::update_or_init_column_norms(unsigned entering, unsigned leaving) {
+    lean_assert(numeric_traits<T>::precise() == false);
     lean_assert(m_column_norm_update_counter <= this->m_settings.column_norms_update_frequency);
     if (m_column_norm_update_counter == this->m_settings.column_norms_update_frequency) {
         m_column_norm_update_counter = 0;
@@ -796,6 +974,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::update_or
 
 // following Swietanowski - A new steepest ...
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::update_column_norms(unsigned entering, unsigned leaving) {
+    lean_assert(numeric_traits<T>::precise() == false);
     T pivot = this->m_pivot_row[entering];
     T g_ent = calculate_norm_of_entering_exactly() / pivot / pivot;
     if (!numeric_traits<T>::precise()) {
@@ -829,7 +1008,7 @@ template <typename T, typename X>    T lp_primal_core_solver<T, X>::calculate_no
 
 // calling it stage1 is too cryptic
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::find_feasible_solution() {
-    m_look_for_feasible_solution_only = true;
+    this->m_look_for_feasible_solution_only = true;
     lean_assert(this->non_basis_columns_are_set_correctly());
     this->m_status = UNKNOWN;
     solve();
@@ -1030,7 +1209,8 @@ template <typename T, typename X>
 void lp_primal_core_solver<T, X>::init_reduced_costs() {
     if (current_x_is_infeasible() && !m_using_infeas_costs) {
         init_infeasibility_costs();
-    } else if (current_x_is_feasible() && m_using_infeas_costs ) {
+    } else if (current_x_is_feasible() && m_using_infeas_costs) {
+        lean_assert(m_costs_backup.size() == this->m_costs.size());
         this->m_costs = m_costs_backup;
         m_using_infeas_costs = false;
     }

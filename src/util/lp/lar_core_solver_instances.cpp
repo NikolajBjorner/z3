@@ -14,6 +14,7 @@ template lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::lar_c
                                                                                            lean::lp_settings&,
                                                                                            const column_namer&);
 template void lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::solve();
-template void lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::prefix();
+template void lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::prefix_r();
+template void lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::prefix_d();
 template bool lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::is_empty() const;
 template void lean::lar_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::calculate_pivot_row(unsigned int);

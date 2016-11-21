@@ -14,7 +14,7 @@ template bool lean::lp_core_solver_base<double, double>::A_mult_x_is_off() const
 template bool lean::lp_core_solver_base<double, double>::A_mult_x_is_off_on_index(const std::vector<unsigned> &) const;
 template bool lean::lp_core_solver_base<double, double>::basis_heading_is_correct();
 template void lean::lp_core_solver_base<double, double>::calculate_pivot_row_of_B_1(unsigned int);
-template void lean::lp_core_solver_base<double, double>::calculate_pivot_row_when_pivot_row_of_B1_is_ready();
+template void lean::lp_core_solver_base<double, double>::calculate_pivot_row_when_pivot_row_of_B1_is_ready(unsigned);
 template bool lean::lp_core_solver_base<double, double>::column_is_dual_feasible(unsigned int) const;
 template void lean::lp_core_solver_base<double, double>::fill_reduced_costs_from_m_y_by_rows();
 template bool lean::lp_core_solver_base<double, double>::find_x_by_solving();
@@ -46,7 +46,7 @@ template bool lean::lp_core_solver_base<lean::mpq, lean::mpq>::A_mult_x_is_off()
 template bool lean::lp_core_solver_base<lean::mpq, lean::mpq>::A_mult_x_is_off_on_index(const std::vector<unsigned> &) const;
 template bool lean::lp_core_solver_base<lean::mpq, lean::mpq>::basis_heading_is_correct();
 template void lean::lp_core_solver_base<lean::mpq, lean::mpq>::calculate_pivot_row_of_B_1(unsigned int);
-template void lean::lp_core_solver_base<lean::mpq, lean::mpq>::calculate_pivot_row_when_pivot_row_of_B1_is_ready();
+template void lean::lp_core_solver_base<lean::mpq, lean::mpq>::calculate_pivot_row_when_pivot_row_of_B1_is_ready(unsigned);
 template bool lean::lp_core_solver_base<lean::mpq, lean::mpq>::column_is_dual_feasible(unsigned int) const;
 template void lean::lp_core_solver_base<lean::mpq, lean::mpq>::fill_reduced_costs_from_m_y_by_rows();
 template bool lean::lp_core_solver_base<lean::mpq, lean::mpq>::find_x_by_solving();
@@ -60,7 +60,7 @@ template void lean::lp_core_solver_base<lean::mpq, lean::mpq>::solve_yB(std::vec
 template bool lean::lp_core_solver_base<lean::mpq, lean::mpq>::update_basis_and_x(int, int, lean::mpq const&);
 template void lean::lp_core_solver_base<lean::mpq, lean::mpq>::update_x(unsigned int, lean::mpq);
 template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::calculate_pivot_row_of_B_1(unsigned int);
-template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::calculate_pivot_row_when_pivot_row_of_B1_is_ready();
+template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::calculate_pivot_row_when_pivot_row_of_B1_is_ready(unsigned);
 template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::init();
 template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::init_basis_heading();
 template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::init_reduced_costs_for_one_iteration();
@@ -109,7 +109,7 @@ template bool lean::lp_core_solver_base<double, double>::column_is_feasible(unsi
 template bool lean::lp_core_solver_base<lean::mpq, lean::mpq>::column_is_feasible(unsigned int) const;
 // template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::print_linear_combination_of_column_indices(std::vector<std::pair<lean::mpq, unsigned int>, std::allocator<std::pair<lean::mpq, unsigned int> > > const&, std::ostream&) const;
 template bool lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::column_is_feasible(unsigned int) const;
-template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::snap_non_basic_x_to_bound();
+template bool lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::snap_non_basic_x_to_bound();
 template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::init_lu();
 template bool lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::A_mult_x_is_off_on_index(std::vector<unsigned int, std::allocator<unsigned int> > const&) const;
 template bool lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::find_x_by_solving();

@@ -26,15 +26,15 @@ random_updater::interval random_updater::get_interval_of_non_basic_var(unsigned 
     case free_column:
         break;
     case low_bound:
-        ret.set_low_bound(m_core_solver.m_low_bounds[j]);
+        ret.set_low_bound(m_core_solver.m_r_low_bounds[j]);
         break;
     case upper_bound:
-        ret.set_upper_bound(m_core_solver.m_upper_bounds[j]);
+        ret.set_upper_bound(m_core_solver.m_r_upper_bounds[j]);
         break;
     case boxed:
     case fixed:
-        ret.set_low_bound(m_core_solver.m_low_bounds[j]);
-        ret.set_upper_bound(m_core_solver.m_upper_bounds[j]);
+        ret.set_low_bound(m_core_solver.m_r_low_bounds[j]);
+        ret.set_upper_bound(m_core_solver.m_r_upper_bounds[j]);
         break;
     default:
         lean_assert(false);
@@ -45,14 +45,14 @@ random_updater::interval random_updater::get_interval_of_non_basic_var(unsigned 
 void random_updater::diminish_interval_for_basic_var(numeric_pair<mpq>& nb_x, unsigned j,
                                                      mpq & a,
                                                      interval & r) {
-    lean_assert(m_core_solver.m_heading[j] >= 0);
+    lean_assert(m_core_solver.m_r_heading[j] >= 0);
     numeric_pair<mpq> delta;
     lean_assert(a != zero_of_type<mpq>());
     switch (m_core_solver.get_column_type(j)) {
     case free_column:
         break;
     case low_bound:
-        delta = m_core_solver.m_x[j] - m_core_solver.m_low_bounds[j];
+        delta = m_core_solver.m_r_x[j] - m_core_solver.m_r_low_bounds[j];
         lean_assert(delta >= zero_of_type<numeric_pair<mpq>>());
         if (a > 0) {
             r.set_upper_bound(nb_x + delta / a);
@@ -61,7 +61,7 @@ void random_updater::diminish_interval_for_basic_var(numeric_pair<mpq>& nb_x, un
         }
         break;
     case upper_bound:
-        delta = m_core_solver.m_upper_bounds()[j] - m_core_solver.m_x[j];
+        delta = m_core_solver.m_r_upper_bounds()[j] - m_core_solver.m_r_x[j];
         lean_assert(delta >= zero_of_type<numeric_pair<mpq>>());
         if (a > 0) {
             r.set_low_bound(nb_x - delta / a);
@@ -71,17 +71,17 @@ void random_updater::diminish_interval_for_basic_var(numeric_pair<mpq>& nb_x, un
         break;
     case boxed:
         if (a > 0) {
-            delta = m_core_solver.m_x[j] - m_core_solver.m_low_bounds[j];
+            delta = m_core_solver.m_r_x[j] - m_core_solver.m_r_low_bounds[j];
             lean_assert(delta >= zero_of_type<numeric_pair<mpq>>());
             r.set_upper_bound(nb_x + delta / a);
-            delta = m_core_solver.m_upper_bounds()[j] - m_core_solver.m_x[j];
+            delta = m_core_solver.m_r_upper_bounds()[j] - m_core_solver.m_r_x[j];
             lean_assert(delta >= zero_of_type<numeric_pair<mpq>>());
             r.set_low_bound(nb_x - delta / a);
         } else { // a < 0
-            delta = m_core_solver.m_upper_bounds()[j] - m_core_solver.m_x[j];
+            delta = m_core_solver.m_r_upper_bounds()[j] - m_core_solver.m_r_x[j];
             lean_assert(delta >= zero_of_type<numeric_pair<mpq>>());
             r.set_upper_bound(nb_x - delta / a);
-            delta = m_core_solver.m_x[j] - m_core_solver.m_low_bounds[j];
+            delta = m_core_solver.m_r_x[j] - m_core_solver.m_r_low_bounds[j];
             lean_assert(delta >= zero_of_type<numeric_pair<mpq>>());
             r.set_low_bound(nb_x + delta / a);
         }
@@ -98,7 +98,7 @@ void random_updater::diminish_interval_for_basic_var(numeric_pair<mpq>& nb_x, un
 
 void random_updater::diminish_interval_to_leave_basic_vars_feasible(numeric_pair<mpq> &nb_x, interval & r) {
     for (unsigned i : m_column_j.m_index) {
-        diminish_interval_for_basic_var(nb_x, m_core_solver.m_basis[i], m_column_j.m_data[i], r);
+        diminish_interval_for_basic_var(nb_x, m_core_solver.m_r_basis[i], m_column_j.m_data[i], r);
         if (r.is_empty())
             break;
     }
@@ -106,28 +106,28 @@ void random_updater::diminish_interval_to_leave_basic_vars_feasible(numeric_pair
 
 random_updater::interval random_updater::find_shift_interval(unsigned j) {
     interval ret = get_interval_of_non_basic_var(j);
-    diminish_interval_to_leave_basic_vars_feasible(m_core_solver.m_x[j], ret);
+    diminish_interval_to_leave_basic_vars_feasible(m_core_solver.m_r_x[j], ret);
     return ret;
 }
 
 void random_updater::shift_var(unsigned j, interval & r) {
-    lean_assert(r.contains(m_core_solver.m_x[j]));
-    lean_assert(m_core_solver.m_primal_solver.column_is_feasible(j));
-    auto old_x = m_core_solver.m_x[j];
+    lean_assert(r.contains(m_core_solver.m_r_x[j]));
+    lean_assert(m_core_solver.m_r_solver.column_is_feasible(j));
+    auto old_x = m_core_solver.m_r_x[j];
     remove_value(old_x);
-    auto new_val = m_core_solver.m_x[j] = get_random_from_interval(r);
+    auto new_val = m_core_solver.m_r_x[j] = get_random_from_interval(r);
     add_value(new_val);
 
-    lean_assert(r.contains(m_core_solver.m_x[j]));
-    lean_assert(m_core_solver.m_primal_solver.column_is_feasible(j));
-    auto delta = m_core_solver.m_x[j] - old_x;
+    lean_assert(r.contains(m_core_solver.m_r_x[j]));
+    lean_assert(m_core_solver.m_r_solver.column_is_feasible(j));
+    auto delta = m_core_solver.m_r_x[j] - old_x;
 
     for (unsigned i : m_column_j.m_index) {
-        unsigned bj = m_core_solver.m_basis[i];
-        m_core_solver.m_x[bj] -= m_column_j[i] * delta;
-        lean_assert(m_core_solver.m_primal_solver.column_is_feasible(bj));
+        unsigned bj = m_core_solver.m_r_basis[i];
+        m_core_solver.m_r_x[bj] -= m_column_j[i] * delta;
+        lean_assert(m_core_solver.m_r_solver.column_is_feasible(bj));
     }
-    lean_assert(m_core_solver.m_primal_solver.A_mult_x_is_off() == false);
+    lean_assert(m_core_solver.m_r_solver.A_mult_x_is_off() == false);
 }
 
 numeric_pair<mpq> random_updater::get_random_from_interval(interval & r) {
@@ -143,7 +143,7 @@ numeric_pair<mpq> random_updater::get_random_from_interval(interval & r) {
 }
 
 void random_updater::random_shift_var(unsigned j) {
-    m_core_solver.m_primal_solver.solve_Bd(j, m_column_j);
+    m_core_solver.m_r_solver.solve_Bd(j, m_column_j);
     interval interv = find_shift_interval(j);
     if (interv.is_empty()) {
         return;
@@ -178,16 +178,16 @@ void random_updater::remove_value(numeric_pair<mpq>& v) {
 }
 
 void random_updater::add_column_to_sets(unsigned j) {
-    if (m_core_solver.m_heading[j] < 0) {
+    if (m_core_solver.m_r_heading[j] < 0) {
         m_var_set.insert(j);
-        add_value(m_core_solver.m_x[j]);
+        add_value(m_core_solver.m_r_x[j]);
     } else {
-        unsigned row = m_core_solver.m_heading[j];
-        for (auto row_c : m_core_solver.m_A.m_rows[row]) {
+        unsigned row = m_core_solver.m_r_heading[j];
+        for (auto row_c : m_core_solver.m_r_A.m_rows[row]) {
             unsigned cj = row_c.m_j;
-            if (m_core_solver.m_heading[cj] < 0) {
+            if (m_core_solver.m_r_heading[cj] < 0) {
                 m_var_set.insert(cj);
-                add_value(m_core_solver.m_x[cj]);
+                add_value(m_core_solver.m_r_x[cj]);
             }
         }
     }

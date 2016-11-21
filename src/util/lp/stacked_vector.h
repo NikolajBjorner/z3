@@ -121,6 +121,10 @@ public:
         m_vector.push_back(b);
     }
 
+    void enlarge_by_one() {
+        m_vector.resize(m_vector.size() + 1);
+    }
+
     const std::vector<B>& operator()() const { return m_vector; }
 };
 }

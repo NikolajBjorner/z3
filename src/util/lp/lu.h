@@ -289,29 +289,38 @@ public:
         m_row_eta_work_vector.resize(m_dim);
     }
 
-    void add_last_rows_to_B(const std::vector<int> & heading) {
+
+    std::unordered_set<unsigned> get_set_of_columns_to_replace_for_add_last_rows(const std::vector<int> & heading) const {
+        std::unordered_set<unsigned> columns_to_replace;
         unsigned m = m_A.row_count();
         unsigned m_prev = m_U.dimension();
-        lean_assert(m_prev <= m); // the other branch is not implemented yet
-        if (m_prev == m) 
-            return;
+
         lean_assert(m_A.column_count() == heading.size());
-        adjust_dimension_with_matrix_A();
-        m_w_for_extension.resize(m);
-        // At this moment the LU is correct      
-        // for B extended by only by ones at the diagonal in the lower right corner
-        std::unordered_set<unsigned> processed_columns;
-        for (unsigned i = m_prev; i < m; i++)
+
+        for (unsigned i = m_prev; i < m; i++) {
             for (const row_cell<T> & c : m_A.m_rows[i]) {
                 int h = heading[c.m_j];
                 if (h < 0) {
                     continue;
                 }
-                auto it = processed_columns.find(c.m_j);
-                if (it != processed_columns.end()) continue;
-                replace_column_with_only_change_at_last_rows(c.m_j, h);
-                processed_columns.insert(c.m_j);
+                columns_to_replace.insert(c.m_j);
             }
+        }
+        return columns_to_replace;
+    }
+    
+    void add_last_rows_to_B(const std::vector<int> & heading, const std::unordered_set<unsigned> & columns_to_replace) {
+        unsigned m = m_A.row_count();
+        lean_assert(m_A.column_count() == heading.size());
+        adjust_dimension_with_matrix_A();
+        m_w_for_extension.resize(m);
+        // At this moment the LU is correct      
+        // for B extended by only by ones at the diagonal in the lower right corner
+
+        for (unsigned j :columns_to_replace) {
+            lean_assert(heading[j] >= 0);
+            replace_column_with_only_change_at_last_rows(j, heading[j]);
+        }
     }
     // column j is a basis column, and there is a change in the last rows
     void replace_column_with_only_change_at_last_rows(unsigned j, unsigned column_to_change_in_U) {

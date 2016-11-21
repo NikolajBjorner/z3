@@ -101,8 +101,9 @@ solve_yB(std::vector<T> & y) {
 //     }
 // }
 template <typename T, typename X> void lp_core_solver_base<T, X>::solve_Bd(unsigned entering, indexed_vector<T> & column) {
-    if (m_factorization == nullptr)    
+    if (m_factorization == nullptr) {
         init_factorization(m_factorization, m_A, m_basis, m_settings);
+    }
     m_factorization->solve_Bd_faster(entering, column);
 }
 
@@ -111,6 +112,8 @@ template <typename T, typename X> void lp_core_solver_base<T, X>::
 solve_Bd(unsigned entering) {
     lean_assert(m_ed.is_OK());
     m_factorization->solve_Bd(entering, m_ed, m_w);
+    if (this->precise())
+        m_columns_nz[entering] = m_ed.m_index.size();
     lean_assert(m_ed.is_OK());
     lean_assert(m_w.is_OK());
 #ifdef LEAN_DEBUG
@@ -179,23 +182,21 @@ restore_m_ed(T * buffer) {
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 A_mult_x_is_off() const {
     lean_assert(m_x.size() == m_A.column_count());
-#if 1
     if (numeric_traits<T>::precise()) {
+        //return false;
+        for (unsigned i = 0; i < m_m(); i++) {
+            X delta = m_b[i] - m_A.dot_product_with_row(i, m_x);
+            if (delta != numeric_traits<X>::zero()) {
+                std::cout << "precise x is off (";
+                std::cout << "m_b[" << i << "] = " << m_b[i] << " ";
+                std::cout << "left side = " << m_A.dot_product_with_row(i, m_x) << ' ';
+                std::cout << "delta = " << delta << ' ';
+                std::cout << "iters = " << total_iterations() << ")" << std::endl;
+                return true;
+            }
+        }
         return false;
-        // for (unsigned i = 0; i < m_m(); i++) {
-        //     X delta = m_b[i] - m_A.dot_product_with_row(i, m_x);
-        //     if (delta != numeric_traits<X>::zero()) {
-        //         std::cout << "precise x is off (";
-        //         std::cout << "m_b[" << i  << "] = " << m_b[i] << " ";
-        //         std::cout << "left side = " << m_A.dot_product_with_row(i, m_x) << ' ';
-        //         std::cout << "delta = " << delta << ' ';
-        //         std::cout << "iters = " << total_iterations() << ")" << std::endl;
-        //         return true;
-        //     }
-        // }
-        //      return false;
     }
-#endif
     T feps = convert_struct<T, double>::convert(m_settings.refactor_tolerance);
     X one = convert_struct<X, double>::convert(1.0);
     for (unsigned i = 0; i < m_m(); i++) {
@@ -203,7 +204,7 @@ A_mult_x_is_off() const {
         X eps = feps * (one + T(0.1) * abs(m_b[i]));
 
         if (delta > eps) {
-#if 1
+#if 0
             LP_OUT(m_settings, "x is off ("
                 << "m_b[" << i  << "] = " << m_b[i] << " "
                 << "left side = " << m_A.dot_product_with_row(i, m_x) << ' '
@@ -267,7 +268,7 @@ calculate_pivot_row_of_B_1(unsigned pivot_row) {
 
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
-calculate_pivot_row_when_pivot_row_of_B1_is_ready() {
+calculate_pivot_row_when_pivot_row_of_B1_is_ready(unsigned pivot_row) {
     m_pivot_row.clear();
 
     for (unsigned i : m_pivot_row_of_B_1.m_index) {
@@ -281,6 +282,9 @@ calculate_pivot_row_when_pivot_row_of_B1_is_ready() {
                 m_pivot_row.add_value_at_index_with_drop_tolerance(j, c.get_val() * pi_1);
             }
         }
+    }
+    if (precise()) {
+        m_rows_nz[pivot_row] = m_pivot_row.m_index.size();
     }
 }
 
@@ -511,8 +515,13 @@ update_basis_and_x(int entering, int leaving, X const & tt) {
     }
     // need to refactor == true
     change_basis(entering, leaving);
-    init_factorization(m_factorization, m_A, m_basis, m_settings);
+    init_lu();
     if (m_factorization->get_status() != LU_status::OK) {
+        if (m_look_for_feasible_solution_only) {
+            m_status = UNSTABLE;
+            std::cout << "shortcutting\n" << std::endl;
+            return false; 
+        }
         LP_OUT(m_settings, "failing refactor for entering = " << entering << ", leaving = " << leaving << " total_iterations = " << total_iterations() << std::endl);
         restore_x_and_refactor(entering, leaving, tt);
         lean_assert(!A_mult_x_is_off());
@@ -695,23 +704,31 @@ find_error_in_BxB(std::vector<X>& rs){
 // recalculates the projection of x to B, such that Ax = b, whereab is the right side
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 solve_Ax_eq_b() {
-    std::vector<X> rs(m_m());
-    rs_minus_Anx(rs);
-    std::vector<X> rrs = rs; // another copy of rs
-    m_factorization->solve_By(rs);
-    copy_rs_to_xB(rs);
-    if (numeric_traits<T>::precise()) return;
-    find_error_in_BxB(rrs);
-    m_factorization->solve_By(rrs);
-    add_delta_to_xB(rrs);
+    if (numeric_traits<X>::precise()) {
+        std::vector<X> rs(m_m());
+        rs_minus_Anx(rs);
+        m_factorization->solve_By(rs);
+        copy_rs_to_xB(rs);
+    } else {
+        std::vector<X> rs(m_m());
+        rs_minus_Anx(rs);
+        std::vector<X> rrs = rs; // another copy of rs
+        m_factorization->solve_By(rs);
+        copy_rs_to_xB(rs);
+        find_error_in_BxB(rrs);
+        m_factorization->solve_By(rrs);
+        add_delta_to_xB(rrs);
+    }
 }
 
 
 
-template <typename T, typename X> void lp_core_solver_base<T, X>::
+template <typename T, typename X> bool lp_core_solver_base<T, X>::
 snap_non_basic_x_to_bound() {
+    bool ret = false;
     for (unsigned j : non_basis())
-        snap_column_to_bound(j);
+        ret = snap_column_to_bound(j) || ret;
+    return ret;
 }
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 snap_non_basic_x_to_bound_and_free_to_zeroes() {
