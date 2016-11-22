@@ -191,8 +191,8 @@ public:
         push_vector(m_d_pushed_basis, m_d_basis);
     }
 
-    template <typename T> 
-    void push_vector(stacked_vector<T> & pushed_vector, const std::vector<T> & vector) {
+    template <typename K> 
+    void push_vector(stacked_vector<K> & pushed_vector, const std::vector<K> & vector) {
         lean_assert(pushed_vector.size() <= vector.size());
         for (unsigned i = 0; i < vector.size();i++) {
             if (i == pushed_vector.size()) {
