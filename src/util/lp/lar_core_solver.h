@@ -244,7 +244,8 @@ public:
     }
 
     bool need_to_presolve_with_double_solver() const {
-        return settings().presolve_with_double_solver_for_lar  && m_r_A.row_count() > 0;
+        return settings().presolve_with_double_solver_for_lar  && m_r_A.row_count() > 0 && m_d_solver.m_factorization!=nullptr &&
+            m_d_solver.m_factorization->get_status()!=LU_status::Degenerated;
     }
 
     template <typename L>
