@@ -236,7 +236,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::advance_on_so
 
 template <typename T, typename X> int
 lp_primal_core_solver<T, X>::find_leaving_and_t_with_breakpoints(unsigned entering, X & t){
-    lean_assert(!precise());
+    lean_assert(!precise<T>());
     fill_breakpoints_array(entering);
     return advance_on_sorted_breakpoints(entering, t);
 }
@@ -674,8 +674,8 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::init_run(
         this->m_column_norm_update_counter = 0;
         init_column_norms();
     } else {
-        lean_assert(m_columns_nz.size() == this->m_n());
-        lean_assert(m_rows_nz.size() == this->m_m());
+        lean_assert(this->m_columns_nz.size() == this->m_n());
+        lean_assert(this->m_rows_nz.size() == this->m_m());
     }
 }
 
