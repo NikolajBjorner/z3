@@ -655,10 +655,10 @@ void lar_solver::pop(unsigned k) {
     unsigned n = m_var_names_to_var_index.size();
     m_column_names.resize(n);
     m_mpq_lar_core_solver.pop(k);
-    m_touched_columns.resize(n);
     m_touched_columns.clear();
-    m_touched_rows.resize(A_r().row_count());
+    m_touched_columns.resize(n);
     m_touched_rows.clear();
+    m_touched_rows.resize(A_r().row_count());
 }
 }
 

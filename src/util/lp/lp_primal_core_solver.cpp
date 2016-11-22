@@ -236,7 +236,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::advance_on_so
 
 template <typename T, typename X> int
 lp_primal_core_solver<T, X>::find_leaving_and_t_with_breakpoints(unsigned entering, X & t){
-    lean_assert(!precise<T>());
+    lean_assert(this->precise() == false);
     fill_breakpoints_array(entering);
     return advance_on_sorted_breakpoints(entering, t);
 }
