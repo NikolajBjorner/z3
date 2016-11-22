@@ -19,8 +19,8 @@ template <typename T, typename X>
 void lp_primal_core_solver<T, X>::sort_non_basis_rational() {
     lean_assert(numeric_traits<T>::precise());
 
-    std::sort(m_nbasis.begin(), m_nbasis.end(), [this](unsigned a, unsigned b) {
-            return m_columns_nz[a] < m_columns_nz[b];
+    std::sort(this->m_nbasis.begin(), this->m_nbasis.end(), [this](unsigned a, unsigned b) {
+            return this->m_columns_nz[a] < this->m_columns_nz[b];
     });
 
     m_non_basis_list.clear();
@@ -290,7 +290,7 @@ find_leaving_on_harris_theta(X const & harris_theta, X & t) {
         }
         if (++i == this->m_m()) i = 0;
     } while ( i != initial_i);
-    if (!precise())
+    if (!this->precise())
         restore_harris_eps();
     return leaving;
 }
@@ -342,7 +342,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
         limit_theta_on_basis_column(j, -this->m_ed[i] * m_sign_of_entering_delta, t, unlimited);
         if (!unlimited) {
             leaving_candidates.push_back(j);
-            row_min_nz = m_rows_nz[i];
+            row_min_nz = this->m_rows_nz[i];
         }
         if (++i == this->m_m()) i = 0;
     } while (unlimited && i != initial_i);
@@ -365,16 +365,16 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
             if (++i == this->m_m()) i = 0;
             continue;
         }
-        unsigned i_nz = m_rows_nz[i];
+        unsigned i_nz = this->m_rows_nz[i];
         if (ratio < t) {
             t = ratio;
             leaving_candidates.clear();
             leaving_candidates.push_back(j);
-            row_min_nz = m_rows_nz[i];
+            row_min_nz = this->m_rows_nz[i];
         } else if (ratio == t && i_nz < row_min_nz) {
             leaving_candidates.clear();
             leaving_candidates.push_back(j);
-            row_min_nz = m_rows_nz[i];
+            row_min_nz = this->m_rows_nz[i];
         } else if (ratio == t && i_nz == row_min_nz) {
             leaving_candidates.push_back(j);
         }
