@@ -188,7 +188,6 @@ constraint_index lar_solver::add_constraint(const std::vector<std::pair<mpq, var
     constraint_index constr_ind = m_normalized_constraints.size() - 1;
     update_column_type_and_bound(j, kind, right_side, constr_ind);
     lean_assert(x_is_correct());
-    // print_constraint(constr_ind, std::cout);
     return constr_ind;
 }
 
@@ -454,7 +453,6 @@ lp_status lar_solver::solve() {
         return m_status;
 
     solve_with_core_solver();
-       
     return m_status;
 }
 

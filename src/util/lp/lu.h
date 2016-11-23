@@ -173,7 +173,9 @@ public:
 
     LU_status get_status() { return m_status; }
 
-    void set_status(LU_status status) { m_status = status; }
+    void set_status(LU_status status) {
+        m_status = status;
+    }
 
     ~lu();
 

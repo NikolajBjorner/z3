@@ -790,7 +790,10 @@ void lu<T, X>::create_initial_factorization(){
 
 template <typename T, typename X>
 void lu<T, X>::calculate_r_wave_and_update_U(unsigned bump_start, unsigned bump_end, permutation_matrix<T, X> & r_wave) {
-    lean_assert(bump_start <= bump_end);
+    if (bump_start > bump_end) {
+        set_status(LU_status::Degenerated);
+        return;
+    }
     if (bump_start == bump_end) {
         return;
     }
@@ -865,12 +868,9 @@ row_eta_matrix<T, X> *lu<T, X>::get_row_eta_matrix_and_set_row_vector(unsigned r
     if (replaced_column == lowest_row_of_the_bump) return nullptr;
     scan_last_row_to_work_vector(lowest_row_of_the_bump);
     pivot_and_solve_the_system(replaced_column, lowest_row_of_the_bump);
-    if (numeric_traits<T>::precise() == false) {
+    if (numeric_traits<T>::precise() == false && !is_zero(pivot_elem_for_checking)) {
         T denom = std::max(T(1), abs(pivot_elem_for_checking));
         if (
-#ifdef LEAN_DEBUG
-            !is_zero(pivot_elem_for_checking) &&
-#endif
             !m_settings.abs_val_is_smaller_than_pivot_tolerance((m_row_eta_work_vector[lowest_row_of_the_bump] - pivot_elem_for_checking) / denom)) {
             set_status(LU_status::Degenerated);
             //        LP_OUT(m_settings, "diagonal element is off" << std::endl);
