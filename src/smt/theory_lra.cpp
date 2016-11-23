@@ -1489,6 +1489,8 @@ namespace smt {
             }        
         }
 
+        typedef lp_bounds::iterator iterator;
+
         void flush_bound_axioms() {
             CTRACE("arith", !m_new_bounds.empty(), tout << "flush bound axioms\n";);
 
@@ -1514,16 +1516,16 @@ namespace smt {
                 std::sort(atoms.begin(), atoms.end(), compare_bounds());
                 std::sort(occs.begin(), occs.end(), compare_bounds());
                 
-                typename lp_bounds::iterator begin1 = occs.begin();
-                typename lp_bounds::iterator begin2 = occs.begin();
-                typename lp_bounds::iterator end = occs.end();
+                iterator begin1 = occs.begin();
+                iterator begin2 = occs.begin();
+                iterator end = occs.end();
                 begin1 = first(lp::lower_t, begin1, end);
                 begin2 = first(lp::upper_t, begin2, end);
                 
-                typename lp_bounds::iterator lo_inf = begin1, lo_sup = begin1;
-                typename lp_bounds::iterator hi_inf = begin2, hi_sup = begin2;
-                typename lp_bounds::iterator lo_inf1 = begin1, lo_sup1 = begin1;
-                typename lp_bounds::iterator hi_inf1 = begin2, hi_sup1 = begin2;
+                iterator lo_inf = begin1, lo_sup = begin1;
+                iterator hi_inf = begin2, hi_sup = begin2;
+                iterator lo_inf1 = begin1, lo_sup1 = begin1;
+                iterator hi_inf1 = begin2, hi_sup1 = begin2;
                 bool flo_inf, fhi_inf, flo_sup, fhi_sup;
                 ptr_addr_hashtable<lp::bound> visited;
                 for (unsigned i = 0; i < atoms.size(); ++i) {
@@ -1556,8 +1558,8 @@ namespace smt {
 
         lp_bounds::iterator first(
             lp::bound_kind kind, 
-            typename lp_bounds::iterator it, 
-            typename lp_bounds::iterator end) {
+            iterator it, 
+            iterator end) {
             for (; it != end; ++it) {
                 lp::bound* a = *it;
                 if (a->get_bound_kind() == kind) return it;
@@ -1568,11 +1570,11 @@ namespace smt {
         lp_bounds::iterator next_inf(
             lp::bound* a1, 
             lp::bound_kind kind, 
-            typename lp_bounds::iterator it, 
-            typename lp_bounds::iterator end,
+            iterator it, 
+            iterator end,
             bool& found_compatible) {
             rational const & k1(a1->get_value());
-            typename lp_bounds::iterator result = end;
+            iterator result = end;
             found_compatible = false;
             for (; it != end; ++it) {
                 lp::bound * a2 = *it;            
@@ -1593,8 +1595,8 @@ namespace smt {
         lp_bounds::iterator next_sup(
             lp::bound* a1, 
             lp::bound_kind kind, 
-            typename lp_bounds::iterator it, 
-            typename lp_bounds::iterator end,
+            iterator it, 
+            iterator end,
             bool& found_compatible) {
             rational const & k1(a1->get_value());
             found_compatible = false;
