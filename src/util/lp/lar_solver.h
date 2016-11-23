@@ -74,7 +74,7 @@ class lar_solver : public column_namer {
     stacked_vector<canonic_left_side> m_vec_of_canonic_left_sides;
     // the set of column indices j such that m_x[j] does not satisfy one of its bounds
     int_set m_touched_columns;
-    indexed_vector<unsigned> m_touched_rows;
+    int_set m_touched_rows;
     lar_core_solver<mpq, numeric_pair<mpq>> m_mpq_lar_core_solver;
     stacked_value<canonic_left_side> m_infeasible_canonic_left_side; // such can be found at the initialization step
     stacked_vector<lar_term> m_terms;
@@ -338,13 +338,8 @@ public:
                                                     std::unordered_map<unsigned, unsigned> & improved_low_bounds,
                                                     std::unordered_map<unsigned, unsigned> & improved_upper_bounds) {
         bool found = false;
-        std::vector<unsigned> rows_to_check;
-        while (m_touched_rows.m_index.size() > 0) {
-            unsigned i = m_touched_rows.m_index.back();
-            rows_to_check.push_back(i);
-            m_touched_rows.m_index.pop_back();
-            m_touched_rows.m_data[i] = 0;
-        }
+        std::vector<int> rows_to_check = m_touched_rows.m_index;
+        m_touched_rows.clear();
 
         for (auto i : rows_to_check) {
             std::vector<implied_bound_evidence_signature<mpq, numeric_pair<mpq>>> evidence_vector;
@@ -941,7 +936,7 @@ public:
     void fix_touched_column(unsigned j) {
         if (m_mpq_lar_core_solver.m_r_heading[j] >= 0) { // it is a basic column
             // just mark the row at touched and exit
-            m_touched_rows.set_value_as_in_dictionary(m_mpq_lar_core_solver.m_r_heading[j]);
+            m_touched_rows.insert(m_mpq_lar_core_solver.m_r_heading[j]);
             return;
         }
         numeric_pair<mpq> delta = get_delta_of_touched_nb_column(j);
@@ -952,13 +947,22 @@ public:
             m_column_buffer.resize(A_r().row_count());
         else
             m_column_buffer.clear();
+        lean_assert(m_column_buffer.size() == 0 && m_column_buffer.is_OK());
+        
         m_mpq_lar_core_solver.m_r_solver.solve_Bd(j, m_column_buffer);
-        m_mpq_lar_core_solver.m_r_x[j] += delta;
-        for (unsigned i : m_column_buffer.m_index) {
-            unsigned jb = m_mpq_lar_core_solver.m_r_basis[i];
-            m_mpq_lar_core_solver.m_r_x[jb] -= delta * m_column_buffer[i];
-            lean_assert(m_touched_rows.data_size() > i);
-            m_touched_rows.set_value_as_in_dictionary(i);
+        if (delta.is_zero()) {
+            for (unsigned i : m_column_buffer.m_index) {
+                lean_assert(m_touched_rows.data_size() > i);
+                m_touched_rows.insert(i);
+            }
+        } else {
+            m_mpq_lar_core_solver.m_r_x[j] += delta;
+            for (unsigned i : m_column_buffer.m_index) {
+                unsigned jb = m_mpq_lar_core_solver.m_r_basis[i];
+                m_mpq_lar_core_solver.m_r_x[jb] -= delta * m_column_buffer[i];
+                lean_assert(m_touched_rows.data_size() > i);
+                m_touched_rows.insert(i);
+            }
         }
     }
 

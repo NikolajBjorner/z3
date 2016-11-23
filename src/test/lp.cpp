@@ -2389,10 +2389,7 @@ void run_lar_solver(argument_parser & args_parser, lar_solver * solver, mps_read
     if (args_parser.option_is_used("-pd")){
         solver->settings().presolve_with_double_solver_for_lar = true;
     }
-    if (args_parser.option_is_used("--totalinf")) {
-        solver->settings().lar_row_feasibility_only = false;
-    }
-
+    
     std::string iter = args_parser.get_option_value("--max_iters");
     if (iter.size() > 0) {
         solver->settings().max_total_number_of_iterations = atoi(iter.c_str());
@@ -2810,8 +2807,6 @@ void test_term() {
 
 void test_evidence_for_total_inf_simple(argument_parser & args_parser) {
     lar_solver solver;
-    if (args_parser.option_is_used("--row_inf"))
-        solver.settings().lar_row_feasibility_only = true; 
     var_index x = solver.add_var("x");
     var_index y = solver.add_var("y");
     solver.add_var_bound(x, LE, -mpq(1));

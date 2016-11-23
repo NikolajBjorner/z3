@@ -244,7 +244,7 @@ public:
     }
 
     bool need_to_presolve_with_double_solver() const {
-        return settings().presolve_with_double_solver_for_lar  && m_r_A.row_count() > 0;
+        return settings().presolve_with_double_solver_for_lar;
     }
 
     template <typename L>
@@ -342,12 +342,6 @@ public:
         m_r_solver.find_feasible_solution();
         // and now catch up in the double solver
         lean_assert(m_r_solver.total_iterations() >= m_r_solver.m_trace_of_basis_change_vector.size() /2);
-        //        std::cout << "r solver makes " << m_r_solver.total_iterations() << " steps, status " <<
-        //  lp_status_to_string(m_r_solver.get_status());
-        // if (m_r_solver.current_x_is_feasible()) std::cout << " feas ";
-        // else std::cout << " inf ";
-        //std::cout<< std::endl; 
-            
         catch_up_in_lu(m_r_solver.m_trace_of_basis_change_vector, m_d_solver);
     }
 
@@ -413,7 +407,6 @@ public:
             // the scale did not succeed, unscaling
             A.clear();
             create_double_matrix(A);
-            std::cout << "scaler failed\n";
         } else {
             for (unsigned j = 0; j < A.column_count(); j++) {
                 if (m_r_solver.column_has_upper_bound(j)) {
@@ -439,16 +432,10 @@ public:
         std::vector<int>  heading_d;
         std::vector<unsigned> basis_d, nbasis_d;
         fill_basis_d(basis_d, heading_d, nbasis_d);
-        //        scale_problem_for_doubles(A, low_bounds, upper_bounds);
-        //        std::vector<double> costs(A.column_count());
         extract_signature_from_lp_core_solver(m_r_solver, signature);
         prepare_solver_x_with_signature(signature, m_d_solver);
         m_d_solver.start_tracing_basis_changes();
         m_d_solver.find_feasible_solution();
-        // std:: cout << "d solver made " <<  m_d_solver.total_iterations() << " , status " << lp_status_to_string(m_d_solver.m_status);
-        // if (m_d_solver.current_x_is_feasible()) std::cout << " feas ";
-        // else std::cout << " inf ";
-        // std::cout<< std::endl; 
 
         
         extract_signature_from_lp_core_solver(m_d_solver, signature);

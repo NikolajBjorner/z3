@@ -178,8 +178,15 @@ public:
 
     unsigned number_of_non_zeroes_in_column(unsigned j) const { return m_columns[j].size(); }
 
-    unsigned number_of_non_zeroes_in_row(unsigned i) const { return m_rows[i].number_of_non_zeros(); }
+    unsigned number_of_non_zeroes_in_row(unsigned i) const { return m_rows[i].size(); }
 
+    unsigned number_of_non_zeroes() const {
+        unsigned ret = 0;
+        for (unsigned i = 0; i < row_count(); i++)
+            ret += number_of_non_zeroes_in_row(i);
+        return ret;
+    }
+    
     void scan_row_to_work_vector(unsigned i);
 
     void clean_row_work_vector(unsigned i);

@@ -188,7 +188,6 @@ constraint_index lar_solver::add_constraint(const std::vector<std::pair<mpq, var
     constraint_index constr_ind = m_normalized_constraints.size() - 1;
     update_column_type_and_bound(j, kind, right_side, constr_ind);
     lean_assert(x_is_correct());
-    // print_constraint(constr_ind, std::cout);
     return constr_ind;
 }
 
@@ -454,7 +453,6 @@ lp_status lar_solver::solve() {
         return m_status;
 
     solve_with_core_solver();
-       
     return m_status;
 }
 
@@ -655,10 +653,10 @@ void lar_solver::pop(unsigned k) {
     unsigned n = m_var_names_to_var_index.size();
     m_column_names.resize(n);
     m_mpq_lar_core_solver.pop(k);
-    m_touched_columns.resize(n);
     m_touched_columns.clear();
-    m_touched_rows.resize(A_r().row_count());
+    m_touched_columns.resize(n);
     m_touched_rows.clear();
+    m_touched_rows.resize(A_r().row_count());
 }
 }
 

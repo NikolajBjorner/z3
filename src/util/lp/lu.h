@@ -173,7 +173,9 @@ public:
 
     LU_status get_status() { return m_status; }
 
-    void set_status(LU_status status) { m_status = status; }
+    void set_status(LU_status status) {
+        m_status = status;
+    }
 
     ~lu();
 
@@ -320,6 +322,8 @@ public:
         for (unsigned j :columns_to_replace) {
             lean_assert(heading[j] >= 0);
             replace_column_with_only_change_at_last_rows(j, heading[j]);
+            if (get_status() == LU_status::Degenerated)
+                break;
         }
     }
     // column j is a basis column, and there is a change in the last rows
