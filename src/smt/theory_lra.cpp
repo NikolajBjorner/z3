@@ -563,40 +563,6 @@ namespace smt {
                   << mk_pp(n1->get_owner(), m) << " = " << mk_pp(n2->get_owner(), m) << "\n";);
         }
 
-        void internalize_atom2(expr* atom, bool_var bv, bool is_true) {
-            TRACE("arith", tout << mk_pp(atom, m) << " " << is_true << "\n";);
-            expr* n1, *n2;
-            lean::lconstraint_kind k = lean::EQ;
-
-            if (a.is_le(atom, n1, n2)){
-                k = is_true ? lean::LE : lean::GT;
-            }
-            else if (a.is_ge(atom, n1, n2)) {
-                k = is_true ? lean::GE : lean::LT;
-            }
-            else if (a.is_is_int(atom)) {
-                found_not_handled(atom);
-                return;
-            }
-            else {
-                UNREACHABLE();
-            }
-            scoped_internalize_state st(*this);
-            linearize_ineq(n1, n2, st);
-            init_left_side(st);
-            rational right_side = -st.coeff();
-
-            SASSERT(m_left_side.size() > 0);
-            if (m_left_side.size() > 0) {
-                add_ineq_constraint(m_solver->add_constraint(m_left_side, k, right_side), literal(bv, !is_true));
-            }
-            else {
-                // really should check if equality is true or false. 
-                // if equality is false, then we have contradiction here.
-                TRACE("arith", tout << "Ignoring inequality\n";);                
-            }
-        }
-
         void del_bounds(unsigned old_size) {
             for (unsigned i = m_bounds_trail.size(); i > old_size; ) {
                 --i;
@@ -1677,6 +1643,36 @@ namespace smt {
                         get_id(), ctx().get_region(), 1, &lit1, lit2, 3, coeffs)));
             ++m_stats.m_bounds_propagations;
         }
+
+#if 0
+        //
+        // propagate bounds to compound terms
+        // The idea is that if bounds on all variables in an inequality ax + by + cz >= k
+        // have been assigned we may know the truth value of the inequality by using simple
+        // bounds propagation.
+        // 
+        void propagate_bound_compound(bool_var bv, bool is_true, lp::bound& b) {
+            lp::bound_kind k = b.get_bound_kind();
+            theory_var v = b.get_var();
+            inf_rational val = b.get_value(is_true);
+            // TBD:
+            // for (bound& tb: m_use_list[v])
+            //     if (ctx().get_assignment(tb.get_bv()) != l_undef) continue;
+            //     evaluate tb under current bounds
+            //     to determine a glb or lub
+            //     if glb >= tb.get_value()...
+            //        apply propagation.
+            // 
+        }
+
+        bool get_lub(bound const& b, inf_rational& lub) {
+            return false;
+        }
+
+        bool get_glb(bound const& b, inf_rational& glb) {
+            return false;
+        }
+#endif
 
         void assert_bound(bool_var bv, bool is_true, lp::bound& b) {
             if (m_solver->get_status() == lean::lp_status::INFEASIBLE) {
