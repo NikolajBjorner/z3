@@ -2264,6 +2264,7 @@ namespace smt {
         m_left_basis.reset();
         m_blands_rule    = false;
         unsigned num_repeated = 0;
+        if (!m_to_patch.empty()) ++m_stats.m_make_feasible;
         while (!m_to_patch.empty()) {
             theory_var v = select_var_to_fix();
             if (v == null_theory_var) {
