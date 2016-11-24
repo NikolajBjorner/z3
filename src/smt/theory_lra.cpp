@@ -2058,7 +2058,7 @@ namespace smt {
             m_solver->get_infeasibility_evidence(m_evidence);
             ++m_num_conflicts;
             ++m_stats.m_conflicts;
-            TRACE("arith", display_evidence(tout, m_evidence); );
+            TRACE("arith", tout << "scope: " << ctx().get_scope_level() << "\n"; display_evidence(tout, m_evidence); );
             for (auto const& ev : m_evidence) {
                 if (!ev.first.is_zero()) { 
                     set_evidence(ev.second);
