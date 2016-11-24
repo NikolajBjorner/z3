@@ -228,6 +228,7 @@ namespace smt {
         expr*                  m_not_handled;
         ptr_vector<app>        m_underspecified;
         unsigned_vector        m_var_trail;
+        vector<ptr_vector<lp::bound> > m_use_list;        // bounds where variables are used.
 
         // attributes for incremental version:
         u_map<lp::bound*>      m_bool_var2bound;
@@ -568,7 +569,9 @@ namespace smt {
             for (unsigned i = m_bounds_trail.size(); i > old_size; ) {
                 --i;
                 unsigned v = m_bounds_trail[i];
-                dealloc(m_bounds[v].back());
+                lp::bound* b = m_bounds[v].back();
+                del_use_lists(b);
+                dealloc(b);
                 m_bounds[v].pop_back();                        
             }
             m_bounds_trail.shrink(old_size);
@@ -685,6 +688,7 @@ namespace smt {
             m_bool_var2bound.insert(bv, b);
             TRACE("arith", tout << "Internalized " << mk_pp(atom, m) << "\n";);
             mk_bound_axioms(*b);
+            add_use_lists(b);
             return true;
         }
 
@@ -1646,7 +1650,37 @@ namespace smt {
             ++m_stats.m_bounds_propagations;
         }
 
-#if 0
+        void add_use_lists(lp::bound* b) {
+            theory_var v = b->get_var();
+			m_theory_var2var_index.reserve(v + 1);
+            lean::var_index vi = m_theory_var2var_index[v];
+            if (m_solver->is_term(vi)) {
+                lean::lar_term const& term = m_solver->get_term(vi);
+                size_t sz = term.m_coeffs.size();
+                for (size_t i = 0; i < sz; ++i) {
+                    lean::var_index wi = term.m_coeffs[i].second;
+                    unsigned w = m_var_index2theory_var[wi];
+                    m_use_list.reserve(w + 1, ptr_vector<lp::bound>());
+                    m_use_list[w].push_back(b);
+                }
+            }
+        }
+
+        void del_use_lists(lp::bound* b) {
+            theory_var v = b->get_var();
+            lean::var_index vi = m_theory_var2var_index[v];
+            if (m_solver->is_term(vi)) {
+                lean::lar_term const& term = m_solver->get_term(vi);
+                size_t sz = term.m_coeffs.size();
+                for (size_t i = 0; i < sz; ++i) {
+                    lean::var_index wi = term.m_coeffs[i].second;
+                    unsigned w = m_var_index2theory_var[wi];
+                    SASSERT(m_use_list[w].back() == b);
+                    m_use_list[w].pop_back();
+                }
+            }
+        }
+
         //
         // propagate bounds to compound terms
         // The idea is that if bounds on all variables in an inequality ax + by + cz >= k
@@ -1656,25 +1690,98 @@ namespace smt {
         void propagate_bound_compound(bool_var bv, bool is_true, lp::bound& b) {
             lp::bound_kind k = b.get_bound_kind();
             theory_var v = b.get_var();
-            inf_rational val = b.get_value(is_true);
-            // TBD:
-            // for (bound& tb: m_use_list[v])
-            //     if (ctx().get_assignment(tb.get_bv()) != l_undef) continue;
-            //     evaluate tb under current bounds
-            //     to determine a glb or lub
-            //     if glb >= tb.get_value()...
-            //        apply propagation.
-            // 
+            if (static_cast<unsigned>(v) >= m_use_list.size()) {
+                return;
+            }
+            for (auto const& vb : m_use_list[v]) {
+                if (ctx().get_assignment(vb->get_bv()) != l_undef) {
+                    continue;
+                }
+                inf_rational r;
+                // x + y
+                // x >= 0, y >= 1 -> x + y >= 1
+                // x <= 0, y <= 2 -> x + y <= 2
+                literal lit = null_literal;
+                vector<parameter> params;
+                if (lp::lower_t == vb->get_bound_kind()) {
+                    if (get_glb(*vb, r) && r >= vb->get_value()) {        // vb is assigned true
+                        lit = literal(vb->get_bv(), false);
+                    }
+                    else if (get_lub(*vb, r) && r < vb->get_value()) {    // vb is assigned false
+                        lit = literal(vb->get_bv(), true);
+                    }
+                }
+                else {                     
+                    if (get_glb(*vb, r) && r > vb->get_value()) {         // VB <= value < val(VB)
+                        lit = literal(vb->get_bv(), true);
+                    }
+                    else if (get_lub(*vb, r) && r <= vb->get_value()) {   // val(VB) <= value
+                        lit = literal(vb->get_bv(), false);
+                    }
+                }                
+                
+                if (lit != null_literal) {
+                    TRACE("arith",
+                          ctx().display_literals_verbose(tout, m_core);
+                          tout << "\n --> ";
+                          ctx().display_literal_verbose(tout, lit);
+                          tout << "\n";
+                          );
+                
+
+                    ctx().assign(
+                        lit, ctx().mk_justification(
+                            ext_theory_propagation_justification(
+                                get_id(), ctx().get_region(), m_core.size(), m_core.c_ptr(),
+                                m_eqs.size(), m_eqs.c_ptr(), lit, params.size(), params.c_ptr())));
+                }
+            }
         }
 
-        bool get_lub(bound const& b, inf_rational& lub) {
-            return false;
+        bool get_lub(lp::bound const& b, inf_rational& lub) {
+            return get_bound(b, lub, true);
         }
 
-        bool get_glb(bound const& b, inf_rational& glb) {
-            return false;
+        bool get_glb(lp::bound const& b, inf_rational& glb) {
+            return get_bound(b, glb, false);
         }
-#endif
+
+        bool get_bound(lp::bound const& b, inf_rational& r, bool is_lub) {
+            m_core.reset();
+            m_eqs.reset();
+            r.reset();
+            theory_var v = b.get_var();
+            lean::var_index vi = m_theory_var2var_index[v];
+            SASSERT(m_solver->is_term(vi));
+            lean::lar_term const& term = m_solver->get_term(vi);
+            for (auto const& coeff : term.m_coeffs) {
+                lean::var_index wi = coeff.second;
+                lean::constraint_index ci;
+                rational value;
+                bool is_strict;
+                if (coeff.first.is_neg() == is_lub) {
+                    // -3*x ... <= lub based on lower bound for x.
+                    if (!m_solver->has_lower_bound(wi, ci, value, is_strict)) {
+                        return false;
+                    }
+                    if (is_strict) {
+                        r += inf_rational(rational::zero(), true);
+                    }
+                }
+                else {
+                    if (!m_solver->has_upper_bound(wi, ci, value, is_strict)) {
+                        return false;
+                    }
+                    if (is_strict) {
+                        r += inf_rational(rational::zero(), false);
+                    }
+                }                
+                r += value * coeff.first;
+                set_evidence(ci);                    
+            }
+            return true;
+        }
+
 
         void assert_bound(bool_var bv, bool is_true, lp::bound& b) {
             if (m_solver->get_status() == lean::lp_status::INFEASIBLE) {
