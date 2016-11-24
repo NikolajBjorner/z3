@@ -564,40 +564,6 @@ namespace smt {
                   << mk_pp(n1->get_owner(), m) << " = " << mk_pp(n2->get_owner(), m) << "\n";);
         }
 
-        void internalize_atom2(expr* atom, bool_var bv, bool is_true) {
-            TRACE("arith", tout << mk_pp(atom, m) << " " << is_true << "\n";);
-            expr* n1, *n2;
-            lean::lconstraint_kind k = lean::EQ;
-
-            if (a.is_le(atom, n1, n2)){
-                k = is_true ? lean::LE : lean::GT;
-            }
-            else if (a.is_ge(atom, n1, n2)) {
-                k = is_true ? lean::GE : lean::LT;
-            }
-            else if (a.is_is_int(atom)) {
-                found_not_handled(atom);
-                return;
-            }
-            else {
-                UNREACHABLE();
-            }
-            scoped_internalize_state st(*this);
-            linearize_ineq(n1, n2, st);
-            init_left_side(st);
-            rational right_side = -st.coeff();
-
-            SASSERT(m_left_side.size() > 0);
-            if (m_left_side.size() > 0) {
-                add_ineq_constraint(m_solver->add_constraint(m_left_side, k, right_side), literal(bv, !is_true));
-            }
-            else {
-                // really should check if equality is true or false. 
-                // if equality is false, then we have contradiction here.
-                TRACE("arith", tout << "Ignoring inequality\n";);                
-            }
-        }
-
         void del_bounds(unsigned old_size) {
             for (unsigned i = m_bounds_trail.size(); i > old_size; ) {
                 --i;
@@ -1491,6 +1457,8 @@ namespace smt {
             }        
         }
 
+        typedef lp_bounds::iterator iterator;
+
         void flush_bound_axioms() {
             CTRACE("arith", !m_new_bounds.empty(), tout << "flush bound axioms\n";);
 
@@ -1516,16 +1484,16 @@ namespace smt {
                 std::sort(atoms.begin(), atoms.end(), compare_bounds());
                 std::sort(occs.begin(), occs.end(), compare_bounds());
                 
-                typename lp_bounds::iterator begin1 = occs.begin();
-                typename lp_bounds::iterator begin2 = occs.begin();
-                typename lp_bounds::iterator end = occs.end();
+                iterator begin1 = occs.begin();
+                iterator begin2 = occs.begin();
+                iterator end = occs.end();
                 begin1 = first(lp::lower_t, begin1, end);
                 begin2 = first(lp::upper_t, begin2, end);
                 
-                typename lp_bounds::iterator lo_inf = begin1, lo_sup = begin1;
-                typename lp_bounds::iterator hi_inf = begin2, hi_sup = begin2;
-                typename lp_bounds::iterator lo_inf1 = begin1, lo_sup1 = begin1;
-                typename lp_bounds::iterator hi_inf1 = begin2, hi_sup1 = begin2;
+                iterator lo_inf = begin1, lo_sup = begin1;
+                iterator hi_inf = begin2, hi_sup = begin2;
+                iterator lo_inf1 = begin1, lo_sup1 = begin1;
+                iterator hi_inf1 = begin2, hi_sup1 = begin2;
                 bool flo_inf, fhi_inf, flo_sup, fhi_sup;
                 ptr_addr_hashtable<lp::bound> visited;
                 for (unsigned i = 0; i < atoms.size(); ++i) {
@@ -1558,8 +1526,8 @@ namespace smt {
 
         lp_bounds::iterator first(
             lp::bound_kind kind, 
-            typename lp_bounds::iterator it, 
-            typename lp_bounds::iterator end) {
+            iterator it, 
+            iterator end) {
             for (; it != end; ++it) {
                 lp::bound* a = *it;
                 if (a->get_bound_kind() == kind) return it;
@@ -1570,11 +1538,11 @@ namespace smt {
         lp_bounds::iterator next_inf(
             lp::bound* a1, 
             lp::bound_kind kind, 
-            typename lp_bounds::iterator it, 
-            typename lp_bounds::iterator end,
+            iterator it, 
+            iterator end,
             bool& found_compatible) {
             rational const & k1(a1->get_value());
-            typename lp_bounds::iterator result = end;
+            iterator result = end;
             found_compatible = false;
             for (; it != end; ++it) {
                 lp::bound * a2 = *it;            
@@ -1595,8 +1563,8 @@ namespace smt {
         lp_bounds::iterator next_sup(
             lp::bound* a1, 
             lp::bound_kind kind, 
-            typename lp_bounds::iterator it, 
-            typename lp_bounds::iterator end,
+            iterator it, 
+            iterator end,
             bool& found_compatible) {
             rational const & k1(a1->get_value());
             found_compatible = false;
@@ -1677,6 +1645,36 @@ namespace smt {
                         get_id(), ctx().get_region(), 1, &lit1, lit2, 3, coeffs)));
             ++m_stats.m_bounds_propagations;
         }
+
+#if 0
+        //
+        // propagate bounds to compound terms
+        // The idea is that if bounds on all variables in an inequality ax + by + cz >= k
+        // have been assigned we may know the truth value of the inequality by using simple
+        // bounds propagation.
+        // 
+        void propagate_bound_compound(bool_var bv, bool is_true, lp::bound& b) {
+            lp::bound_kind k = b.get_bound_kind();
+            theory_var v = b.get_var();
+            inf_rational val = b.get_value(is_true);
+            // TBD:
+            // for (bound& tb: m_use_list[v])
+            //     if (ctx().get_assignment(tb.get_bv()) != l_undef) continue;
+            //     evaluate tb under current bounds
+            //     to determine a glb or lub
+            //     if glb >= tb.get_value()...
+            //        apply propagation.
+            // 
+        }
+
+        bool get_lub(bound const& b, inf_rational& lub) {
+            return false;
+        }
+
+        bool get_glb(bound const& b, inf_rational& glb) {
+            return false;
+        }
+#endif
 
         void assert_bound(bool_var bv, bool is_true, lp::bound& b) {
             if (m_solver->get_status() == lean::lp_status::INFEASIBLE) {
