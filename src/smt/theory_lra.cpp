@@ -1819,7 +1819,6 @@ namespace smt {
             return true;
         }
 
-
         void assert_bound(bool_var bv, bool is_true, lp::bound& b) {
             if (m_solver->get_status() == lean::lp_status::INFEASIBLE) {
                 return;
