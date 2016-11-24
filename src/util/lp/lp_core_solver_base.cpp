@@ -517,16 +517,17 @@ update_basis_and_x(int entering, int leaving, X const & tt) {
     change_basis(entering, leaving);
     init_lu();
     if (m_factorization->get_status() != LU_status::OK) {
-        if (m_look_for_feasible_solution_only) {
+        if (m_look_for_feasible_solution_only && !precise()) {
             m_status = UNSTABLE;
-            std::cout << "shortcutting\n" << std::endl;
+            delete m_factorization;
+            m_factorization = nullptr;
             return false; 
         }
-        LP_OUT(m_settings, "failing refactor for entering = " << entering << ", leaving = " << leaving << " total_iterations = " << total_iterations() << std::endl);
+        //        LP_OUT(m_settings, "failing refactor for entering = " << entering << ", leaving = " << leaving << " total_iterations = " << total_iterations() << std::endl);
         restore_x_and_refactor(entering, leaving, tt);
         lean_assert(!A_mult_x_is_off());
         m_iters_with_no_cost_growing++;
-        LP_OUT(m_settings, "rolled back after failing of init_factorization()" << std::endl);
+        //        LP_OUT(m_settings, "rolled back after failing of init_factorization()" << std::endl);
         m_status = UNSTABLE;
         return false;
     }

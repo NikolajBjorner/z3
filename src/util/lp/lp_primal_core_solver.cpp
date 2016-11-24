@@ -741,7 +741,6 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
             t = -t;
     }
     if (!this->update_basis_and_x(entering, leaving, t)) {
-        std::cout << "failed here\n";
         if (this->m_status == FLOATING_POINT_ERROR)
             return;
         if (this->m_look_for_feasible_solution_only) {

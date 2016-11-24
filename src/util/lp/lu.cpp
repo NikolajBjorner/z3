@@ -135,14 +135,6 @@ lu<T, X>::lu(static_matrix<T, X> const & A,
 #endif
     ++m_settings.st().m_num_factorizations;
     create_initial_factorization();
-    if (get_status() != LU_status::OK) {
-        if (get_status() == LU_status::Degenerated) {
-            LP_OUT(m_settings, "lu status is Degenerated" << std::endl);
-        } else {
-            LP_OUT(m_settings, "lu status is " <<static_cast<int>(get_status()) << std::endl);
-        }
-        return;
-    }
 #ifdef LEAN_DEBUG
     // lean_assert(check_correctness());
 #endif
@@ -650,7 +642,7 @@ void lu<T, X>::process_column(int j) {
     swap_columns(j, pj);
     swap_rows(j, pi);
     if (!pivot_the_row(j)) {
-        LP_OUT(m_settings, "pivot_the_row(" << j << ") failed" << std::endl);
+        //      LP_OUT(m_settings, "pivot_the_row(" << j << ") failed" << std::endl);
         m_failure = true;
     }
 }
@@ -955,8 +947,8 @@ void init_factorization(lu<T, X>* & factorization, static_matrix<T, X> & m_A, st
     if (factorization != nullptr)
         delete factorization;
     factorization = new lu<T, X>(m_A, m_basis, m_settings);
-    if (factorization->get_status() != LU_status::OK) 
-        LP_OUT(m_settings, "failing in init_factorization" << std::endl);
+    // if (factorization->get_status() != LU_status::OK) 
+    //     LP_OUT(m_settings, "failing in init_factorization" << std::endl);
 }
 
 #ifdef LEAN_DEBUG
