@@ -856,8 +856,8 @@ namespace smt {
             m_scopes.resize(old_size);            
             if (!m_delay_constraints) m_solver->pop(num_scopes);
             m_new_bounds.reset();
-            VERIFY(l_false != make_feasible());
-            TRACE("arith", tout << m_scopes.size() << "\n";);
+            // VERIFY(l_false != make_feasible());
+            TRACE("arith", tout << "num scopes: " << num_scopes << " new scope level: " << m_scopes.size() << "\n";);
         }
 
         void restart_eh() {
