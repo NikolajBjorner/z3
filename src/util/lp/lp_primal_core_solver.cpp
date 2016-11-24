@@ -20,7 +20,10 @@ void lp_primal_core_solver<T, X>::sort_non_basis_rational() {
     lean_assert(numeric_traits<T>::precise());
 
     std::sort(this->m_nbasis.begin(), this->m_nbasis.end(), [this](unsigned a, unsigned b) {
-            return this->m_columns_nz[a] < this->m_columns_nz[b];
+            unsigned ca = this->m_columns_nz[a];
+            unsigned cb = this->m_columns_nz[b];
+            if (ca == 0 && cb != 0) return false;
+            return ca < cb;
     });
 
     m_non_basis_list.clear();
