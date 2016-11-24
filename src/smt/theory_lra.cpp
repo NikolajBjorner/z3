@@ -136,7 +136,7 @@ namespace smt {
 
         theory_lra&          th;
         ast_manager&         m;
-        theory_arith_params& m_params;
+        theory_arith_params& m_arith_params;
         arith_util           a;
 
         arith_eq_adapter     m_arith_eq_adapter;
@@ -445,7 +445,7 @@ namespace smt {
         }
 
         bool reflect(app* n) const {
-            return m_params.m_arith_reflect || is_underspecified(n);          
+            return m_arith_params.m_arith_reflect || is_underspecified(n);          
         }
 
         theory_var mk_var(expr* n, bool internalize = true) {
@@ -632,7 +632,7 @@ namespace smt {
 
     public:
         imp(theory_lra& th, ast_manager& m, theory_arith_params& p): 
-            th(th), m(m), m_params(p), a(m), 
+            th(th), m(m), m_arith_params(p), a(m), 
             m_arith_eq_adapter(th, p, a),
             m_internalize_head(0),
             m_delay_constraints(false), 
@@ -922,7 +922,7 @@ namespace smt {
             mk_axiom(q_le_0, ~mk_literal(a.mk_ge(a.mk_sub(mod, q), zero)));
             mk_axiom(q_ge_0, ~mk_literal(a.mk_ge(a.mk_add(mod, q), zero)));
             rational k;
-            if (m_params.m_arith_enum_const_mod && a.is_numeral(q, k) && 
+            if (m_arith_params.m_arith_enum_const_mod && a.is_numeral(q, k) && 
                 k.is_pos() && k < rational(8)) {
                 unsigned _k = k.get_unsigned();
                 literal_buffer lits;
@@ -1211,6 +1211,7 @@ namespace smt {
             if (!can_propagate()) {
                 return;
             }
+            unsigned qhead = m_asserted_qhead;
             while (m_asserted_qhead < m_asserted_atoms.size() && !ctx().inconsistent()) {
                 bool_var bv  = m_asserted_atoms[m_asserted_qhead].m_bv;
                 bool is_true = m_asserted_atoms[m_asserted_qhead].m_is_true;
@@ -1227,6 +1228,13 @@ namespace smt {
             if (m_delay_constraints || ctx().inconsistent()) {
                 return;
             }
+            for (; qhead < m_asserted_atoms.size() && !ctx().inconsistent(); ++qhead) {
+                bool_var bv  = m_asserted_atoms[qhead].m_bv;
+                bool is_true = m_asserted_atoms[qhead].m_is_true;
+                lp::bound& b = *m_bool_var2bound.find(bv);
+                propagate_bound_compound(bv, is_true, b);
+            }
+
             lbool lbl = make_feasible();
             
             switch(lbl) {
@@ -1290,23 +1298,44 @@ namespace smt {
                 }
                 m_core.reset();
                 m_eqs.reset();
-                vector<parameter> params;
+                m_params.reset();
                 for (size_t j = 0; j < be.m_evidence.size(); ++j) {
                     // be.m_evidence[j].first; // TBD coefficient. used for Farkas justification.
                     set_evidence(be.m_evidence[j].second);
                 }
                 updt_unassigned_bounds(v, -1);
                 TRACE("arith",
+                      ctx().display_literals_verbose(tout, m_core);
+                      tout << " --> ";
                       ctx().display_literal_verbose(tout, lit);
-                      ctx().display_literals_verbose(tout, m_core););
+                      tout << "\n";
+                      );
                 
                 ++m_stats.m_bound_propagations1;
+                assign(lit);
+            }     
+        }
+
+        void assign(literal lit) {
+            if (m_core.size() < small_lemma_size() && m_eqs.empty()) {
+                for (unsigned i = 0; i < m_core.size(); ++i) {
+                    m_core[i].neg();
+                }
+                m_core.push_back(lit);
+                justification * js = 0;
+                if (proofs_enabled()) {
+                    js = alloc(theory_lemma_justification, get_id(), ctx(), m_core.size(), m_core.c_ptr(),
+                               m_params.size(), m_params.c_ptr());
+                }
+                ctx().mk_clause(m_core.size(), m_core.c_ptr(), js, CLS_AUX_LEMMA, 0);
+            }
+            else {
                 ctx().assign(
                     lit, ctx().mk_justification(
                         ext_theory_propagation_justification(
                             get_id(), ctx().get_region(), m_core.size(), m_core.c_ptr(), 
-                            m_eqs.size(), m_eqs.c_ptr(), lit, params.size(), params.c_ptr())));
-            }     
+                            m_eqs.size(), m_eqs.c_ptr(), lit, m_params.size(), m_params.c_ptr())));            
+            }
         }
 
         literal is_bound_implied(lean::lconstraint_kind k, rational const& value, lp::bound const& b) {
@@ -1642,18 +1671,20 @@ namespace smt {
                   tout << "\n";);
             updt_unassigned_bounds(v, -1);
             ++m_stats.m_bound_propagations2;
-            parameter coeffs[3] = { parameter(symbol("farkas")), parameter(rational(1)), parameter(rational(1)) };
-            ctx().assign(
-                lit2, ctx().mk_justification(
-                    theory_propagation_justification(
-                        get_id(), ctx().get_region(), 1, &lit1, lit2, 3, coeffs)));
+            m_params.reset();
+            m_core.reset();
+            m_eqs.reset();
+            m_core.push_back(lit2);
+            m_params.push_back(parameter(symbol("farkas")));
+            m_params.push_back(parameter(rational(1)));
+            m_params.push_back(parameter(rational(1)));
+            assign(lit2);
             ++m_stats.m_bounds_propagations;
         }
 
         void add_use_lists(lp::bound* b) {
             theory_var v = b->get_var();
-			m_theory_var2var_index.reserve(v + 1);
-            lean::var_index vi = m_theory_var2var_index[v];
+            lean::var_index vi = get_var_index(v);
             if (m_solver->is_term(vi)) {
                 lean::lar_term const& term = m_solver->get_term(vi);
                 size_t sz = term.m_coeffs.size();
@@ -1690,11 +1721,13 @@ namespace smt {
         void propagate_bound_compound(bool_var bv, bool is_true, lp::bound& b) {
             lp::bound_kind k = b.get_bound_kind();
             theory_var v = b.get_var();
+            TRACE("arith", tout << mk_pp(get_enode(v)->get_owner(), m) << "\n";);
             if (static_cast<unsigned>(v) >= m_use_list.size()) {
                 return;
             }
             for (auto const& vb : m_use_list[v]) {
                 if (ctx().get_assignment(vb->get_bv()) != l_undef) {
+                    TRACE("arith_verbose", display_bound(tout << "assigned ", *vb) << "\n";);
                     continue;
                 }
                 inf_rational r;
@@ -1702,7 +1735,6 @@ namespace smt {
                 // x >= 0, y >= 1 -> x + y >= 1
                 // x <= 0, y <= 2 -> x + y <= 2
                 literal lit = null_literal;
-                vector<parameter> params;
                 if (lp::lower_t == vb->get_bound_kind()) {
                     if (get_glb(*vb, r) && r >= vb->get_value()) {        // vb is assigned true
                         lit = literal(vb->get_bv(), false);
@@ -1729,11 +1761,10 @@ namespace smt {
                           );
                 
 
-                    ctx().assign(
-                        lit, ctx().mk_justification(
-                            ext_theory_propagation_justification(
-                                get_id(), ctx().get_region(), m_core.size(), m_core.c_ptr(),
-                                m_eqs.size(), m_eqs.c_ptr(), lit, params.size(), params.c_ptr())));
+                    assign(lit);
+                }
+                else {
+                    TRACE("arith_verbose", display_bound(tout << "skip ", *vb) << "\n";);
                 }
             }
         }
@@ -1746,9 +1777,14 @@ namespace smt {
             return get_bound(b, glb, false);
         }
 
+        std::ostream& display_bound(std::ostream& out, lp::bound const& b) {
+            return out << mk_pp(ctx().bool_var2expr(b.get_bv()), m);
+        }
+
         bool get_bound(lp::bound const& b, inf_rational& r, bool is_lub) {
             m_core.reset();
             m_eqs.reset();
+            m_params.reset();
             r.reset();
             theory_var v = b.get_var();
             lean::var_index vi = m_theory_var2var_index[v];
@@ -1765,7 +1801,7 @@ namespace smt {
                         return false;
                     }
                     if (is_strict) {
-                        r += inf_rational(rational::zero(), true);
+                        r += inf_rational(rational::zero(), coeff.first.is_pos());
                     }
                 }
                 else {
@@ -1773,12 +1809,13 @@ namespace smt {
                         return false;
                     }
                     if (is_strict) {
-                        r += inf_rational(rational::zero(), false);
+                        r += inf_rational(rational::zero(), coeff.first.is_pos());
                     }
                 }                
                 r += value * coeff.first;
                 set_evidence(ci);                    
             }
+            TRACE("arith_verbose", tout << (is_lub?"lub":"glb") << " is " << r << "\n";);
             return true;
         }
 
@@ -1847,9 +1884,13 @@ namespace smt {
             }
         }
 
-        bool propagate_eqs() const { return m_params.m_arith_propagate_eqs && m_num_conflicts < m_params.m_arith_propagation_threshold; }
+        bool propagate_eqs() const { return m_arith_params.m_arith_propagate_eqs && m_num_conflicts < m_arith_params.m_arith_propagation_threshold; }
 
-        bound_prop_mode propagation_mode() const { return m_num_conflicts < m_params.m_arith_propagation_threshold ? m_params.m_arith_bound_prop : BP_NONE; }
+        bound_prop_mode propagation_mode() const { return m_num_conflicts < m_arith_params.m_arith_propagation_threshold ? m_arith_params.m_arith_bound_prop : BP_NONE; }
+
+        unsigned small_lemma_size() const { return m_arith_params.m_arith_small_lemma_size; }
+
+        bool proofs_enabled() const { return m.proofs_enabled(); }
 
         void set_upper_bound(lean::var_index vi, lean::constraint_index ci, rational const& v) { set_bound(vi, ci, v, false);  }
 
@@ -1984,6 +2025,7 @@ namespace smt {
         std::vector<std::pair<rational, lean::constraint_index>> m_evidence;
         literal_vector      m_core;
         svector<enode_pair> m_eqs;
+        vector<parameter>   m_params;
 
         void set_evidence(lean::constraint_index idx) {
             switch (m_constraint_sources[idx]) {
@@ -2011,6 +2053,7 @@ namespace smt {
         void set_conflict() {
             m_eqs.reset();
             m_core.reset();
+            m_params.reset();
             m_evidence.clear();
             m_solver->get_infeasibility_evidence(m_evidence);
             ++m_num_conflicts;
@@ -2026,7 +2069,7 @@ namespace smt {
                     ext_theory_conflict_justification(
                         get_id(), ctx().get_region(), 
                         m_core.size(), m_core.c_ptr(), 
-                        m_eqs.size(), m_eqs.c_ptr(), 0, 0)));
+                        m_eqs.size(), m_eqs.c_ptr(), m_params.size(), m_params.c_ptr())));
         }
 
         justification * why_is_diseq(theory_var v1, theory_var v2) {
