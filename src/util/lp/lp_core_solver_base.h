@@ -58,7 +58,7 @@ public:
         m_tracing_basis_changes = true;
     }
         
-    void stop_tracing_basis_changed() {
+    void stop_tracing_basis_changes() {
         m_tracing_basis_changes = false;
     }
 

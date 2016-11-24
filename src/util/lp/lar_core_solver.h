@@ -281,7 +281,18 @@ public:
         s.solve_Ax_eq_b();
     }
 
+    template <typename L, typename K> 
+    void catch_up_in_lu_in_reverse(const std::vector<unsigned> & trace_of_basis_change, lp_primal_core_solver<L,K> & cs) {
+        // recover the previous working basis
+        for (unsigned i = trace_of_basis_change.size(); i > 0;  i-= 2) {
+            unsigned entering = trace_of_basis_change[i-1];
+            unsigned leaving = trace_of_basis_change[i-2];
+            cs.change_basis_unconditionally(entering, leaving);
+        }
+        cs.init_lu();
+    }
 
+    
     template <typename L, typename K> 
     void catch_up_in_lu(const std::vector<unsigned> & trace_of_basis_change, lp_primal_core_solver<L,K> & cs) {
         if (cs.m_factorization->m_refactor_counter + trace_of_basis_change.size() >= 200) {
@@ -324,6 +335,9 @@ public:
         }
     }
 
+    bool no_r_lu() const {
+        return m_r_solver.m_factorization == nullptr || m_r_solver.m_factorization->get_status() == LU_status::Degenerated; 
+    }
     
     void solve_on_signature(const lar_solution_signature & signature, const std::vector<unsigned> & changes_of_basis) {
         if (m_r_solver.m_factorization == nullptr) {
@@ -336,13 +350,24 @@ public:
         } else {
             catch_up_in_lu(changes_of_basis, m_r_solver);
         }
-            
-        prepare_solver_x_with_signature(signature, m_r_solver);
-        m_r_solver.start_tracing_basis_changes();
-        m_r_solver.find_feasible_solution();
-        // and now catch up in the double solver
-        lean_assert(m_r_solver.total_iterations() >= m_r_solver.m_trace_of_basis_change_vector.size() /2);
-        catch_up_in_lu(m_r_solver.m_trace_of_basis_change_vector, m_d_solver);
+
+        if (no_r_lu()) { // it is the case where m_d_solver gives a degenerated basis, we need to roll back
+            catch_up_in_lu_in_reverse(changes_of_basis, m_r_solver);
+            m_r_solver.find_feasible_solution();
+            m_d_basis = m_r_basis;
+            m_d_heading = m_r_heading;
+            m_d_nbasis = m_r_nbasis;
+            delete m_d_solver.m_factorization;
+            m_d_solver.m_factorization = nullptr;
+        } else {
+            prepare_solver_x_with_signature(signature, m_r_solver);
+            m_r_solver.start_tracing_basis_changes();
+            m_r_solver.find_feasible_solution();
+            m_r_solver.stop_tracing_basis_changes();
+            // and now catch up in the double solver
+            lean_assert(m_r_solver.total_iterations() >= m_r_solver.m_trace_of_basis_change_vector.size() /2);
+            catch_up_in_lu(m_r_solver.m_trace_of_basis_change_vector, m_d_solver);
+        }
     }
 
     void create_double_matrix(static_matrix<double, double> & A) {
@@ -436,8 +461,7 @@ public:
         prepare_solver_x_with_signature(signature, m_d_solver);
         m_d_solver.start_tracing_basis_changes();
         m_d_solver.find_feasible_solution();
-
-        
+        m_d_solver.stop_tracing_basis_changes();
         extract_signature_from_lp_core_solver(m_d_solver, signature);
         return m_d_solver.m_trace_of_basis_change_vector;
     }
