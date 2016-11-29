@@ -161,9 +161,11 @@ public:
         lean_assert(A_r().column_count() == A_d().column_count());
         if (j < A_r().column_count()) { // j is a var
             const canonic_left_side& cls = m_vec_of_canonic_left_sides[j];
+            std::cout << "c";
             return add_constraint(cls, kind, right_side);
         }
         // it is a term
+        std::cout << "T";
         return add_constraint(m_terms()[adjust_term_index(j)].m_coeffs, kind, right_side);
     }
 
@@ -327,7 +329,7 @@ public:
         }
 #if LEAN_DEBUG
         for (auto & be: bound_evidences) {
-            print_bound_evidence(be, std::cout);
+            //   print_bound_evidence(be, std::cout);
             bound_evidence_is_correct(be);
         }
 #endif
