@@ -75,7 +75,6 @@ class lar_solver : public column_namer {
     // the set of column indices j such that m_x[j] does not satisfy one of its bounds
     int_set m_touched_columns;
     int_set m_touched_rows;
-public:// remove later tode debug!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     lar_core_solver<mpq, numeric_pair<mpq>> m_mpq_lar_core_solver;
     stacked_value<canonic_left_side> m_infeasible_canonic_left_side; // such can be found at the initialization step
     stacked_vector<lar_term> m_terms;
@@ -161,11 +160,9 @@ public:
         lean_assert(A_r().column_count() == A_d().column_count());
         if (j < A_r().column_count()) { // j is a var
             const canonic_left_side& cls = m_vec_of_canonic_left_sides[j];
-            std::cout << "c";
             return add_constraint(cls, kind, right_side);
         }
         // it is a term
-        std::cout << "T";
         return add_constraint(m_terms()[adjust_term_index(j)].m_coeffs, kind, right_side);
     }
 

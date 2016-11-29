@@ -2967,7 +2967,6 @@ void test_total_case_u() {
     ls.add_var_bound(x, GE, zero_of_type<mpq>());
     ls.add_var_bound(y, GE, zero_of_type<mpq>());
     ls.solve();
-    ls.m_mpq_lar_core_solver.m_r_solver.pretty_print(std::cout);
     std::vector<bound_evidence> ev;
     ls.add_var_bound_with_bound_propagation(z, GE, zero_of_type<mpq>(), ev);
 }
@@ -2993,7 +2992,6 @@ void test_total_case_l(){
     ls.add_var_bound(y, LE, one_of_type<mpq>());
     ls.settings().presolve_with_double_solver_for_lar = true;
     ls.solve();
-    ls.m_mpq_lar_core_solver.m_r_solver.pretty_print(std::cout);
     std::vector<bound_evidence> ev;
     ls.add_var_bound_with_bound_propagation(z, LE, zero_of_type<mpq>(), ev);
     lean_assert(ev.size() == 4);
