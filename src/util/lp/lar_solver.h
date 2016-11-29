@@ -75,11 +75,12 @@ class lar_solver : public column_namer {
     // the set of column indices j such that m_x[j] does not satisfy one of its bounds
     int_set m_touched_columns;
     int_set m_touched_rows;
+public:// remove later tode debug!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     lar_core_solver<mpq, numeric_pair<mpq>> m_mpq_lar_core_solver;
     stacked_value<canonic_left_side> m_infeasible_canonic_left_side; // such can be found at the initialization step
     stacked_vector<lar_term> m_terms;
     const var_index m_terms_start_index = 1000000;
-    indexed_vector<mpq> m_column_buffer;
+    indexed_vector<mpq> m_column_buffer;    
     
     ////////////////// methods ////////////////////////////////
     static_matrix<mpq, numeric_pair<mpq>> & A_r() { return m_mpq_lar_core_solver.m_r_A;}
@@ -326,7 +327,7 @@ public:
         }
 #if LEAN_DEBUG
         for (auto & be: bound_evidences) {
-            // print_bound_evidence(be);
+            print_bound_evidence(be, std::cout);
             bound_evidence_is_correct(be);
         }
 #endif
@@ -367,6 +368,7 @@ public:
     
     
     constraint_index add_var_bound_with_bound_propagation(var_index j, lconstraint_kind kind, mpq right_side, std::vector<bound_evidence> & bound_evidences)  {
+
         std::unordered_map<unsigned, unsigned> improved_low_bounds; // serves as a guard
         std::unordered_map<unsigned, unsigned> improved_upper_bounds; // serves as a guard
         if (j < A_r().column_count()) { // j is a var

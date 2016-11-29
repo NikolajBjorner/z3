@@ -570,7 +570,7 @@ namespace smt {
                 --i;
                 unsigned v = m_bounds_trail[i];
                 lp::bound* b = m_bounds[v].back();
-                del_use_lists(b);
+                // del_use_lists(b);
                 dealloc(b);
                 m_bounds[v].pop_back();                        
             }
@@ -688,7 +688,7 @@ namespace smt {
             m_bool_var2bound.insert(bv, b);
             TRACE("arith", tout << "Internalized " << mk_pp(atom, m) << "\n";);
             mk_bound_axioms(*b);
-            add_use_lists(b);
+            //add_use_lists(b);
             return true;
         }
 
@@ -1228,12 +1228,12 @@ namespace smt {
             if (m_delay_constraints || ctx().inconsistent()) {
                 return;
             }
-            for (; qhead < m_asserted_atoms.size() && !ctx().inconsistent(); ++qhead) {
+            /*for (; qhead < m_asserted_atoms.size() && !ctx().inconsistent(); ++qhead) {
                 bool_var bv  = m_asserted_atoms[qhead].m_bv;
                 bool is_true = m_asserted_atoms[qhead].m_is_true;
                 lp::bound& b = *m_bool_var2bound.find(bv);
                 propagate_bound_compound(bv, is_true, b);
-            }
+            }*/
 
             lbool lbl = make_feasible();
             
