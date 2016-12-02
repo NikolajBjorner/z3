@@ -2826,33 +2826,40 @@ void test_evidence_for_total_inf_simple(argument_parser & args_parser) {
 }
 void test_bound_propagation_one_small_sample1() {
     /*
-(<= (+ x_19 (* (- 1.0) x_9)) 0.0)
-(<= (+ x_9 (* (- 1.0) x_13)) 0.0)
---> (<= (+ x_19 (* (- 1.0) x_13)) 0.0)
+(<= (+ a (* (- 1.0) b)) 0.0)
+(<= (+ b (* (- 1.0) x_13)) 0.0)
+--> (<= (+ a (* (- 1.0) c)) 0.0)
 
-the inequality on (<= x19 x13) is obtained from a triangle inequality (<= x19 x9) (<= x9 x13).
-If x9 becomes basic variable, then it is likely the old solver ends up with a row that implies (<= x19 x13).
- x19 - x9 <= 0.0
- x9  - x13 <= 0.0
+the inequality on (<= a c) is obtained from a triangle inequality (<= a b) (<= b c).
+If b becomes basic variable, then it is likely the old solver ends up with a row that implies (<= a c).
+ a - b <= 0.0
+ b  - c <= 0.0
 
- got to get x19 <= x13
+ got to get a <= c
     */
     lar_solver ls;
-    unsigned x19 = ls.add_var("x19");
-    unsigned x9 = ls.add_var("x9");
-    unsigned x13 = ls.add_var("x13");
-
-    std::vector<std::pair<mpq, var_index>> c;
-    c.push_back(std::pair<mpq, var_index>(1, x19));
-    c.push_back(std::pair<mpq, var_index>(-1, x9));
-    ls.add_constraint(c, LE, zero_of_type<mpq>());
-    c.clear();
-    c.push_back(std::pair<mpq, var_index>(1, x9));
-    c.push_back(std::pair<mpq, var_index>(-1, x13));
-    ls.add_constraint(c, LE, zero_of_type<mpq>());
-    ls.solve();
+    unsigned a = ls.add_var("a");
+    unsigned b = ls.add_var("b");
+    unsigned c = ls.add_var("c");
+    std::vector<std::pair<mpq, var_index>> coeffs;
+    coeffs.push_back(std::pair<mpq, var_index>(1, a));
+    coeffs.push_back(std::pair<mpq, var_index>(-1, c));
+    unsigned term_c_min_a = ls.add_term(coeffs, zero_of_type<mpq>());
+    coeffs.pop_back();
+    coeffs.push_back(std::pair<mpq, var_index>(-1, b));
+    unsigned term_b_min_a = ls.add_term(coeffs, zero_of_type<mpq>());
+    coeffs.clear();
+    coeffs.push_back(std::pair<mpq, var_index>(1, a));
+    coeffs.push_back(std::pair<mpq, var_index>(-1, b));
+    ls.add_constraint(coeffs, LE, zero_of_type<mpq>());
+    coeffs.clear();
+    coeffs.push_back(std::pair<mpq, var_index>(1, b));
+    coeffs.push_back(std::pair<mpq, var_index>(-1, c));
+    ls.add_constraint(coeffs, LE, zero_of_type<mpq>());
     std::vector<bound_evidence> ev;
-    ls.add_var_bound_with_bound_propagation(x19, LE, mpq(1), ev);
+    ls.add_var_bound(a, LE, mpq(1));
+    ls.solve();
+    ls.propagate_bounds_for_touched_rows(ev);
     std::cout << " bound ev from test_bound_propagation_one_small_sample1" << std::endl;
     for (auto & be : ev)  {
         std::cout << "bound\n";
@@ -2881,9 +2888,9 @@ void test_bound_propagation_one_small_samples() {
 
 and 
 
-(<= (+ x_19 (* (- 1.0) x_9)) 0.0)
-(<= (+ x_9 (* (- 1.0) x_13)) 0.0)
---> (<= (+ x_19 (* (- 1.0) x_13)) 0.0)
+(<= (+ a (* (- 1.0) b)) 0.0)
+(<= (+ b (* (- 1.0) x_13)) 0.0)
+--> (<= (+ a (* (- 1.0) x_13)) 0.0)
 
 In the first case, there typically are no atomic formulas for bounding x_10. So there is never some
 basic lemma of the form (>= x46 0), (<= x29 0), (>= x10 0) -> (not (<= (+ x10 x46 (- x29)) 0)).
@@ -2901,9 +2908,10 @@ void test_bound_propagation_one_row() {
     c.push_back(std::pair<mpq, var_index>(1, x0));
     c.push_back(std::pair<mpq, var_index>(-1, x1));
     ls.add_constraint(c, EQ, one_of_type<mpq>());
-    ls.solve();
     std::vector<bound_evidence> ev;
-    ls.add_var_bound_with_bound_propagation(x0, LE, mpq(1), ev);
+    ls.add_var_bound(x0, LE, mpq(1));
+    ls.solve();
+    ls.propagate_bounds_for_touched_rows(ev);
 } 
 void test_bound_propagation_one_row_with_bounded_vars() {
     lar_solver ls;
@@ -2913,11 +2921,12 @@ void test_bound_propagation_one_row_with_bounded_vars() {
     c.push_back(std::pair<mpq, var_index>(1, x0));
     c.push_back(std::pair<mpq, var_index>(-1, x1));
     ls.add_constraint(c, EQ, one_of_type<mpq>());
-    ls.solve();
     std::vector<bound_evidence> ev;
     ls.add_var_bound(x0, GE, mpq(-3));
     ls.add_var_bound(x0, LE, mpq(3));
-    ls.add_var_bound_with_bound_propagation(x0, LE, mpq(1), ev);
+    ls.add_var_bound(x0, LE, mpq(1));
+    ls.solve();
+    ls.propagate_bounds_for_touched_rows(ev);
 }
 void test_bound_propagation_one_row_mixed() {
     lar_solver ls;
@@ -2927,9 +2936,10 @@ void test_bound_propagation_one_row_mixed() {
     c.push_back(std::pair<mpq, var_index>(1, x0));
     c.push_back(std::pair<mpq, var_index>(-1, x1));
     ls.add_constraint(c, EQ, one_of_type<mpq>());
-    ls.solve();
     std::vector<bound_evidence> ev;
-    ls.add_var_bound_with_bound_propagation(x1, LE, mpq(1), ev);
+    ls.add_var_bound(x1, LE, mpq(1));
+    ls.solve();
+    ls.propagate_bounds_for_touched_rows(ev);
 } 
 
 void test_bound_propagation_two_rows() {
@@ -2948,9 +2958,10 @@ void test_bound_propagation_two_rows() {
     c.push_back(std::pair<mpq, var_index>(1, z));
     ls.add_constraint(c, GE, one_of_type<mpq>());
     ls.add_var_bound(x, LE, mpq(2));
-    ls.solve();
     std::vector<bound_evidence> ev;
-    ls.add_var_bound_with_bound_propagation(y, LE, mpq(1), ev);
+    ls.add_var_bound(y, LE, mpq(1));
+    ls.solve();
+    ls.propagate_bounds_for_touched_rows(ev);
 } 
 
 void test_total_case_u() {
@@ -2966,11 +2977,12 @@ void test_total_case_u() {
     ls.add_constraint(c, LE, one_of_type<mpq>());
     ls.add_var_bound(x, GE, zero_of_type<mpq>());
     ls.add_var_bound(y, GE, zero_of_type<mpq>());
-    ls.solve();
     std::vector<bound_evidence> ev;
-    ls.add_var_bound_with_bound_propagation(z, GE, zero_of_type<mpq>(), ev);
+    ls.add_var_bound(z, GE, zero_of_type<mpq>());
+    ls.solve();
+    ls.propagate_bounds_for_touched_rows(ev);
 }
-bool contains_j_kind(unsigned j, lconstraint_kind kind, mpq & rs, const std::vector<bound_evidence> & ev) {
+bool contains_j_kind(unsigned j, lconstraint_kind kind, const mpq & rs, const std::vector<bound_evidence> & ev) {
     for (auto & e : ev) {
         if (e.m_j == j && e.m_bound == rs && e.m_kind == kind)
             return true;
@@ -2991,9 +3003,10 @@ void test_total_case_l(){
     ls.add_var_bound(x, LE, one_of_type<mpq>());
     ls.add_var_bound(y, LE, one_of_type<mpq>());
     ls.settings().presolve_with_double_solver_for_lar = true;
-    ls.solve();
     std::vector<bound_evidence> ev;
-    ls.add_var_bound_with_bound_propagation(z, LE, zero_of_type<mpq>(), ev);
+    ls.add_var_bound(z, LE, zero_of_type<mpq>());
+    ls.solve();
+    ls.propagate_bounds_for_touched_rows(ev);
     lean_assert(ev.size() == 4);
     lean_assert(contains_j_kind(x, GE, - one_of_type<mpq>(), ev));
 }

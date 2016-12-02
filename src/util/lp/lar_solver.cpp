@@ -41,7 +41,6 @@ canonic_left_side lar_solver::create_or_fetch_existing_left_side(const std::vect
         j = A_r().column_count();
         ul_pair ul(j);
         m_map_of_canonic_left_sides_to_ul_pairs[left_side] = ul;
-        lean_assert(m_column_names.size() == j);
         m_vec_of_canonic_left_sides.push_back(left_side);
         add_new_var_to_core_fields(true, left_side.value(m_mpq_lar_core_solver.m_r_x)); // true for registering in basis
         fill_last_row_of_A_r(A_r(), left_side);
@@ -135,10 +134,10 @@ column_type lar_solver::get_column_type(const column_info<mpq> & ci) {
 
 std::string lar_solver::get_column_name(unsigned j) const 
 {
-    if (j >= m_column_names.size())
+    if (j >= m_columns_name_term.size())
         return std::string("_s") + T_to_string(j);
 
-    return m_column_names[j];
+    return m_columns_name_term[j].m_name;
 }
 
 var_index lar_solver::add_var(std::string s) {
@@ -172,9 +171,7 @@ bool lar_solver::all_constrained_variables_are_registered(const std::vector<std:
 
 
 
-constraint_index lar_solver::add_constraint(const std::vector<std::pair<mpq, var_index>>& left_side_with_terms, lconstraint_kind kind_par, mpq right_side_par) {    
-    std::vector<std::pair<mpq, var_index>> left_side;
-    substitute_terms(one_of_type<mpq>(), left_side_with_terms, left_side, right_side_par);
+constraint_index lar_solver::add_constraint(const std::vector<std::pair<mpq, var_index>>& left_side, lconstraint_kind kind_par, mpq right_side_par) {    
     lean_assert(left_side.size() > 0);
     lean_assert(all_constrained_variables_are_registered(left_side));
     lar_constraint original_constr(left_side, kind_par, right_side_par);
@@ -191,7 +188,7 @@ constraint_index lar_solver::add_constraint(const std::vector<std::pair<mpq, var
     return constr_ind;
 }
 
-constraint_index lar_solver::add_constraint(const canonic_left_side& cls, lconstraint_kind kind, mpq right_side) {    
+constraint_index lar_solver::add_constraint_for_existing_left_side(const canonic_left_side& cls, lconstraint_kind kind, mpq right_side) {    
     lean_assert(m_map_of_canonic_left_sides_to_ul_pairs.contains(cls));
     const auto & left_side = cls.m_coeffs;
     lar_constraint original_constr(left_side, kind, right_side);
@@ -539,14 +536,6 @@ void lar_solver::print_left_side_of_constraint(const lar_base_constraint * c, st
     print_linear_combination_of_column_indices(c->get_left_side_coefficients(), out);
 }
 
-void lar_solver::print_term(lar_term const& term, std::ostream & out) const {
-    if (!numeric_traits<mpq>::is_zero(term.m_v)) {
-        out << term.m_v << " + ";
-    }
-    print_linear_combination_of_column_indices(term.m_coeffs, out);
-}
-
-
 mpq lar_solver::get_infeasibility_of_solution(std::unordered_map<std::string, mpq> & solution) {
     mpq ret = numeric_traits<mpq>::zero();
     for (auto & it : m_normalized_constraints()) {
@@ -604,14 +593,7 @@ void lar_solver::print_constraint(const lar_base_constraint * c, std::ostream & 
 
 void lar_solver::fill_var_set_for_random_update(unsigned sz, var_index const * vars, std::vector<unsigned>& column_list) {
     for (unsigned i = 0; i < sz; i++) {        
-        var_index var = vars[i];
-        if (var >= m_terms_start_index) { // handle the temr
-            for (auto & it : m_terms()[var - m_terms_start_index].m_coeffs) {
-                column_list.push_back(it.second);
-            }
-        } else {
-            column_list.push_back(var);
-        }
+        column_list.push_back(vars[i]);
     }
 }
 
@@ -634,7 +616,6 @@ void lar_solver::push() {
     m_vec_of_canonic_left_sides.push();
     m_var_names_to_var_index.push();
     m_infeasible_canonic_left_side.push();
-    m_terms.push();
     m_mpq_lar_core_solver.push();
 }
 
@@ -649,9 +630,8 @@ void lar_solver::pop(unsigned k) {
     m_vec_of_canonic_left_sides.pop(k);
     m_var_names_to_var_index.pop(k);
     m_infeasible_canonic_left_side.pop(k);
-    m_terms.pop(k);
     unsigned n = m_var_names_to_var_index.size();
-    m_column_names.resize(n);
+    m_columns_name_term.resize(n);
     m_mpq_lar_core_solver.pop(k);
     m_touched_columns.clear();
     m_touched_columns.resize(n);
