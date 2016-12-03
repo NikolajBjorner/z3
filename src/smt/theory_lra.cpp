@@ -570,7 +570,7 @@ namespace smt {
                 --i;
                 unsigned v = m_bounds_trail[i];
                 lp::bound* b = m_bounds[v].back();
-                del_use_lists(b);
+                // del_use_lists(b);
                 dealloc(b);
                 m_bounds[v].pop_back();                        
             }
@@ -613,8 +613,11 @@ namespace smt {
                 theory_var v = mk_var(term);
                 lean::var_index vi = m_theory_var2var_index.get(v, UINT_MAX);
                 if (vi == UINT_MAX) {
-                    vi = m_solver->add_term(m_left_side, st.coeff());
+                    lean::constraint_index ci;
+                    vi = m_solver->add_term(m_left_side, st.coeff(), ci);
+                    m_constraint_sources.setx(ci, definition_source, null_source);
                     m_theory_var2var_index.setx(v, vi, UINT_MAX);
+                    m_definitions.setx(ci, v, null_theory_var);
                     if (m_solver->is_term(vi)) {
                         m_term_index2theory_var.setx(m_solver->adjust_term_index(vi), v, UINT_MAX);
                     }
@@ -623,7 +626,7 @@ namespace smt {
                     }
                     m_var_trail.push_back(v);
                     TRACE("arith", tout << "v" << v << " := " << mk_pp(term, m) << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";
-                          m_solver->print_term(m_solver->get_term(vi), tout); tout << "\n";);
+                          m_solver->print_term(vi, tout); tout << "\n";);
                 }
                 return v;
             }
@@ -688,7 +691,7 @@ namespace smt {
             m_bool_var2bound.insert(bv, b);
             TRACE("arith", tout << "Internalized " << mk_pp(atom, m) << "\n";);
             mk_bound_axioms(*b);
-            add_use_lists(b);
+            //add_use_lists(b);
             return true;
         }
 
@@ -759,7 +762,7 @@ namespace smt {
         }
 
         void assign_eh(bool_var v, bool is_true) {
-            TRACE("arith", tout << mk_pp(ctx().bool_var2expr(v), m) << "\n";);
+            TRACE("arith", tout << mk_pp(ctx().bool_var2expr(v), m) << " " << (is_true?"true":"false") << "\n";);
             m_asserted_atoms.push_back(delayed_atom(v, is_true));
         }
 
@@ -993,20 +996,8 @@ namespace smt {
         rational get_value(theory_var v) const {
             if (!can_get_value(v)) return rational::zero();
             lean::var_index vi = m_theory_var2var_index[v];
-            if (m_variable_values.count(vi) > 0) {
-                return m_variable_values[vi];
-            }
-            if (m_solver->is_term(vi)) {
-                const lean::lar_term& term = m_solver->get_term(vi);
-                rational result = term.m_v;
-                for (unsigned i = 0; i < term.m_coeffs.size(); ++i) {
-                    result += m_variable_values[term.m_coeffs[i].second] * term.m_coeffs[i].first;
-                }
-                m_variable_values[vi] = result;
-                return result;
-            }
-            UNREACHABLE();
-            return m_variable_values[vi];        
+            SASSERT(m_variable_values.count(vi) > 0);
+            return m_variable_values[vi];
         }
 
         void init_variable_values() {
@@ -1228,12 +1219,12 @@ namespace smt {
             if (m_delay_constraints || ctx().inconsistent()) {
                 return;
             }
-            for (; qhead < m_asserted_atoms.size() && !ctx().inconsistent(); ++qhead) {
+            /*for (; qhead < m_asserted_atoms.size() && !ctx().inconsistent(); ++qhead) {
                 bool_var bv  = m_asserted_atoms[qhead].m_bv;
                 bool is_true = m_asserted_atoms[qhead].m_is_true;
                 lp::bound& b = *m_bool_var2bound.find(bv);
                 propagate_bound_compound(bv, is_true, b);
-            }
+            }*/
 
             lbool lbl = make_feasible();
             
@@ -1309,7 +1300,15 @@ namespace smt {
                       tout << " --> ";
                       ctx().display_literal_verbose(tout, lit);
                       tout << "\n";
+                      for (auto& lit : m_core) {
+                          ctx().display_literal_verbose(tout, lit); tout << ": " << ctx().get_assignment(lit) << "\n";
+                      }
+                      display_evidence(tout, be.m_evidence);
                       );
+                DEBUG_CODE(
+                      for (auto& lit : m_core) {
+                          SASSERT(ctx().get_assignment(lit) == l_true);
+                      });
                 
                 ++m_stats.m_bound_propagations1;
                 assign(lit);
@@ -1686,10 +1685,10 @@ namespace smt {
             theory_var v = b->get_var();
             lean::var_index vi = get_var_index(v);
             if (m_solver->is_term(vi)) {
-                lean::lar_term const& term = m_solver->get_term(vi);
-                size_t sz = term.m_coeffs.size();
+                auto coeffs = m_solver->get_term_coefficients(vi);
+                size_t sz = coeffs.size();
                 for (size_t i = 0; i < sz; ++i) {
-                    lean::var_index wi = term.m_coeffs[i].second;
+                    lean::var_index wi = coeffs[i].second;
                     unsigned w = m_var_index2theory_var[wi];
                     m_use_list.reserve(w + 1, ptr_vector<lp::bound>());
                     m_use_list[w].push_back(b);
@@ -1701,10 +1700,10 @@ namespace smt {
             theory_var v = b->get_var();
             lean::var_index vi = m_theory_var2var_index[v];
             if (m_solver->is_term(vi)) {
-                lean::lar_term const& term = m_solver->get_term(vi);
-                size_t sz = term.m_coeffs.size();
+                auto coeffs = m_solver->get_term_coefficients(vi);
+                size_t sz = coeffs.size();
                 for (size_t i = 0; i < sz; ++i) {
-                    lean::var_index wi = term.m_coeffs[i].second;
+                    lean::var_index wi = coeffs[i].second;
                     unsigned w = m_var_index2theory_var[wi];
                     SASSERT(m_use_list[w].back() == b);
                     m_use_list[w].pop_back();
@@ -1789,8 +1788,8 @@ namespace smt {
             theory_var v = b.get_var();
             lean::var_index vi = m_theory_var2var_index[v];
             SASSERT(m_solver->is_term(vi));
-            lean::lar_term const& term = m_solver->get_term(vi);
-            for (auto const& coeff : term.m_coeffs) {
+            auto const& coeffs = m_solver->get_term_coefficients(vi);
+            for (auto const& coeff : coeffs) {
                 lean::var_index wi = coeff.second;
                 lean::constraint_index ci;
                 rational value;
@@ -2046,6 +2045,7 @@ namespace smt {
             }
             default:
                 UNREACHABLE();
+                break;
             }
         }
 
@@ -2137,11 +2137,13 @@ namespace smt {
                     continue;
                 }
                 unsigned idx = ev.second;
-                switch (m_constraint_sources[idx]) {
-                case inequality_source: 
-                    ctx().literal2expr(m_inequalities[idx], e);
-                    out << e << "\n";
+                switch (m_constraint_sources.get(idx, null_source)) {
+                case inequality_source: {
+                    literal lit = m_inequalities[idx];
+                    ctx().literal2expr(lit, e);
+                    out << e << " " << ctx().get_assignment(lit) << "\n";
                     break;
+                }
                 case equality_source: 
                     out << mk_pp(m_equalities[idx].first->get_owner(), m) << " = " 
                         << mk_pp(m_equalities[idx].second->get_owner(), m) << "\n"; 
@@ -2151,8 +2153,10 @@ namespace smt {
                     out << "def: v" << v << " := " << mk_pp(th.get_enode(v)->get_owner(), m) << "\n";
                     break;
                 }
+                case null_source:                    
                 default:
-                    SASSERT(false);  // it seems the control should not be here
+                    UNREACHABLE();
+                    break; 
                 }
             }
             for (auto const& ev : evidence) {

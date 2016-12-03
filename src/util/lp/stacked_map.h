@@ -16,8 +16,8 @@ namespace lean {
 template <typename A, typename B,
           typename Hash = std::hash<A>,
           typename KeyEqual = std::equal_to<A>,
-          typename Allocator = std::allocator< std::pair<const A, B> >
-          > class stacked_map {
+          typename Allocator = std::allocator< std::pair<const A, B> > >
+class stacked_map {
     struct delta {
         std::unordered_set<A, Hash, KeyEqual> m_new;
         std::unordered_map<A, B, Hash, KeyEqual, Allocator> m_original_changed;
