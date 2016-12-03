@@ -470,7 +470,7 @@ public:
     }
 
     var_index add_term(const std::vector<std::pair<mpq, var_index>> & coeffs,
-                       const mpq & v) {
+                       const mpq & v, constraint_index& ci) {
         var_index j = A_r().column_count();
         std::string term_name = create_term_name(j);
         unsigned i = m_normalized_constraints.size();
@@ -478,7 +478,7 @@ public:
         lean_assert(jj == j);
         std::vector<std::pair<mpq, var_index>> term_coeffs = coeffs; // copy coeffs
         term_coeffs.emplace_back(- one_of_type<mpq>(), j);
-        add_constraint(term_coeffs, EQ, - v);
+        ci = add_constraint(term_coeffs, EQ, - v);
         m_columns_name_term[j].m_term_column_index = j;
         m_columns_name_term[j].m_term_index_in_normalized_constraints = i;
         return j;
