@@ -32,7 +32,7 @@ double conversion_helper <double>::get_upper_bound(const column_info<mpq> & ci) 
     return ci.get_upper_bound().get_double() - eps;
 }
 
-canonic_left_side lar_solver::create_or_fetch_existing_left_side(const std::vector<std::pair<mpq, var_index>>& left_side_par, var_index &j) {
+canonic_left_side lar_solver::create_or_fetch_canonic_left_side(const std::vector<std::pair<mpq, var_index>>& left_side_par, var_index &j) {
     auto left_side = canonic_left_side(left_side_par);
     lean_assert(left_side.size() > 0);
     auto it = m_map_of_canonic_left_sides_to_ul_pairs().find(left_side);
@@ -47,7 +47,7 @@ canonic_left_side lar_solver::create_or_fetch_existing_left_side(const std::vect
         fill_last_row_of_A_d(A_d(), left_side);
         register_new_var_name(get_column_name(j)); // it will create a default name
     } else {
-        j= it->second.m_j;
+        j = it->second.m_j;
     }
     return left_side;
 }
@@ -180,7 +180,7 @@ constraint_index lar_solver::add_constraint(const std::vector<std::pair<mpq, var
     lean_assert(all_constrained_variables_are_registered(left_side));
     lar_constraint original_constr(left_side, kind_par, right_side_par);
     unsigned j; // j is the index of the basic variables corresponding to the left side
-    canonic_left_side ls = create_or_fetch_existing_left_side(left_side, j);
+    canonic_left_side ls = create_or_fetch_canonic_left_side(left_side, j);
     mpq ratio = find_ratio_of_original_constraint_to_normalized(ls, original_constr);
     auto kind = ratio.is_neg() ? flip_kind(kind_par) : kind_par;
     mpq right_side = right_side_par / ratio;

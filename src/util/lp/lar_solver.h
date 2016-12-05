@@ -87,7 +87,7 @@ class lar_solver : public column_namer {
     static_matrix<double, double> & A_d() { return m_mpq_lar_core_solver.m_d_A;}
     static_matrix<double, double > const & A_d() const { return m_mpq_lar_core_solver.m_d_A;}
     
-    canonic_left_side create_or_fetch_existing_left_side(const std::vector<std::pair<mpq, var_index>>& left_side_par, var_index & j);
+    canonic_left_side create_or_fetch_canonic_left_side(const std::vector<std::pair<mpq, var_index>>& left_side_par, var_index & j);
     static mpq find_ratio_of_original_constraint_to_normalized(const canonic_left_side & ls, const lar_constraint & constraint);
 
     void add_canonic_left_side_for_var(var_index i, std::string var_name);
