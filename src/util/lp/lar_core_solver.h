@@ -345,8 +345,8 @@ public:
                 unsigned entering = changes_of_basis[j];
                 unsigned leaving = changes_of_basis[j + 1];
                 m_r_solver.change_basis_unconditionally(entering, leaving);
-                init_factorization(m_r_solver.m_factorization, m_r_A, m_r_basis, settings());
             }
+            init_factorization(m_r_solver.m_factorization, m_r_A, m_r_basis, settings());
         } else {
             catch_up_in_lu(changes_of_basis, m_r_solver);
         }

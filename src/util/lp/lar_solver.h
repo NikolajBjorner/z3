@@ -329,6 +329,7 @@ public:
             found = evidence_vector.size() > 0;
             
             if (get_status() == INFEASIBLE) {
+                std::cout << "inf" << std::endl;
                 return false;
             }
 
