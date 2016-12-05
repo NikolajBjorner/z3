@@ -613,11 +613,8 @@ namespace smt {
                 theory_var v = mk_var(term);
                 lean::var_index vi = m_theory_var2var_index.get(v, UINT_MAX);
                 if (vi == UINT_MAX) {
-                    lean::constraint_index ci;
-                    vi = m_solver->add_term(m_left_side, st.coeff(), ci);
-                    m_constraint_sources.setx(ci, definition_source, null_source);
+                    vi = m_solver->add_term(m_left_side, st.coeff());
                     m_theory_var2var_index.setx(v, vi, UINT_MAX);
-                    m_definitions.setx(ci, v, null_theory_var);
                     if (m_solver->is_term(vi)) {
                         m_term_index2theory_var.setx(m_solver->adjust_term_index(vi), v, UINT_MAX);
                     }
@@ -626,7 +623,7 @@ namespace smt {
                     }
                     m_var_trail.push_back(v);
                     TRACE("arith", tout << "v" << v << " := " << mk_pp(term, m) << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";
-                          m_solver->print_term(vi, tout); tout << "\n";);
+                          m_solver->print_term(m_solver->get_term(vi), tout); tout << "\n";);
                 }
                 return v;
             }
@@ -996,8 +993,20 @@ namespace smt {
         rational get_value(theory_var v) const {
             if (!can_get_value(v)) return rational::zero();
             lean::var_index vi = m_theory_var2var_index[v];
-            SASSERT(m_variable_values.count(vi) > 0);
-            return m_variable_values[vi];
+            if (m_variable_values.count(vi) > 0) {
+                return m_variable_values[vi];
+            }
+            if (m_solver->is_term(vi)) {
+                const lean::lar_term& term = m_solver->get_term(vi);
+                rational result = term.m_v;
+                for (unsigned i = 0; i < term.m_coeffs.size(); ++i) {
+                    result += m_variable_values[term.m_coeffs[i].second] * term.m_coeffs[i].first;
+                }
+                m_variable_values[vi] = result;
+                return result;
+            }
+            UNREACHABLE();
+            return m_variable_values[vi];        
         }
 
         void init_variable_values() {
@@ -1685,10 +1694,10 @@ namespace smt {
             theory_var v = b->get_var();
             lean::var_index vi = get_var_index(v);
             if (m_solver->is_term(vi)) {
-                auto coeffs = m_solver->get_term_coefficients(vi);
-                size_t sz = coeffs.size();
+                lean::lar_term const& term = m_solver->get_term(vi);
+                size_t sz = term.m_coeffs.size();
                 for (size_t i = 0; i < sz; ++i) {
-                    lean::var_index wi = coeffs[i].second;
+                    lean::var_index wi = term.m_coeffs[i].second;
                     unsigned w = m_var_index2theory_var[wi];
                     m_use_list.reserve(w + 1, ptr_vector<lp::bound>());
                     m_use_list[w].push_back(b);
@@ -1700,10 +1709,10 @@ namespace smt {
             theory_var v = b->get_var();
             lean::var_index vi = m_theory_var2var_index[v];
             if (m_solver->is_term(vi)) {
-                auto coeffs = m_solver->get_term_coefficients(vi);
-                size_t sz = coeffs.size();
+                 lean::lar_term const& term = m_solver->get_term(vi);
+                size_t sz = term.m_coeffs.size();
                 for (size_t i = 0; i < sz; ++i) {
-                    lean::var_index wi = coeffs[i].second;
+                    lean::var_index wi = term.m_coeffs[i].second;
                     unsigned w = m_var_index2theory_var[wi];
                     SASSERT(m_use_list[w].back() == b);
                     m_use_list[w].pop_back();
@@ -1788,8 +1797,8 @@ namespace smt {
             theory_var v = b.get_var();
             lean::var_index vi = m_theory_var2var_index[v];
             SASSERT(m_solver->is_term(vi));
-            auto const& coeffs = m_solver->get_term_coefficients(vi);
-            for (auto const& coeff : coeffs) {
+            lean::lar_term const& term = m_solver->get_term(vi);
+            for (auto const& coeff : term.m_coeffs) {
                 lean::var_index wi = coeff.second;
                 lean::constraint_index ci;
                 rational value;
@@ -2045,7 +2054,6 @@ namespace smt {
             }
             default:
                 UNREACHABLE();
-                break;
             }
         }
 

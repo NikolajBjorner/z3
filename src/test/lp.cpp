@@ -2778,7 +2778,6 @@ void incremental_test(argument_parser& args_parser, lp_settings & settings) {
 
 void test_term() {
     lar_solver solver;
-    constraint_index ci;
     
     var_index x = solver.add_var("x");
     var_index y = solver.add_var("y");
@@ -2786,7 +2785,7 @@ void test_term() {
     std::vector<std::pair<mpq, var_index>> term_ls;
     term_ls.push_back(std::pair<mpq, var_index>((int)1, x));
     term_ls.push_back(std::pair<mpq, var_index>((int)1, y));
-    var_index z = solver.add_term(term_ls, mpq(3), ci);
+    var_index z = solver.add_term(term_ls, mpq(3));
 
     std::vector<std::pair<mpq, var_index>> ls;
     ls.push_back(std::pair<mpq, var_index>((int)1, x));
@@ -2842,14 +2841,13 @@ If b becomes basic variable, then it is likely the old solver ends up with a row
     unsigned a = ls.add_var("a");
     unsigned b = ls.add_var("b");
     unsigned c = ls.add_var("c");
-    constraint_index ci;
     std::vector<std::pair<mpq, var_index>> coeffs;
     coeffs.push_back(std::pair<mpq, var_index>(1, a));
     coeffs.push_back(std::pair<mpq, var_index>(-1, c));
-    unsigned term_c_min_a = ls.add_term(coeffs, zero_of_type<mpq>(), ci);
+    unsigned term_c_min_a = ls.add_term(coeffs, zero_of_type<mpq>());
     coeffs.pop_back();
     coeffs.push_back(std::pair<mpq, var_index>(-1, b));
-    unsigned term_b_min_a = ls.add_term(coeffs, zero_of_type<mpq>(), ci);
+    unsigned term_b_min_a = ls.add_term(coeffs, zero_of_type<mpq>());
     coeffs.clear();
     coeffs.push_back(std::pair<mpq, var_index>(1, a));
     coeffs.push_back(std::pair<mpq, var_index>(-1, b));
