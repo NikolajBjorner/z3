@@ -1255,19 +1255,24 @@ namespace smt {
             if (BP_NONE == propagation_mode()) {
                 return;
             }
-            std::vector<lean::bound_evidence> bound_evidences;
-            int num_of_p = m_solver->settings().st().m_num_of_implied_bounds;
-            m_solver->propagate_bounds_for_touched_rows(bound_evidences);
-            int new_num_of_p = m_solver->settings().st().m_num_of_implied_bounds;
-            CTRACE("arith", new_num_of_p > num_of_p, tout << "found " << new_num_of_p << " implied bounds\n";);
-            if (m_solver->get_status() == lean::lp_status::INFEASIBLE) {
-                set_conflict();
-            }
-            else {
-                for (size_t i = 0; !ctx().inconsistent() && i < bound_evidences.size(); ++i) {
-                    propagate_lp_solver_bound(bound_evidences[i]);
+            do {
+                std::vector<lean::bound_evidence> bound_evidences;
+                int num_of_p = m_solver->settings().st().m_num_of_implied_bounds;
+                m_solver->propagate_bounds_for_touched_rows(bound_evidences);
+                int new_num_of_p = m_solver->settings().st().m_num_of_implied_bounds;
+                CTRACE("arith", new_num_of_p > num_of_p, tout << "found " << new_num_of_p << " implied bounds\n";);
+                if (m_solver->get_status() == lean::lp_status::INFEASIBLE) {
+                    set_conflict();
+                    break;
                 }
-            }
+                else {
+                    for (size_t i = 0; !ctx().inconsistent() && i < bound_evidences.size(); ++i) {
+                        propagate_lp_solver_bound(bound_evidences[i]);
+                    }
+                }
+                if (bound_evidences.size() == 0)
+                    break;
+            } while (true);
         }
 
         void propagate_lp_solver_bound(lean::bound_evidence const& be) {

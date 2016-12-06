@@ -139,7 +139,7 @@ std::string lar_solver::get_column_name(unsigned j) const
     if (j >= m_column_names.size())
         return std::string("_s") + T_to_string(j);
 
-    return m_column_names[j];
+    return m_column_names[j].m_name;
 }
 
 var_index lar_solver::add_var(std::string s) {
