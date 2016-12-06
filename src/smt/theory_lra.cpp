@@ -626,7 +626,7 @@ namespace smt {
                     }
                     m_var_trail.push_back(v);
                     TRACE("arith", tout << "v" << v << " := " << mk_pp(term, m) << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";
-                          m_solver->print_term(vi, tout); tout << "\n";);
+                          m_solver->print_term(m_solver->get_term(vi), tout); tout << "\n";);
                 }
                 return v;
             }
@@ -996,8 +996,20 @@ namespace smt {
         rational get_value(theory_var v) const {
             if (!can_get_value(v)) return rational::zero();
             lean::var_index vi = m_theory_var2var_index[v];
-            SASSERT(m_variable_values.count(vi) > 0);
-            return m_variable_values[vi];
+            if (m_variable_values.count(vi) > 0) {
+                return m_variable_values[vi];
+            }
+            if (m_solver->is_term(vi)) {
+                const lean::lar_term& term = m_solver->get_term(vi);
+                rational result = term.m_v;
+                for (unsigned i = 0; i < term.m_coeffs.size(); ++i) {
+                    result += m_variable_values[term.m_coeffs[i].second] * term.m_coeffs[i].first;
+                }
+                m_variable_values[vi] = result;
+                return result;
+            }
+            UNREACHABLE();
+            return m_variable_values[vi];        
         }
 
         void init_variable_values() {
@@ -1246,19 +1258,24 @@ namespace smt {
             if (BP_NONE == propagation_mode()) {
                 return;
             }
-            std::vector<lean::bound_evidence> bound_evidences;
-            int num_of_p = m_solver->settings().st().m_num_of_implied_bounds;
-            m_solver->propagate_bounds_for_touched_rows(bound_evidences);
-            int new_num_of_p = m_solver->settings().st().m_num_of_implied_bounds;
-            CTRACE("arith", new_num_of_p > num_of_p, tout << "found " << new_num_of_p << " implied bounds\n";);
-            if (m_solver->get_status() == lean::lp_status::INFEASIBLE) {
-                set_conflict();
-            }
-            else {
-                for (size_t i = 0; !ctx().inconsistent() && i < bound_evidences.size(); ++i) {
-                    propagate_lp_solver_bound(bound_evidences[i]);
+            do {
+                std::vector<lean::bound_evidence> bound_evidences;
+                int num_of_p = m_solver->settings().st().m_num_of_implied_bounds;
+                m_solver->propagate_bounds_for_touched_rows(bound_evidences);
+                int new_num_of_p = m_solver->settings().st().m_num_of_implied_bounds;
+                CTRACE("arith", new_num_of_p > num_of_p, tout << "found " << new_num_of_p << " implied bounds\n";);
+                if (m_solver->get_status() == lean::lp_status::INFEASIBLE) {
+                    set_conflict();
+                    break;
                 }
-            }
+                else {
+                    for (size_t i = 0; !ctx().inconsistent() && i < bound_evidences.size(); ++i) {
+                        propagate_lp_solver_bound(bound_evidences[i]);
+                    }
+                }
+                if (bound_evidences.size() == 0)
+                    break;
+            } while (true);
         }
 
         void propagate_lp_solver_bound(lean::bound_evidence const& be) {
@@ -1685,10 +1702,10 @@ namespace smt {
             theory_var v = b->get_var();
             lean::var_index vi = get_var_index(v);
             if (m_solver->is_term(vi)) {
-                auto coeffs = m_solver->get_term_coefficients(vi);
-                size_t sz = coeffs.size();
+                lean::lar_term const& term = m_solver->get_term(vi);
+                size_t sz = term.m_coeffs.size();
                 for (size_t i = 0; i < sz; ++i) {
-                    lean::var_index wi = coeffs[i].second;
+                    lean::var_index wi = term.m_coeffs[i].second;
                     unsigned w = m_var_index2theory_var[wi];
                     m_use_list.reserve(w + 1, ptr_vector<lp::bound>());
                     m_use_list[w].push_back(b);
@@ -1700,10 +1717,10 @@ namespace smt {
             theory_var v = b->get_var();
             lean::var_index vi = m_theory_var2var_index[v];
             if (m_solver->is_term(vi)) {
-                auto coeffs = m_solver->get_term_coefficients(vi);
-                size_t sz = coeffs.size();
+                 lean::lar_term const& term = m_solver->get_term(vi);
+                size_t sz = term.m_coeffs.size();
                 for (size_t i = 0; i < sz; ++i) {
-                    lean::var_index wi = coeffs[i].second;
+                    lean::var_index wi = term.m_coeffs[i].second;
                     unsigned w = m_var_index2theory_var[wi];
                     SASSERT(m_use_list[w].back() == b);
                     m_use_list[w].pop_back();
@@ -1788,8 +1805,13 @@ namespace smt {
             theory_var v = b.get_var();
             lean::var_index vi = m_theory_var2var_index[v];
             SASSERT(m_solver->is_term(vi));
+<<<<<<< HEAD
             auto const& coeffs = m_solver->get_term_coefficients(vi);
             for (auto const& coeff : coeffs) {
+=======
+            lean::lar_term const& term = m_solver->get_term(vi);
+            for (auto const& coeff : term.m_coeffs) {
+>>>>>>> 537939b6ea46954e7f6ce3609e56a7bf4c504e94
                 lean::var_index wi = coeff.second;
                 lean::constraint_index ci;
                 rational value;
@@ -2045,7 +2067,10 @@ namespace smt {
             }
             default:
                 UNREACHABLE();
+<<<<<<< HEAD
                 break;
+=======
+>>>>>>> 537939b6ea46954e7f6ce3609e56a7bf4c504e94
             }
         }
 

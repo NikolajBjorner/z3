@@ -47,41 +47,45 @@ struct conversion_helper <double> {
     static double get_upper_bound(const column_info<mpq> & ci);
 };
 
-struct column_name_and_term_info {
+struct name_and_term_index {
     std::string m_name;
-    // -1 means that the column does not represent a term
-    int m_term_column_index = -1;
-    int m_term_index_in_normalized_constraints = -1;
-    column_name_and_term_info() {}
-    column_name_and_term_info(std::string name) : m_name(name) {}
-    column_name_and_term_info(std::string name,
-                           int term_column_index,
-                           int term_index_in_normalized_constraints) :
-        m_name(name),
-        m_term_column_index(term_column_index),
-        m_term_index_in_normalized_constraints(term_index_in_normalized_constraints){}
-    
-    bool is_term() const { return m_term_column_index >= 0;}
+    int m_term_index = -1;
+    name_and_term_index() {}
+    name_and_term_index(std::string s) : m_name(s) {}
+};
+
+struct lar_term {
+    // the term evaluates to sum of m_coeffs + m_v
+    std::vector<std::pair<mpq, var_index>> m_coeffs;
+    mpq m_v;
+    lar_term() {}
+    lar_term(const std::vector<std::pair<mpq, var_index>> coeffs,
+             const mpq & v) : m_coeffs(coeffs), m_v(v) {
+    }
+    bool operator==(const lar_term & a) const {  return m_coeffs == a.m_coeffs && m_v == a.m_v;}
+    bool operator!=(const lar_term & a) const {  return ! (*this == a);}
 };
 
 class lar_solver : public column_namer {
     //////////////////// fields //////////////////////////
-    // fields used in m_mpq_lar_core_solver
     lp_settings m_settings;
-    // end of fields used in m_mpq_lar_core_solver
     
     stacked_value<lp_status> m_status = UNKNOWN;
     stacked_map<std::string, var_index> m_var_names_to_var_index;
-    std::vector<column_name_and_term_info> m_columns_name_term;
+    std::vector<name_and_term_index> m_column_names;
     // for each column j its canonic_left_side can be found as m_vec_of_canonic_left_sides[j] 
     stacked_map<canonic_left_side, ul_pair, hash_and_equal_of_canonic_left_side_struct, hash_and_equal_of_canonic_left_side_struct> m_map_of_canonic_left_sides_to_ul_pairs;
     stacked_vector<lar_normalized_constraint> m_normalized_constraints;
     stacked_vector<canonic_left_side> m_vec_of_canonic_left_sides;
+    // the set of column indices j such that bounds have changed for j
     int_set m_touched_columns;
     int_set m_touched_rows;
     lar_core_solver<mpq, numeric_pair<mpq>> m_mpq_lar_core_solver;
     stacked_value<canonic_left_side> m_infeasible_canonic_left_side; // such can be found at the initialization step
+    stacked_vector<lar_term> m_terms;
+    const var_index m_terms_start_index = 1000000;
     indexed_vector<mpq> m_column_buffer;    
+
     
     ////////////////// methods ////////////////////////////////
     static_matrix<mpq, numeric_pair<mpq>> & A_r() { return m_mpq_lar_core_solver.m_r_A;}
@@ -89,7 +93,7 @@ class lar_solver : public column_namer {
     static_matrix<double, double> & A_d() { return m_mpq_lar_core_solver.m_d_A;}
     static_matrix<double, double > const & A_d() const { return m_mpq_lar_core_solver.m_d_A;}
     
-    canonic_left_side create_or_fetch_existing_left_side(const std::vector<std::pair<mpq, var_index>>& left_side_par, var_index & j);
+    canonic_left_side create_or_fetch_canonic_left_side(const std::vector<std::pair<mpq, var_index>>& left_side_par, var_index & j);
     static mpq find_ratio_of_original_constraint_to_normalized(const canonic_left_side & ls, const lar_constraint & constraint);
 
     void add_canonic_left_side_for_var(var_index i, std::string var_name);
@@ -150,18 +154,31 @@ public:
     numeric_pair<mpq> const& get_value(var_index vi) const { return m_mpq_lar_core_solver.m_r_x[vi]; }
 
     bool is_term(unsigned j) const {
-        return m_columns_name_term[j].is_term();
+        return j >= m_terms_start_index && j - m_terms_start_index < m_terms.size();
     }
 
     unsigned adjust_term_index(unsigned j) const {
-        return j;
+        lean_assert(is_term(j));
+        return j - m_terms_start_index;
     }
     
     constraint_index add_var_bound(var_index j, lconstraint_kind kind, const mpq & right_side)  {
         lean_assert(A_r().column_count() == A_d().column_count());
-        lean_assert(j < A_r().column_count());
-        const canonic_left_side& cls = m_vec_of_canonic_left_sides[j];
-        return add_constraint_for_existing_left_side(cls, kind, right_side);
+        unsigned column_count = A_r().column_count();
+        
+        if (j < column_count) { // j is a var
+            const canonic_left_side& cls = m_vec_of_canonic_left_sides[j];
+            return add_constraint_for_existing_left_side(cls, kind, right_side);
+        }
+        // it is a term        
+        constraint_index ci = add_constraint(m_terms()[adjust_term_index(j)].m_coeffs, kind, right_side);
+        if (A_r().column_count() > column_count) {
+            // column_count now is the index of the last added column
+            lean_assert(A_r().column_count() == column_count + 1);
+            m_column_names[column_count].m_term_index = j; // pointing from the column to the term
+        }
+            
+        return ci;
     }
 
  
@@ -313,35 +330,58 @@ public:
             process_new_implied_evidence(ibs, bound_evidences, improved_low_bounds, improved_upper_bounds);
     }
 
-    bool propagate_bounds_for_touched_rows_one_time(
-                                                    std::vector<bound_evidence> & bound_evidences,
-                                                    std::unordered_map<unsigned, unsigned> & improved_low_bounds,
-                                                    std::unordered_map<unsigned, unsigned> & improved_upper_bounds) {
-        bool found = false;
+
+    void replace_indices_for_term_columns(std::vector<bound_evidence> & bound_evidences) {
+        for (auto & be: bound_evidences) {
+            int term_index = m_column_names[be.m_j].m_term_index;
+            if (term_index != -1)
+                be.m_j = term_index;
+        }
+    }
+                                              
+    // bool propagate_bounds_for_touched_rows_one_time(
+    //                                                 std::vector<bound_evidence> & bound_evidences,
+    //                                                 std::unordered_map<unsigned, unsigned> & improved_low_bounds,
+    //                                                 std::unordered_map<unsigned, unsigned> & improved_upper_bounds) {
+    //     std::vector<int> rows_to_check = m_touched_rows.m_index;
+    //     m_touched_rows.clear();
+
+    //     for (auto i : rows_to_check) {
+    //         std::vector<implied_bound_evidence_signature<mpq, numeric_pair<mpq>>> evidence_vector;
+    //         calculate_implied_bound_evidences(i, evidence_vector);
+    //         if (get_status() == INFEASIBLE) {
+    //             return false;
+    //         }
+
+    //         process_new_implied_evidences(evidence_vector, bound_evidences, improved_low_bounds, improved_upper_bounds);
+    //     }
+
+    //     replace_indices_for_term_columns(bound_evidences);
+        
+    //     return bound_evidences.size() > 0;
+    // }
+    
+    // goes over touched rows and tries to induce bounds
+    void propagate_bounds_for_touched_rows(std::vector<bound_evidence> & bound_evidences) {
+        std::unordered_map<unsigned, unsigned> improved_low_bounds;
+        std::unordered_map<unsigned, unsigned> improved_upper_bounds;
+
         std::vector<int> rows_to_check = m_touched_rows.m_index;
         m_touched_rows.clear();
 
         for (auto i : rows_to_check) {
             std::vector<implied_bound_evidence_signature<mpq, numeric_pair<mpq>>> evidence_vector;
             calculate_implied_bound_evidences(i, evidence_vector);
-            found = evidence_vector.size() > 0;
-            
             if (get_status() == INFEASIBLE) {
-                return false;
+                m_settings.st().m_num_of_implied_bounds += improved_low_bounds.size() + improved_upper_bounds.size();
+                return;
             }
 
             process_new_implied_evidences(evidence_vector, bound_evidences, improved_low_bounds, improved_upper_bounds);
         }
-        return found;
-    }
-    
-    // goes over touched rows and tries to induce bounds
-    void propagate_bounds_for_touched_rows(std::vector<bound_evidence> & bound_evidences) {
-        std::unordered_map<unsigned, unsigned> improved_low_bounds;
-        std::unordered_map<unsigned, unsigned> improved_upper_bounds;
-        while (propagate_bounds_for_touched_rows_one_time(bound_evidences,
-                                                          improved_low_bounds,
-                                                          improved_upper_bounds)){};
+
+        replace_indices_for_term_columns(bound_evidences);
+
         m_settings.st().m_num_of_implied_bounds += improved_low_bounds.size() + improved_upper_bounds.size();
     }
 
@@ -398,10 +438,7 @@ public:
 
     void print_left_side_of_constraint(const lar_base_constraint * c, std::ostream & out) const ;
 
-    void print_term(unsigned term_column_index, std::ostream & out) const {
-        unsigned i = m_columns_name_term[term_column_index].m_term_index_in_normalized_constraints;
-        print_left_side_of_constraint(& (m_normalized_constraints[i].m_origin_constraint), out);
-    }
+    void print_term(lar_term const& term, std::ostream & out) const ;
 
     mpq get_infeasibility_of_solution(std::unordered_map<std::string, mpq> & solution);
 
@@ -419,17 +456,7 @@ public:
     void random_update(unsigned sz, var_index const* vars);
     void try_pivot_fixed_vars_from_basis();
     void fill_var_set_for_random_update(unsigned sz, var_index const * vars, std::vector<unsigned>& column_list);
-
-    const std::vector<std::pair<mpq, var_index>> get_term_coefficients(unsigned j) const {
-        lean_assert(is_term(j));
-        int i = m_columns_name_term[j].m_term_index_in_normalized_constraints;
-        auto const & extended_term_coeffs = m_normalized_constraints[i].m_origin_constraint.get_left_side_coefficients();
-        std::vector<std::pair<mpq, var_index>> ret;
-        for (unsigned k = 0; k < extended_term_coeffs.size() - 1; k++) {
-            ret.push_back(extended_term_coeffs[k]);
-        }
-        return ret;
-    }
+    
     std::vector<unsigned> get_list_of_all_var_indices() const {
         std::vector<unsigned> ret;
         for (unsigned j = 0; j < m_mpq_lar_core_solver.m_r_heading.size(); j++)
@@ -461,14 +488,13 @@ public:
                 b.push_back(t.second.m_j);
         }
     }
-    std::string create_term_name(unsigned j) {
-        std::string name = std::string("_t") + T_to_string(j);
-        while (m_var_names_to_var_index.contains(name)) {
-            name += "_";
-        }
-        return name;
+    var_index add_term(const std::vector<std::pair<mpq, var_index>> & m_coeffs,
+                      const mpq &m_v) {
+        m_terms.push_back(lar_term(m_coeffs, m_v));
+        return m_terms_start_index + m_terms.size() - 1;
     }
 
+<<<<<<< HEAD
     var_index add_term(const std::vector<std::pair<mpq, var_index>> & coeffs,
                        const mpq & v, constraint_index& ci) {
         var_index j = A_r().column_count();
@@ -482,6 +508,11 @@ public:
         m_columns_name_term[j].m_term_column_index = j;
         m_columns_name_term[j].m_term_index_in_normalized_constraints = i;
         return j;
+=======
+    const lar_term &  get_term(unsigned j) const {
+        lean_assert(j >= m_terms_start_index);
+        return m_terms[j - m_terms_start_index];
+>>>>>>> 537939b6ea46954e7f6ce3609e56a7bf4c504e94
     }
 
     void pop_core_solver_params() {
@@ -547,9 +578,8 @@ public:
         lean_assert(!m_var_names_to_var_index.contains(s));
         unsigned j = m_var_names_to_var_index.size();
         m_var_names_to_var_index[s] = j;
-        lean_assert(m_columns_name_term.size() == j || m_columns_name_term.size() == j + 1);
-        if (m_columns_name_term.size() == j) 
-            m_columns_name_term.push_back(s);
+        lean_assert(m_column_names.size() == j);
+        m_column_names.emplace_back(s);
     }
 
 
@@ -881,6 +911,20 @@ public:
     }
 
 
+    void substitute_terms(const mpq & mult, const std::vector<std::pair<mpq, var_index>>& left_side_with_terms,std::vector<std::pair<mpq, var_index>> &left_side, mpq & right_side) const {
+        for (auto & t : left_side_with_terms) {
+            if (t.second < m_terms_start_index) {
+                lean_assert(t.second < A_r().column_count());
+                left_side.push_back(std::pair<mpq, var_index>(mult * t.first, t.second));
+            } else {
+                const lar_term & term = m_terms[adjust_term_index(t.second)];
+                substitute_terms(mult * t.first, term.m_coeffs, left_side, right_side);
+                right_side -= mult * term.m_v;
+            }
+        }
+    }
+
+
     numeric_pair<mpq> get_delta_of_touched_nb_column(unsigned j) {
         switch (m_mpq_lar_core_solver.m_column_types[j]) {
         case fixed:
@@ -1006,7 +1050,13 @@ public:
 
     // returns true even for vars created for canonic_left_sides
     bool var_is_registered(var_index vj) const {
-        return  vj < m_vec_of_canonic_left_sides.size();
+        if (vj >= m_terms_start_index) {
+            if (vj - m_terms_start_index >= m_terms.size())
+                return false;
+        } else if ( vj >= m_vec_of_canonic_left_sides.size()) {
+            return false;
+        }
+        return true;
     }
 };
 }
