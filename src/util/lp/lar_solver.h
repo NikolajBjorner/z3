@@ -339,49 +339,23 @@ public:
         }
     }
                                               
-    // bool propagate_bounds_for_touched_rows_one_time(
-    //                                                 std::vector<bound_evidence> & bound_evidences,
-    //                                                 std::unordered_map<unsigned, unsigned> & improved_low_bounds,
-    //                                                 std::unordered_map<unsigned, unsigned> & improved_upper_bounds) {
-    //     std::vector<int> rows_to_check = m_touched_rows.m_index;
-    //     m_touched_rows.clear();
-
-    //     for (auto i : rows_to_check) {
-    //         std::vector<implied_bound_evidence_signature<mpq, numeric_pair<mpq>>> evidence_vector;
-    //         calculate_implied_bound_evidences(i, evidence_vector);
-    //         if (get_status() == INFEASIBLE) {
-    //             return false;
-    //         }
-
-    //         process_new_implied_evidences(evidence_vector, bound_evidences, improved_low_bounds, improved_upper_bounds);
-    //     }
-
-    //     replace_indices_for_term_columns(bound_evidences);
-        
-    //     return bound_evidences.size() > 0;
-    // }
     
     // goes over touched rows and tries to induce bounds
     void propagate_bounds_for_touched_rows(std::vector<bound_evidence> & bound_evidences) {
         std::unordered_map<unsigned, unsigned> improved_low_bounds;
         std::unordered_map<unsigned, unsigned> improved_upper_bounds;
 
-        std::vector<int> rows_to_check = m_touched_rows.m_index;
-        m_touched_rows.clear();
-
-        for (auto i : rows_to_check) {
+        for (auto i : m_touched_rows.m_index) {
             std::vector<implied_bound_evidence_signature<mpq, numeric_pair<mpq>>> evidence_vector;
             calculate_implied_bound_evidences(i, evidence_vector);
             if (get_status() == INFEASIBLE) {
                 m_settings.st().m_num_of_implied_bounds += improved_low_bounds.size() + improved_upper_bounds.size();
                 return;
             }
-
             process_new_implied_evidences(evidence_vector, bound_evidences, improved_low_bounds, improved_upper_bounds);
         }
-
+        m_touched_rows.clear();
         replace_indices_for_term_columns(bound_evidences);
-
         m_settings.st().m_num_of_implied_bounds += improved_low_bounds.size() + improved_upper_bounds.size();
     }
 
