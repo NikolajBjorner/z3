@@ -78,7 +78,7 @@ class lar_solver : public column_namer {
     stacked_vector<lar_normalized_constraint> m_normalized_constraints;
     stacked_vector<canonic_left_side> m_vec_of_canonic_left_sides;
     // the set of column indices j such that bounds have changed for j
-    int_set m_touched_columns;
+    int_set m_columns_with_changed_bound;
     int_set m_touched_rows;
     lar_core_solver<mpq, numeric_pair<mpq>> m_mpq_lar_core_solver;
     stacked_value<canonic_left_side> m_infeasible_canonic_left_side; // such can be found at the initialization step
@@ -491,6 +491,9 @@ public:
     var_index add_term(const std::vector<std::pair<mpq, var_index>> & m_coeffs,
                       const mpq &m_v) {
         m_terms.push_back(lar_term(m_coeffs, m_v));
+        // std::cout << "term " << m_terms_start_index + m_terms.size() - 1 << std::endl;
+        // print_term(lar_term(m_coeffs, m_v), std::cout);
+        // std::cout << std::endl;
         return m_terms_start_index + m_terms.size() - 1;
     }
 
@@ -550,7 +553,7 @@ public:
     void add_new_var_to_core_fields(bool register_in_basis, const numeric_pair<mpq> & val) {
         lean_assert(A_r().column_count() == A_d().column_count());
         m_mpq_lar_core_solver.m_column_types.push_back(free_column);
-        m_touched_columns.resize(m_touched_columns.data_size() + 1);
+        m_columns_with_changed_bound.resize(m_columns_with_changed_bound.data_size() + 1);
         if (register_in_basis) {
             m_touched_rows.resize(m_touched_rows.data_size() + 1);
         }
@@ -599,7 +602,7 @@ public:
             {
                 auto up = numeric_pair<mpq>(right_side, y_of_bound);
                 m_mpq_lar_core_solver.m_r_upper_bounds[j] = up;
-                m_touched_columns.insert(j);
+                m_columns_with_changed_bound.insert(j);
             }
             set_upper_bound_witness(constr_ind);
             break;
@@ -611,14 +614,14 @@ public:
             {
                 auto low = numeric_pair<mpq>(right_side, y_of_bound);
                 m_mpq_lar_core_solver.m_r_low_bounds[j] = low;
-                m_touched_columns.insert(j);
+                m_columns_with_changed_bound.insert(j);
             }
             set_low_bound_witness(constr_ind);
             break;
         case EQ:
             m_mpq_lar_core_solver.m_column_types[j] = fixed;
             m_mpq_lar_core_solver.m_r_low_bounds[j] = m_mpq_lar_core_solver.m_r_upper_bounds[j] = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
-            m_touched_columns.insert(j);
+            m_columns_with_changed_bound.insert(j);
             set_upper_bound_witness(constr_ind);
             set_low_bound_witness(constr_ind);
             break;
@@ -641,7 +644,7 @@ public:
                 if (up < m_mpq_lar_core_solver.m_r_upper_bounds()[j]) {
                     m_mpq_lar_core_solver.m_r_upper_bounds[j] = up;
                     set_upper_bound_witness(ci);
-                    m_touched_columns.insert(j);
+                    m_columns_with_changed_bound.insert(j);
                 }
             }
             break;
@@ -653,7 +656,7 @@ public:
                 auto low = numeric_pair<mpq>(right_side, y_of_bound);
                 m_mpq_lar_core_solver.m_r_low_bounds[j] = low;
                 set_low_bound_witness(ci);
-                m_touched_columns.insert(j);
+                m_columns_with_changed_bound.insert(j);
                 if (low > m_mpq_lar_core_solver.m_r_upper_bounds[j]) {
                     m_status = INFEASIBLE;
                     m_infeasible_canonic_left_side = m_normalized_constraints()[ci].m_canonic_left_side;
@@ -671,7 +674,7 @@ public:
                     m_infeasible_canonic_left_side = m_normalized_constraints()[ci].m_canonic_left_side;
                 } else {
                     m_mpq_lar_core_solver.m_r_low_bounds[j] = m_mpq_lar_core_solver.m_r_upper_bounds[j] = v;
-                    m_touched_columns.insert(j);
+                    m_columns_with_changed_bound.insert(j);
                     set_low_bound_witness(ci);
                     set_upper_bound_witness(ci);
                     m_mpq_lar_core_solver.m_column_types[j] = fixed;
@@ -699,7 +702,7 @@ public:
                     m_mpq_lar_core_solver.m_r_upper_bounds[j] = up;
                     set_upper_bound_witness(ci);
                 }
-                m_touched_columns.insert(j);
+                m_columns_with_changed_bound.insert(j);
 
                 if (up < m_mpq_lar_core_solver.m_r_low_bounds[j]) {
                     m_status = INFEASIBLE;
@@ -717,7 +720,7 @@ public:
                 auto low = numeric_pair<mpq>(right_side, y_of_bound);
                 if (low > m_mpq_lar_core_solver.m_r_low_bounds[j]) {
                     m_mpq_lar_core_solver.m_r_low_bounds[j] = low;
-                    m_touched_columns.insert(j);
+                    m_columns_with_changed_bound.insert(j);
                     set_low_bound_witness(ci);
                 }
                 if (low > m_mpq_lar_core_solver.m_r_upper_bounds[j]) {
@@ -745,7 +748,7 @@ public:
                     set_upper_bound_witness(ci);
                     m_mpq_lar_core_solver.m_column_types[j] = fixed;
                 }
-                m_touched_columns.insert(j);
+                m_columns_with_changed_bound.insert(j);
                 
                 break;
             }
@@ -766,7 +769,7 @@ public:
                 auto up = numeric_pair<mpq>(right_side, y_of_bound);
                 m_mpq_lar_core_solver.m_r_upper_bounds[j] = up;
                 set_upper_bound_witness(ci);
-                m_touched_columns.insert(j);
+                m_columns_with_changed_bound.insert(j);
 
                 if (up < m_mpq_lar_core_solver.m_r_low_bounds[j]) {
                     m_status = INFEASIBLE;
@@ -783,7 +786,7 @@ public:
                 auto low = numeric_pair<mpq>(right_side, y_of_bound);
                 if (low > m_mpq_lar_core_solver.m_r_low_bounds[j]) {
                     m_mpq_lar_core_solver.m_r_low_bounds[j] = low;
-                    m_touched_columns.insert(j);
+                    m_columns_with_changed_bound.insert(j);
                     set_low_bound_witness(ci);
                 }
             }
@@ -801,7 +804,7 @@ public:
                     set_upper_bound_witness(ci);
                     m_mpq_lar_core_solver.m_column_types[j] = fixed;
                 }
-                m_touched_columns.insert(j);
+                m_columns_with_changed_bound.insert(j);
                 break;
             }
 
@@ -914,21 +917,19 @@ public:
         case fixed:
             return m_mpq_lar_core_solver.m_r_low_bounds()[j] - m_mpq_lar_core_solver.m_r_x[j];
         case boxed:
-            if (m_mpq_lar_core_solver.m_r_x[j] < m_mpq_lar_core_solver.m_r_low_bounds[j]) {
-                return m_mpq_lar_core_solver.m_r_low_bounds()[j] - m_mpq_lar_core_solver.m_r_x[j];
+            {
+                const auto & x = m_mpq_lar_core_solver.m_r_x[j];
+                const auto & l = m_mpq_lar_core_solver.m_r_low_bounds()[j];
+                const auto & u = m_mpq_lar_core_solver.m_r_upper_bounds()[j];
+                if (x == l || x == u)
+                    return zero_of_type<numeric_pair<mpq>>();
+
+                return my_random() % 2? l - x : u - x;
             }
-            
-            if (m_mpq_lar_core_solver.m_r_x[j] > m_mpq_lar_core_solver.m_r_upper_bounds()[j]) {
-                return m_mpq_lar_core_solver.m_r_upper_bounds()[j] - m_mpq_lar_core_solver.m_r_x[j];
-            }
-            return zero_of_type<numeric_pair<mpq>>();
         case low_bound:
-            return (m_mpq_lar_core_solver.m_r_x[j] < m_mpq_lar_core_solver.m_r_low_bounds[j])?
-                m_mpq_lar_core_solver.m_r_low_bounds()[j] - m_mpq_lar_core_solver.m_r_x[j] : zero_of_type<numeric_pair<mpq>>();
+            return  m_mpq_lar_core_solver.m_r_low_bounds()[j] - m_mpq_lar_core_solver.m_r_x[j];
         case upper_bound:
-            return (m_mpq_lar_core_solver.m_r_x[j] > m_mpq_lar_core_solver.m_r_upper_bounds()[j])?
-                m_mpq_lar_core_solver.m_r_upper_bounds()[j] - m_mpq_lar_core_solver.m_r_x[j] :
-                zero_of_type<numeric_pair<mpq>>();
+            return m_mpq_lar_core_solver.m_r_upper_bounds()[j] - m_mpq_lar_core_solver.m_r_x[j];
 
         case free_column:
             return zero_of_type<numeric_pair<mpq>>();
@@ -945,7 +946,8 @@ public:
             m_touched_rows.insert(m_mpq_lar_core_solver.m_r_heading[j]);
             return;
         }
-        numeric_pair<mpq> delta = get_delta_of_touched_nb_column(j);
+
+        lean_assert(get_delta_of_touched_nb_column(j).is_zero());
 
         if (A_r().row_count() != m_column_buffer.data_size())
             m_column_buffer.resize(A_r().row_count());
@@ -954,36 +956,46 @@ public:
         lean_assert(m_column_buffer.size() == 0 && m_column_buffer.is_OK());
         
         m_mpq_lar_core_solver.m_r_solver.solve_Bd(j, m_column_buffer);
-        if (delta.is_zero()) {
-            for (unsigned i : m_column_buffer.m_index) {
-                lean_assert(m_touched_rows.data_size() > i);
-                m_touched_rows.insert(i);
-            }
-        } else {
-            m_mpq_lar_core_solver.m_r_x[j] += delta;
-            for (unsigned i : m_column_buffer.m_index) {
-                unsigned jb = m_mpq_lar_core_solver.m_r_basis[i];
-                m_mpq_lar_core_solver.m_r_x[jb] -= delta * m_column_buffer[i];
-                lean_assert(m_touched_rows.data_size() > i);
-                m_touched_rows.insert(i);
-            }
+        for (unsigned i : m_column_buffer.m_index) {
+            lean_assert(m_touched_rows.data_size() > i);
+            m_touched_rows.insert(i);
         }
     }
 
-    void find_more_touched_columns() { // todo. can it be optimized during pop() ?
+    void fix_nbasis_x_out_of_bounds() {
         for (unsigned j : m_mpq_lar_core_solver.m_r_nbasis) {
-            if (!m_mpq_lar_core_solver.m_r_solver.non_basis_column_is_set_correctly(j))
-                m_touched_columns.insert(j);
+            if (!m_mpq_lar_core_solver.m_r_solver.non_basis_column_is_set_correctly(j)){
+                bool column_is_touched = m_columns_with_changed_bound.contains(j);
+                numeric_pair<mpq> delta = get_delta_of_touched_nb_column(j);
+                lean_assert(delta.is_zero() == false);
+                if (A_r().row_count() != m_column_buffer.data_size())
+                    m_column_buffer.resize(A_r().row_count());
+                else
+                    m_column_buffer.clear();
+                lean_assert(m_column_buffer.size() == 0 && m_column_buffer.is_OK());
+                
+                m_mpq_lar_core_solver.m_r_solver.solve_Bd(j, m_column_buffer);
+                
+                m_mpq_lar_core_solver.m_r_x[j] += delta;
+                for (unsigned i : m_column_buffer.m_index) {
+                    unsigned jb = m_mpq_lar_core_solver.m_r_basis[i];
+                    m_mpq_lar_core_solver.m_r_x[jb] -= delta * m_column_buffer[i];
+                    if (column_is_touched)
+                        m_touched_rows.insert(i);
+                }
+                if (column_is_touched)
+                    m_columns_with_changed_bound.erase(j);
+            }
         }
     }
     
     
     void fix_touched_columns() {
         lean_assert(x_is_correct());
-        find_more_touched_columns();
-        for (unsigned j : m_touched_columns.m_index)
+        fix_nbasis_x_out_of_bounds();
+        for (unsigned j : m_columns_with_changed_bound.m_index)
             fix_touched_column(j);
-        m_touched_columns.clear();
+        m_columns_with_changed_bound.clear();
         lean_assert(x_is_correct());
     }
 
