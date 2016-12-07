@@ -1212,10 +1212,13 @@ void lp_primal_core_solver<T, X>::init_reduced_costs() {
     if (current_x_is_infeasible() && !m_using_infeas_costs) {
         init_infeasibility_costs();
     } else if (current_x_is_feasible() && m_using_infeas_costs) {
+        if (this->m_look_for_feasible_solution_only)
+            return;
         lean_assert(m_costs_backup.size() == this->m_costs.size());
         this->m_costs = m_costs_backup;
         m_using_infeas_costs = false;
     }
+    
     this->init_reduced_costs_for_one_iteration();
 }
 
