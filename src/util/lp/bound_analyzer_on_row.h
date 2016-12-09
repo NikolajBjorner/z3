@@ -8,6 +8,7 @@
 #include <vector>
 #include "util/lp/linear_combination_iterator.h"
 #include "implied_bound_evidence_signature.h"
+#include <functional>
 // We have an equality : sum by j of row[j]*x[j] = rs
 // We try to pin a var by pushing the total by using the variable bounds
 // In a loop we drive the partial sum down, denoting the variables of this process by _u.
@@ -19,17 +20,17 @@ class bound_analyzer_on_row {
     linear_combination_iterator<T> & m_it;
     const std::vector<X>& m_low_bounds;
     const std::vector<X>& m_upper_bounds;
-    const std::vector<column_type>& m_column_types;
+    std::function<column_type (unsigned)> m_column_types;
     std::vector<implied_bound_evidence_signature<T, X>> & m_evidence_vector;
     
     int m_cand_u = -1;  // the variable for which we found an uppper bound
     T m_a_u; // the coefficent before m_cand_u in the row
-    unsigned m_n_u = 0; // the number of terms active, limiting from above found so far
+    unsigned m_n_u = 0; // the number of terms active, limiting from above found seen so far
     X m_bound_u; // the total upper bound
     bool m_interested_in_u = true; // the partial sum for min, seen so far
     int m_cand_l = -1;
     T m_a_l; // the coefficent before the plus candidate
-    unsigned m_n_l = 0; // the number of terms limiting, active, from below found so far
+    unsigned m_n_l = 0; // the number of terms limiting, active, from below found so seen far
     X m_bound_l; // the partial sum for plus, seen so far
     bool m_interested_in_l = true;
     unsigned m_n_total = 0;
@@ -37,10 +38,10 @@ class bound_analyzer_on_row {
 public :
     // constructor
     bound_analyzer_on_row(linear_combination_iterator<T> &it,
-                          const std::vector<X>& low_bounds,
-                          const std::vector<X>& upper_bounds,
+                          const std::vector<X> & low_bounds,
+                          const std::vector<X> & upper_bounds,
                           const X& rs,
-                          const std::vector<column_type>& column_types,
+                          std::function<column_type (unsigned)> column_types,
                           std::vector<implied_bound_evidence_signature<T, X>> & evidence_vector,
                           bool provide_evidence) :
         m_it(it),
@@ -72,10 +73,10 @@ public :
     void pin_for_total_case_l(const T & a, unsigned j);
     void pin_for_total_case_u(const T & a, unsigned j);
     static void analyze_row(linear_combination_iterator<T> &it,
-                          const std::vector<X>& low_bounds,
-                          const std::vector<X>& upper_bounds,
-                          const X& rs,
-                          const std::vector<column_type>& column_types,
+                            const std::vector<X>& low_bounds,
+                            const std::vector<X>& upper_bounds,
+                            const X& rs,
+                            std::function<column_type (unsigned)> column_types,
                             std::vector<implied_bound_evidence_signature<T, X>> & evidence_vector,
                             bool provide_evidence) {
         bound_analyzer_on_row a(it, low_bounds, upper_bounds, rs, column_types, evidence_vector, provide_evidence);

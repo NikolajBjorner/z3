@@ -16,7 +16,7 @@ void bound_analyzer_on_row<T, X>::analyze() {
     m_it.reset();
     T a;
     unsigned i;
-    while (m_it.next(a, i) && (m_interested_in_u || m_interested_in_l)) {
+    while ((m_interested_in_u || m_interested_in_l) && m_it.next(a, i) ) {
         m_n_total++;
         analyze_bound_on_var_on_coeff(i, a);
     }
@@ -30,7 +30,7 @@ void bound_analyzer_on_row<T, X>::analyze() {
 template <typename T, typename X>    
 void bound_analyzer_on_row<T, X>::analyze_bound_on_var_on_coeff(int j, const T &a) {
     int  sign = 0;
-    switch (m_column_types[j]) {
+    switch (m_column_types(j)) {
     case boxed:
     case fixed:
         analyze_bound_on_row_one_var_case_boxed_fixed(j, a); 
@@ -158,7 +158,7 @@ bool bound_analyzer_on_row<T, X>::fill_bound_kind_plus_on_pos(implied_bound_evid
     // we have to have a * x[m_cand_l] <= - m_bound_l, or x[m_cand_l] <= -m_bound_l / a, sin
     // so we have an upper bound
     auto u = - m_bound_l / m_a_l;
-    switch (m_column_types[m_cand_l]) {
+    switch (m_column_types(m_cand_l)) {
     case boxed:
     case fixed:
     case upper_bound: // in all these cases we have an upper bound already
@@ -183,7 +183,7 @@ bool bound_analyzer_on_row<T, X>::fill_bound_kind_plus_on_neg(implied_bound_evid
     // we have to have m_a_l * x[m_cand_l] <= m_rs - m_bound_l, or x[m_cand_l] >= (m_rs -m_bound_l) / m_a_l, since m_a_l is negative
     // so we have a low bound
     auto l = - m_bound_l / m_a_l;
-    switch (m_column_types[m_cand_l]) {
+    switch (m_column_types(m_cand_l)) {
     case low_bound:
     case fixed:
     case boxed:
@@ -272,7 +272,7 @@ bool bound_analyzer_on_row<T, X>::fill_bound_kind_u_on_pos(implied_bound_evidenc
     // we have to have a * x[m_cand_u] >= m_rs - m_bound_u, or x[m_cand_u] >= (m_rs-m_bound_u) / a, 
     // so we have a low bound
     auto l =  - m_bound_u / m_a_u;
-    switch (m_column_types[m_cand_u]) {
+    switch (m_column_types(m_cand_u)) {
     case boxed:
     case fixed:
     case low_bound: // in all these cases we have a low bound already
@@ -297,7 +297,7 @@ bool bound_analyzer_on_row<T, X>::fill_bound_kind_u_on_neg(implied_bound_evidenc
     // we have to have m_a_u * x[m_cand_u] >= m_rs- m_bound_u, or x[m_cand_u] <= (m_rs - m_bound_u) / m_a_u, since m_a_u is negative
     // so we have an upper bound
     auto u = - m_bound_u / m_a_u;
-    switch (m_column_types[m_cand_u]) {
+    switch (m_column_types(m_cand_u)) {
     case upper_bound:
     case fixed:
     case boxed:

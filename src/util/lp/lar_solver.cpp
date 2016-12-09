@@ -606,7 +606,7 @@ void lar_solver::fill_var_set_for_random_update(unsigned sz, var_index const * v
     for (unsigned i = 0; i < sz; i++) {        
         var_index var = vars[i];
         if (var >= m_terms_start_index) { // handle the temr
-            for (auto & it : m_terms()[var - m_terms_start_index].m_coeffs) {
+            for (auto & it : m_terms[var - m_terms_start_index].m_coeffs) {
                 column_list.push_back(it.second);
             }
         } else {
@@ -634,8 +634,8 @@ void lar_solver::push() {
     m_vec_of_canonic_left_sides.push();
     m_var_names_to_var_index.push();
     m_infeasible_canonic_left_side.push();
-    m_terms.push();
     m_mpq_lar_core_solver.push();
+    m_terms_to_columns.push();
 }
 
 void lar_solver::pop() {
@@ -649,7 +649,7 @@ void lar_solver::pop(unsigned k) {
     m_vec_of_canonic_left_sides.pop(k);
     m_var_names_to_var_index.pop(k);
     m_infeasible_canonic_left_side.pop(k);
-    m_terms.pop(k);
+    m_terms_to_columns.pop(k);
     unsigned n = m_var_names_to_var_index.size();
     m_column_names.resize(n);
     m_mpq_lar_core_solver.pop(k);
@@ -657,6 +657,7 @@ void lar_solver::pop(unsigned k) {
     m_columns_with_changed_bound.resize(n);
     m_touched_rows.clear();
     m_touched_rows.resize(A_r().row_count());
+    m_terms.resize(m_terms_to_columns.size());
 }
 }
 
