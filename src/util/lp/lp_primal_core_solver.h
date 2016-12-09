@@ -236,13 +236,23 @@ public:
     bool limit_inf_on_bound_m_neg(const T & m, const X & x, const X & bound, X & theta, bool & unlimited) {
         // x gets smaller
         lean_assert(m < 0);
-        const X& eps = harris_eps_for_bound(bound);
-        if (this->below_bound(x, bound)) return false;
-        if (this->above_bound(x, bound)) {
-            limit_theta((bound - x - eps) / m, theta, unlimited);
+        if (numeric_traits<T>::precise()) {
+            if (this->below_bound(x, bound)) return false;
+            if (this->above_bound(x, bound)) {
+                limit_theta((bound - x) / m, theta, unlimited);
+            } else {
+                theta = zero_of_type<X>();
+                unlimited = false;
+            }
         } else {
-            theta = zero_of_type<X>();
-            unlimited = false;
+            const X& eps = harris_eps_for_bound(bound);
+            if (this->below_bound(x, bound)) return false;
+            if (this->above_bound(x, bound)) {
+                limit_theta((bound - x - eps) / m, theta, unlimited);
+            } else {
+                theta = zero_of_type<X>();
+                unlimited = false;
+            }
         }
         return true;
     }
@@ -250,13 +260,23 @@ public:
     bool limit_inf_on_bound_m_pos(const T & m, const X & x, const X & bound, X & theta, bool & unlimited) {
         // x gets larger
         lean_assert(m > 0);
-        const X& eps = harris_eps_for_bound(bound);
-        if (this->above_bound(x, bound)) return false;
-        if (this->below_bound(x, bound)) {
-            limit_theta((bound - x + eps) / m, theta, unlimited);
+        if (numeric_traits<T>::precise()) {
+            if (this->above_bound(x, bound)) return false;
+            if (this->below_bound(x, bound)) {
+                limit_theta((bound - x) / m, theta, unlimited);
+            } else {
+                theta = zero_of_type<X>();
+                unlimited = false;
+            }
         } else {
-            theta = zero_of_type<X>();
-            unlimited = false;
+            const X& eps = harris_eps_for_bound(bound);
+            if (this->above_bound(x, bound)) return false;
+            if (this->below_bound(x, bound)) {
+                limit_theta((bound - x + eps) / m, theta, unlimited);
+            } else {
+                theta = zero_of_type<X>();
+                unlimited = false;
+            }
         }
         return true;
     }
