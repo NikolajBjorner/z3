@@ -201,8 +201,8 @@ public:
         std::cout << std::endl;
         */
         std::vector<implied_bound_evidence_signature<T, X>> evidence;
-               
-        bound_analyzer_on_row<T, X>::analyze_row(it, this->m_low_bounds, this->m_upper_bounds, this->m_b[row_index], this->m_column_types, evidence, false);
+        std::function<column_type (unsigned)> ct = [this](unsigned j) { return this->m_column_types[j];};
+        bound_analyzer_on_row<T, X>::analyze_row(it, this->m_low_bounds, this->m_upper_bounds, this->m_b[row_index], ct, evidence, false);
         for (auto & ev : evidence)
             tighten_bounds_on_evidence(ev);
         return evidence.size();

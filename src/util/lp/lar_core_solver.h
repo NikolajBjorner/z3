@@ -84,6 +84,22 @@ public:
     int column_is_out_of_bounds(unsigned j);
 
     void calculate_pivot_row(unsigned i);
+
+    void print_pivot_row(std::ostream & out, unsigned row_index) const  { // remove later debug !!!!
+        for (unsigned j : m_r_solver.m_pivot_row.m_index) {
+            if (numeric_traits<T>::is_pos(m_r_solver.m_pivot_row.m_data[j]))
+                out << "+";
+            out << m_r_solver.m_pivot_row.m_data[j] << m_r_solver.column_name(j) << " ";
+        }
+        
+        out << " +" << m_r_solver.column_name(m_r_solver.m_basis[row_index]) << std::endl;
+        
+        for (unsigned j : m_r_solver.m_pivot_row.m_index) {
+            m_r_solver.print_column_bound_info(j, out);
+        }
+        m_r_solver.print_column_bound_info(m_r_solver.m_basis[row_index], out);
+        
+    }
     
     void print_cost(std::ostream & out);
 

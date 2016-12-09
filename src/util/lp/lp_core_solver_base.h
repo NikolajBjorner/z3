@@ -433,8 +433,26 @@ public:
         return true;
     }
 
+    void print_column_bound_info(unsigned j, std::ostream & out) const {
+        out << column_name(j) << " type = " << column_type_to_string(m_column_types[j]) << std::endl;
+        switch (m_column_types[j]) {
+        case fixed:
+        case boxed:
+            out << "(" << m_low_bounds[j] << ", " << m_upper_bounds[j] << ")" << std::endl;
+            break;
+        case low_bound:
+            out << m_low_bounds[j] << std::endl;
+            break;
+        case upper_bound:
+            out << m_upper_bounds[j] << std::endl;
+            break;
+        default:
+            break;
+        }
+    }
+
     void print_column_info(unsigned j, std::ostream & out) const {
-        out << "column " << j << " type = " << column_type_to_string(m_column_types[j]) << std::endl;
+        out << column_name(j) << " type = " << column_type_to_string(m_column_types[j]) << std::endl;
         switch (m_column_types[j]) {
         case fixed:
         case boxed:

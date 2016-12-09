@@ -129,7 +129,8 @@ bool lp_primal_core_solver<T, X>::column_is_benefitial_for_entering_basis(unsign
 template <typename T, typename X>
 int lp_primal_core_solver<T, X>::choose_entering_column_presize(unsigned number_of_benefitial_columns_to_go_over) { // at this moment m_y = cB * B(-1)
     lean_assert(numeric_traits<T>::precise());
-    lean_assert(number_of_benefitial_columns_to_go_over > 0);
+    if (number_of_benefitial_columns_to_go_over == 0)
+        return -1;
     if (this->m_basis_sort_counter == 0) {
         sort_non_basis();
         this->m_basis_sort_counter = 20;
@@ -174,7 +175,8 @@ template <typename T, typename X>
 int lp_primal_core_solver<T, X>::choose_entering_column(unsigned number_of_benefitial_columns_to_go_over) { // at this moment m_y = cB * B(-1)
     if (numeric_traits<T>::precise())
         return choose_entering_column_presize(number_of_benefitial_columns_to_go_over);
-    lean_assert(number_of_benefitial_columns_to_go_over > 0);
+    if (number_of_benefitial_columns_to_go_over == 0)
+        return -1;
     if (this->m_basis_sort_counter == 0) {
         sort_non_basis();
         this->m_basis_sort_counter = 20;
@@ -1212,10 +1214,13 @@ void lp_primal_core_solver<T, X>::init_reduced_costs() {
     if (current_x_is_infeasible() && !m_using_infeas_costs) {
         init_infeasibility_costs();
     } else if (current_x_is_feasible() && m_using_infeas_costs) {
+        if (this->m_look_for_feasible_solution_only)
+            return;
         lean_assert(m_costs_backup.size() == this->m_costs.size());
         this->m_costs = m_costs_backup;
         m_using_infeas_costs = false;
     }
+    
     this->init_reduced_costs_for_one_iteration();
 }
 
