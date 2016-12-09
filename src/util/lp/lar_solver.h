@@ -349,17 +349,22 @@ public:
         std::function<column_type (unsigned)> ct = [this](unsigned j) { return j < m_mpq_lar_core_solver.m_column_types.size() ? m_mpq_lar_core_solver.m_column_types[j] : free_column; };
         bound_analyzer_on_row<mpq, numeric_pair<mpq>>::analyze_row(it, m_mpq_lar_core_solver.m_r_low_bounds(),
                                                                    m_mpq_lar_core_solver.m_r_low_bounds(),
-                                                                   - t.m_v, ct , evidence_vector, false);
+                                                                   - t.m_v, ct , evidence_vector, true);
         if (evidence_vector.size() == 0) return;
-        lean_assert(evidence_vector.size() == 1);
-        bound_evidence be;
-        auto  & implied_evidence = evidence_vector[0];
-        be.m_j = implied_evidence.m_j;
-        be.m_bound = implied_evidence.m_bound.x;
-        be.m_kind = implied_evidence.m_low_bound? GE : LE;
-        if (!implied_evidence.m_bound.y.is_zero())
-            be.m_kind = static_cast<lconstraint_kind>((static_cast<int>(be.m_kind) / 2));
-        bound_evidences.push_back(be);
+        // we have exactly one free variable corresponding to the right side of the term
+        // we can get at most two new bounds
+        
+        lean_assert(evidence_vector.size() <= 2);
+        for (unsigned i = 0; i < evidence_vector.size(); i++) {
+            bound_evidence be;
+            auto  & implied_evidence = evidence_vector[i];
+            be.m_j = implied_evidence.m_j;
+            be.m_bound = implied_evidence.m_bound.x;
+            be.m_kind = implied_evidence.m_low_bound? GE : LE;
+            if (!implied_evidence.m_bound.y.is_zero())
+                be.m_kind = static_cast<lconstraint_kind>((static_cast<int>(be.m_kind) / 2));
+            bound_evidences.push_back(be);
+        }
     }
     
     void propagate_bounds_on_terms(std::vector<bound_evidence> & bound_evidences) {

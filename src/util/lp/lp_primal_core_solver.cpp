@@ -892,7 +892,10 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
                 break;
             m_forbidden_enterings.clear();
             this->init_lu();
-            lean_assert(this->m_factorization->get_status() == LU_status::OK);
+            if (this->m_factorization->get_status() != LU_status::OK) {
+                this->m_status = FLOATING_POINT_ERROR;
+                break;
+            }
             init_reduced_costs();
             if (choose_entering_column(1) == -1) {
                 decide_on_status_when_cannot_find_entering();
@@ -903,7 +906,11 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
         case TENTATIVE_UNBOUNDED:
             m_forbidden_enterings.clear();
             this->init_lu();
-            lean_assert(this->m_factorization->get_status() == LU_status::OK);
+            if (this->m_factorization->get_status() != LU_status::OK) {
+                this->m_status = FLOATING_POINT_ERROR;
+                break;
+            }
+                
             init_reduced_costs();
             break;
         case UNBOUNDED:
@@ -912,13 +919,19 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
         case UNSTABLE:
             lean_assert(! (numeric_traits<T>::precise()));
             this->init_lu();
+            if (this->m_factorization->get_status() != LU_status::OK) {
+                this->m_status = FLOATING_POINT_ERROR;
+                break;
+            }
             init_reduced_costs();
             break;
 
         default:
             break; // do nothing
         }
-    } while (this->m_status != FLOATING_POINT_ERROR && this->m_status != UNBOUNDED
+    } while (this->m_status != FLOATING_POINT_ERROR
+             &&
+             this->m_status != UNBOUNDED
              &&
              this->m_status != OPTIMAL
              &&
