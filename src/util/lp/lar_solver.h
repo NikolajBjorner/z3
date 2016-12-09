@@ -494,25 +494,9 @@ public:
         return m_terms_start_index + m_terms.size() - 1;
     }
 
-<<<<<<< HEAD
-    var_index add_term(const std::vector<std::pair<mpq, var_index>> & coeffs,
-                       const mpq & v, constraint_index& ci) {
-        var_index j = A_r().column_count();
-        std::string term_name = create_term_name(j);
-        unsigned i = m_normalized_constraints.size();
-        var_index jj = add_var(term_name);
-        lean_assert(jj == j);
-        std::vector<std::pair<mpq, var_index>> term_coeffs = coeffs; // copy coeffs
-        term_coeffs.emplace_back(- one_of_type<mpq>(), j);
-        ci = add_constraint(term_coeffs, EQ, - v);
-        m_columns_name_term[j].m_term_column_index = j;
-        m_columns_name_term[j].m_term_index_in_normalized_constraints = i;
-        return j;
-=======
     const lar_term &  get_term(unsigned j) const {
         lean_assert(j >= m_terms_start_index);
         return m_terms[j - m_terms_start_index];
->>>>>>> 537939b6ea46954e7f6ce3609e56a7bf4c504e94
     }
 
     void pop_core_solver_params() {
