@@ -360,7 +360,7 @@ public:
 
     // j is a basic column or the entering, in any case x[j] has to stay feasible.
     // m is the multiplier. updating t in a way that holds the following
-    // x[j] + t * m >=  - harris_feasibility_tolerance ( if m < 0 )
+    // x[j] + t * m >=  this->m_low_bounds[j]- harris_feasibility_tolerance ( if m < 0 )
     // or
     // x[j] + t * m <= this->m_upper_bounds[j] + harris_feasibility_tolerance ( if m > 0)
     void limit_theta_on_basis_column(unsigned j, T m, X & theta, bool & unlimited) {
@@ -423,6 +423,11 @@ public:
         }
     }
 
+    bool reduced_costs_are_correct() {
+        std::vector<T> dcopy = this->m_d;
+        init_reduced_costs();
+        return vectors_are_equal(dcopy, this->m_d);
+    }
     
     bool column_is_benefitial_for_entering_basis(unsigned j) const;
 

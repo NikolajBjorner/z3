@@ -2619,9 +2619,6 @@ void check_lu_from_file(std::string lufile_name) {
     std::vector<unsigned> non_basic_columns;
     lu<double, double> lsuhl(A, basis, settings);
      indexed_vector<double>  d(A.row_count());
-#ifdef LEAN_DEBUG
-    lp_settings::ddd = 1;
-#endif
     unsigned entering = 26;
     lsuhl.solve_Bd(entering, d, v);
 #ifdef LEAN_DEBUG

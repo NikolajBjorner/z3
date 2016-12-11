@@ -247,9 +247,9 @@ lp_primal_core_solver<T, X>::find_leaving_and_t_with_breakpoints(unsigned enteri
 }
 
 template <typename T, typename X> bool lp_primal_core_solver<T, X>::get_harris_theta(X & theta) {
-    unsigned i = this->m_m();
+    lean_assert(this->m_ed.is_OK());
     bool unlimited = true;
-    while (i--) {
+    for (unsigned i : this->m_ed.m_index) {
         if (this->m_settings.abs_val_is_smaller_than_pivot_tolerance(this->m_ed[i])) continue;
         limit_theta_on_basis_column(this->m_basis[i], - this->m_ed[i] * m_sign_of_entering_delta, theta, unlimited);
         if (!unlimited && is_zero<X>(theta)) break;
@@ -265,19 +265,22 @@ find_leaving_on_harris_theta(X const & harris_theta, X & t) {
     // we know already that there is no bound flip on entering
     // we also know that harris_theta is limited, so we will find a leaving
     zero_harris_eps();
-    unsigned i = my_random() % this->m_m();
-    unsigned initial_i = i;
+    unsigned steps = this->m_ed.m_index.size();
+    unsigned k = my_random() % steps;
+    unsigned initial_k = k;
     int column_with_non_zero_cost = -1;
     do {
-        if (this->m_settings.abs_val_is_smaller_than_pivot_tolerance(this->m_ed[i])) {
-            if (++i == this->m_m())
-                i = 0;
+        unsigned i = this->m_ed.m_index[k];
+        const T & ed = this->m_ed[i];
+        if (this->m_settings.abs_val_is_smaller_than_pivot_tolerance(ed)) {
+            if (++k == steps)
+                k = 0;
             continue;
         }
         X ratio;
         unsigned j = this->m_basis[i];
         bool unlimited = true;
-        limit_theta_on_basis_column(j, - this->m_ed[i] * m_sign_of_entering_delta, ratio, unlimited);
+        limit_theta_on_basis_column(j, - ed * m_sign_of_entering_delta, ratio, unlimited);
         if ((!unlimited) && ratio <= harris_theta) {
             if (!m_recalc_reduced_costs && !current_x_is_feasible()) { // when we have made several basic variables feasible we need to recalculate the costs and the reduced costs: here we are catching this case
                 if (!is_zero(this->m_costs[j])) {
@@ -287,14 +290,14 @@ find_leaving_on_harris_theta(X const & harris_theta, X & t) {
                         column_with_non_zero_cost = j;
                 }
             }
-            if (leaving == -1 || abs(this->m_ed[i]) > pivot_abs_max) {
+            if (leaving == -1 || abs(ed) > pivot_abs_max) {
                 t = ratio;
                 leaving = j;
-                pivot_abs_max = abs(this->m_ed[i]);
+                pivot_abs_max = abs(ed);
             }
         }
-        if (++i == this->m_m()) i = 0;
-    } while ( i != initial_i);
+        if (++k == steps) k = 0;
+    } while (k != initial_k);
     if (!this->precise())
         restore_harris_eps();
     return leaving;
@@ -331,26 +334,26 @@ template <typename T, typename X> bool lp_primal_core_solver<T, X>::try_jump_to_
 }
 
 template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_and_t_precise(unsigned entering, X & t) {
-    if (!current_x_is_feasible() && this->m_settings.use_breakpoints_in_feasibility_search)
+    if (this->m_settings.use_breakpoints_in_feasibility_search && !current_x_is_feasible())
         return find_leaving_and_t_with_breakpoints(entering, t);
     bool unlimited = true;
-    unsigned i = my_random() % this->m_m();
-    unsigned initial_i = i;
+    unsigned steps = this->m_ed.m_index.size();
+    unsigned k = my_random() % steps;
+    unsigned initial_k = k;
     unsigned row_min_nz = this->m_n() + 1;
     std::vector<unsigned> leaving_candidates;
     do {
-        if (numeric_traits<T>::is_zero(this->m_ed[i])) {
-            if (++i == this->m_m()) i = 0;
-            continue;
-        }
+        unsigned i = this->m_ed.m_index[k];
+        const T & ed = this->m_ed[i];
+        lean_assert(!numeric_traits<T>::is_zero(ed));
         unsigned j = this->m_basis[i];
-        limit_theta_on_basis_column(j, -this->m_ed[i] * m_sign_of_entering_delta, t, unlimited);
+        limit_theta_on_basis_column(j, - ed * m_sign_of_entering_delta, t, unlimited);
         if (!unlimited) {
             leaving_candidates.push_back(j);
             row_min_nz = this->m_rows_nz[i];
         }
-        if (++i == this->m_m()) i = 0;
-    } while (unlimited && i != initial_i);
+        if (++k == steps) k = 0;
+    } while (unlimited && k != initial_k);
     if (unlimited) {
         if (try_jump_to_another_bound_on_entering(entering, 1, t, unlimited)) return entering; // the value of the ratio here does not matter because we have an unlimete case
         else 
@@ -358,16 +361,15 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
     }
 
     X ratio;
-    while (i != initial_i) {
-        if (numeric_traits<T>::is_zero(this->m_ed[i])) {
-            if (++i == this->m_m()) i = 0;
-            continue;
-        }
+    while (k != initial_k) {
+        unsigned i = this->m_ed.m_index[k];
+        const T & ed = this->m_ed[i];
+        lean_assert(!numeric_traits<T>::is_zero(ed));
         unsigned j = this->m_basis[i];
         unlimited = true;
-        limit_theta_on_basis_column(j, -this->m_ed[i] * m_sign_of_entering_delta, ratio, unlimited);
+        limit_theta_on_basis_column(j, -ed * m_sign_of_entering_delta, ratio, unlimited);
         if (unlimited) {
-            if (++i == this->m_m()) i = 0;
+            if (++k == steps) k = 0;
             continue;
         }
         unsigned i_nz = this->m_rows_nz[i];
@@ -383,7 +385,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
         } else if (ratio == t && i_nz == row_min_nz) {
             leaving_candidates.push_back(j);
         }
-        if (++i == this->m_m()) i = 0;
+        if (++k == steps) k = 0;
     }
 
     ratio = t;
@@ -392,12 +394,12 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
         t = ratio;
         return entering;
     }
-    unsigned k = my_random() % leaving_candidates.size();
+    k = my_random() % leaving_candidates.size();
     return leaving_candidates[k];
 }
 
 template <typename T, typename X>    int lp_primal_core_solver<T, X>::find_leaving_and_t(unsigned entering, X & t) {
-    if (!current_x_is_feasible() && this->m_settings.use_breakpoints_in_feasibility_search)
+    if (this->m_settings.use_breakpoints_in_feasibility_search && !current_x_is_feasible())
         return find_leaving_and_t_with_breakpoints(entering, t);
     X theta;
     bool unlimited = get_harris_theta(theta);
@@ -718,7 +720,8 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
         }
         if (this->m_look_for_feasible_solution_only && current_x_is_feasible())
             return;
-        if (need_to_switch_costs()) {
+        
+        if (need_to_switch_costs() ||!current_x_is_feasible()) {
             init_reduced_costs();
         }
         this->m_iters_with_no_cost_growing = 0;
@@ -786,9 +789,8 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
     if (leaving == -1) {
         lean_assert(current_x_is_feasible());
             // we cannot have unbounded with inf costs
-
-            this->m_status = UNBOUNDED;
-            return;
+        this->m_status = UNBOUNDED;
+        return;
         
     }
     advance_on_entering_and_leaving(entering, leaving, t);
@@ -1037,8 +1039,9 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::one_iteratio
     if (entering == -1) {
         decide_on_status_when_cannot_find_entering();
     }
-    else
+    else {
         advance_on_entering(entering);
+    }
 }
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::update_basis_and_x_with_comparison(unsigned entering, unsigned leaving, X delta) {
