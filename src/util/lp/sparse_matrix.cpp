@@ -433,7 +433,7 @@ void sparse_matrix<T, X>::solve_y_U(std::vector<T> & y) const { // works by rows
 // the matrix here has to be upper triangular
 template <typename T, typename X>
 void sparse_matrix<T, X>::solve_y_U_indexed(indexed_vector<T> & y, const lp_settings & settings) {
-#ifdef LEAN_DEBUG
+#if 0 && LEAN_DEBUG
     std::vector<T> ycopy(y.m_data);
     if (numeric_traits<T>::precise() == false)
         solve_y_U(ycopy);
@@ -458,7 +458,7 @@ void sparse_matrix<T, X>::solve_y_U_indexed(indexed_vector<T> & y, const lp_sett
     }
 
     lean_assert(y.is_OK());
-#ifdef LEAN_DEBUG
+#if 0 && LEAN_DEBUG
     if (numeric_traits<T>::precise() == false)
         lean_assert(vectors_are_equal(ycopy, y.m_data));
 #endif

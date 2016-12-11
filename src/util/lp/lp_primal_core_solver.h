@@ -236,13 +236,23 @@ public:
     bool limit_inf_on_bound_m_neg(const T & m, const X & x, const X & bound, X & theta, bool & unlimited) {
         // x gets smaller
         lean_assert(m < 0);
-        const X& eps = harris_eps_for_bound(bound);
-        if (this->below_bound(x, bound)) return false;
-        if (this->above_bound(x, bound)) {
-            limit_theta((bound - x - eps) / m, theta, unlimited);
+        if (numeric_traits<T>::precise()) {
+            if (this->below_bound(x, bound)) return false;
+            if (this->above_bound(x, bound)) {
+                limit_theta((bound - x) / m, theta, unlimited);
+            } else {
+                theta = zero_of_type<X>();
+                unlimited = false;
+            }
         } else {
-            theta = zero_of_type<X>();
-            unlimited = false;
+            const X& eps = harris_eps_for_bound(bound);
+            if (this->below_bound(x, bound)) return false;
+            if (this->above_bound(x, bound)) {
+                limit_theta((bound - x - eps) / m, theta, unlimited);
+            } else {
+                theta = zero_of_type<X>();
+                unlimited = false;
+            }
         }
         return true;
     }
@@ -250,13 +260,23 @@ public:
     bool limit_inf_on_bound_m_pos(const T & m, const X & x, const X & bound, X & theta, bool & unlimited) {
         // x gets larger
         lean_assert(m > 0);
-        const X& eps = harris_eps_for_bound(bound);
-        if (this->above_bound(x, bound)) return false;
-        if (this->below_bound(x, bound)) {
-            limit_theta((bound - x + eps) / m, theta, unlimited);
+        if (numeric_traits<T>::precise()) {
+            if (this->above_bound(x, bound)) return false;
+            if (this->below_bound(x, bound)) {
+                limit_theta((bound - x) / m, theta, unlimited);
+            } else {
+                theta = zero_of_type<X>();
+                unlimited = false;
+            }
         } else {
-            theta = zero_of_type<X>();
-            unlimited = false;
+            const X& eps = harris_eps_for_bound(bound);
+            if (this->above_bound(x, bound)) return false;
+            if (this->below_bound(x, bound)) {
+                limit_theta((bound - x + eps) / m, theta, unlimited);
+            } else {
+                theta = zero_of_type<X>();
+                unlimited = false;
+            }
         }
         return true;
     }
@@ -340,7 +360,7 @@ public:
 
     // j is a basic column or the entering, in any case x[j] has to stay feasible.
     // m is the multiplier. updating t in a way that holds the following
-    // x[j] + t * m >=  - harris_feasibility_tolerance ( if m < 0 )
+    // x[j] + t * m >=  this->m_low_bounds[j]- harris_feasibility_tolerance ( if m < 0 )
     // or
     // x[j] + t * m <= this->m_upper_bounds[j] + harris_feasibility_tolerance ( if m > 0)
     void limit_theta_on_basis_column(unsigned j, T m, X & theta, bool & unlimited) {
@@ -403,6 +423,11 @@ public:
         }
     }
 
+    bool reduced_costs_are_correct() {
+        std::vector<T> dcopy = this->m_d;
+        init_reduced_costs();
+        return vectors_are_equal(dcopy, this->m_d);
+    }
     
     bool column_is_benefitial_for_entering_basis(unsigned j) const;
 

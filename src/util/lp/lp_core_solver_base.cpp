@@ -183,19 +183,19 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::
 A_mult_x_is_off() const {
     lean_assert(m_x.size() == m_A.column_count());
     if (numeric_traits<T>::precise()) {
-        //return false;
-        for (unsigned i = 0; i < m_m(); i++) {
-            X delta = m_b[i] - m_A.dot_product_with_row(i, m_x);
-            if (delta != numeric_traits<X>::zero()) {
-                std::cout << "precise x is off (";
-                std::cout << "m_b[" << i << "] = " << m_b[i] << " ";
-                std::cout << "left side = " << m_A.dot_product_with_row(i, m_x) << ' ';
-                std::cout << "delta = " << delta << ' ';
-                std::cout << "iters = " << total_iterations() << ")" << std::endl;
-                return true;
-            }
-        }
         return false;
+        // for (unsigned i = 0; i < m_m(); i++) {
+        //     X delta = m_b[i] - m_A.dot_product_with_row(i, m_x);
+        //     if (delta != numeric_traits<X>::zero()) {
+        //         std::cout << "precise x is off (";
+        //         std::cout << "m_b[" << i << "] = " << m_b[i] << " ";
+        //         std::cout << "left side = " << m_A.dot_product_with_row(i, m_x) << ' ';
+        //         std::cout << "delta = " << delta << ' ';
+        //         std::cout << "iters = " << total_iterations() << ")" << std::endl;
+        //         return true;
+        //     }
+        // }
+        // return false;
     }
     T feps = convert_struct<T, double>::convert(m_settings.refactor_tolerance);
     X one = convert_struct<X, double>::convert(1.0);
