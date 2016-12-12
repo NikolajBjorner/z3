@@ -301,6 +301,10 @@ template <typename T, typename X> void lar_core_solver<T, X>::solve() {
         prefix_d();
         lar_solution_signature solution_signature;
         std::vector<unsigned> changes_of_basis = find_solution_signature_with_doubles(solution_signature);
+        if (m_d_solver.m_status == TIME_EXHAUSTED) {
+            m_r_solver.m_status = TIME_EXHAUSTED;
+            return;
+        }
         solve_on_signature(solution_signature, changes_of_basis);
     } else {
         m_r_solver.find_feasible_solution();

@@ -251,6 +251,8 @@ void lar_solver::solve_with_core_solver() {
     fix_touched_columns(); // todo : should they be up to date?
     m_mpq_lar_core_solver.solve();
     m_status = m_mpq_lar_core_solver.m_r_solver.m_status;
+    if (m_status == TIME_EXHAUSTED)
+        return;
     lean_assert(m_status != OPTIMAL || all_constraints_hold());
     lean_assert(m_status != INFEASIBLE || evidence_is_correct());
 }
