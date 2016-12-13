@@ -1325,6 +1325,7 @@ namespace smt {
         }
 
         void assign(literal lit) {
+            SASSERT(validate_assign(lit));
             if (m_core.size() < small_lemma_size() && m_eqs.empty()) {
                 for (unsigned i = 0; i < m_core.size(); ++i) {
                     m_core[i].neg();
@@ -1891,6 +1892,8 @@ namespace smt {
             }
         }
 
+        bool dump_lemmas() const { return m_arith_params.m_arith_dump_lemmas; }
+
         bool propagate_eqs() const { return m_arith_params.m_arith_propagate_eqs && m_num_conflicts < m_arith_params.m_arith_propagation_threshold; }
 
         bound_prop_mode propagation_mode() const { return m_num_conflicts < m_arith_params.m_arith_propagation_threshold ? m_arith_params.m_arith_bound_prop : BP_NONE; }
@@ -1981,6 +1984,7 @@ namespace smt {
                                 ext_theory_eq_propagation_justification(
                                     get_id(), ctx().get_region(), m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), x, y, 0, 0));
                         // parameters are TBD.
+                        SASSERT(validate_eq(x, y));
                         ctx().assign_eq(x, y, eq_justification(js));
                     }
                     else {
@@ -2072,6 +2076,7 @@ namespace smt {
                     set_evidence(ev.second);
                 }
             }
+            SASSERT(validate_conflict());
             ctx().set_conflict(
                 ctx().mk_justification(
                     ext_theory_conflict_justification(
@@ -2123,6 +2128,47 @@ namespace smt {
             SASSERT(v2 != null_theory_var);
             return (get_value(v1) == get_value(v2)) == is_true;
         }
+
+        // Auxiliary verification utilities.
+
+        bool validate_conflict() {
+            if (dump_lemmas()) {
+                ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), false_literal);
+            }
+            context nctx(m, ctx().get_fparams(), ctx().get_params());
+            add_background(nctx);
+            return l_false == nctx.check();
+        }
+
+        bool validate_assign(literal lit) {
+            if (dump_lemmas()) {                
+                ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit);
+            }
+            context nctx(m, ctx().get_fparams(), ctx().get_params());
+            m_core.push_back(~lit);
+            add_background(nctx);
+            m_core.pop_back();
+            bool result = l_false == nctx.check();
+            CTRACE("arith", !result, ctx().display_lemma_as_smt_problem(tout, m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit););                   
+        }
+
+        bool validate_eq(enode* x, enode* y) {
+            context nctx(m, ctx().get_fparams(), ctx().get_params());
+            add_background(nctx);
+            nctx.assert_expr(m.mk_not(m.mk_eq(x->get_owner(), y->get_owner())));
+            return l_false == nctx.check();
+        }
+
+        void add_background(context& nctx) {
+            for (unsigned i = 0; i < m_core.size(); ++i) {
+                expr_ref tmp(m);
+                ctx().literal2expr(m_core[i], tmp);
+                nctx.assert_expr(tmp);
+            }
+            for (unsigned i = 0; i < m_eqs.size(); ++i) {
+                nctx.assert_expr(m.mk_eq(m_eqs[i].first->get_owner(), m_eqs[i].second->get_owner()));
+            }
+        }        
 
         void display(std::ostream & out) const {
             if (m_solver) {
