@@ -182,9 +182,16 @@ public:
         // }
         // out << "after summing up the constraints we get\n";
         // print_linear_combination_of_column_indices(m_vec_of_canonic_left_sides()[be.m_j].m_coeffs, out);
-        out << m_column_names[be.m_j].m_name << " " << lconstraint_kind_string(be.m_kind) << " "  << be.m_bound << std::endl;
-        if (m_column_names[be.m_j].m_term_index >= 0) {
-            std::cout << "term ";
+        unsigned v = be.m_j;
+        if (is_term(v)) {
+            print_term(get_term(v), out);
+        }
+        else {
+            out << m_column_names[v].m_name;
+        }
+        out << " " << lconstraint_kind_string(be.m_kind) << " "  << be.m_bound << std::endl;
+        if (!is_term(v) && m_column_names[v].m_term_index >= 0) {
+            out << "term ";
             print_term(m_terms[m_column_names[be.m_j].m_term_index - m_terms_start_index], out);
         }
 

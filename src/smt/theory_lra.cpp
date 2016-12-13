@@ -1306,13 +1306,11 @@ namespace smt {
                 updt_unassigned_bounds(v, -1);
                 TRACE("arith",
                       ctx().display_literals_verbose(tout, m_core);
-                      tout << " --> ";
+                      tout << "\n --> ";
                       ctx().display_literal_verbose(tout, lit);
                       tout << "\n";
-                      for (auto& lit : m_core) {
-                          ctx().display_literal_verbose(tout, lit); tout << ": " << ctx().get_assignment(lit) << "\n";
-                      }
                       display_evidence(tout, be.m_evidence);
+                      m_solver->print_bound_evidence(be, tout);
                       );
                 DEBUG_CODE(
                       for (auto& lit : m_core) {
@@ -2149,7 +2147,8 @@ namespace smt {
             add_background(nctx);
             m_core.pop_back();
             bool result = l_false == nctx.check();
-            CTRACE("arith", !result, ctx().display_lemma_as_smt_problem(tout, m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit););                   
+            CTRACE("arith", !result, ctx().display_lemma_as_smt_problem(tout, m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit););   
+            return result;
         }
 
         bool validate_eq(enode* x, enode* y) {
@@ -2215,7 +2214,7 @@ namespace smt {
                 }
             }
             for (auto const& ev : evidence) {
-                m_solver->print_constraint(ev.second, out << ev.first << ": "); out << "\n";
+                m_solver->print_constraint(ev.second, out << ev.first << ": "); 
             }
         }
 
