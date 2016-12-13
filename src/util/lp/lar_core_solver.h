@@ -477,6 +477,9 @@ public:
         prepare_solver_x_with_signature(signature, m_d_solver);
         m_d_solver.start_tracing_basis_changes();
         m_d_solver.find_feasible_solution();
+        if (m_d_solver.m_status == TIME_EXHAUSTED)
+            return std::vector<unsigned>();
+            
         m_d_solver.stop_tracing_basis_changes();
         extract_signature_from_lp_core_solver(m_d_solver, signature);
         return m_d_solver.m_trace_of_basis_change_vector;

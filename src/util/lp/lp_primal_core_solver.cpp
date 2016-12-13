@@ -805,6 +805,11 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
     this->solve_Bd(entering);
     int refresh_result = refresh_reduced_cost_at_entering_and_check_that_it_is_off(entering);
     if (refresh_result) {
+        if (this->m_look_for_feasible_solution_only) {
+            this->m_status = FLOATING_POINT_ERROR;
+            return;
+        }
+
         this->init_lu();
         init_reduced_costs();
         if (refresh_result == 2) {
@@ -945,7 +950,11 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
              &&
              !(current_x_is_feasible() && this->m_look_for_feasible_solution_only));
 
-    lean_assert(current_x_is_feasible() == false || this->calc_current_x_is_feasible_include_non_basis());
+    lean_assert(this->m_status == FLOATING_POINT_ERROR
+                ||
+                current_x_is_feasible() == false
+                ||
+                this->calc_current_x_is_feasible_include_non_basis());
     return this->total_iterations();
 }
 
