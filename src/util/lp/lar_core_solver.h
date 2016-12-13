@@ -379,6 +379,8 @@ public:
             prepare_solver_x_with_signature(signature, m_r_solver);
             m_r_solver.start_tracing_basis_changes();
             m_r_solver.find_feasible_solution();
+            if (m_r_solver.get_status() == TIME_EXHAUSTED)
+                return;
             m_r_solver.stop_tracing_basis_changes();
             // and now catch up in the double solver
             lean_assert(m_r_solver.total_iterations() >= m_r_solver.m_trace_of_basis_change_vector.size() /2);

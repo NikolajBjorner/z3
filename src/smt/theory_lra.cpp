@@ -2017,7 +2017,7 @@ namespace smt {
                 return l_false;
             case lean::lp_status::FEASIBLE:
             case lean::lp_status::OPTIMAL:
-                SASSERT(m_solver->all_constraints_hold());
+                //                SASSERT(m_solver->all_constraints_hold());
                 return l_true;
             case lean::lp_status::TIME_EXHAUSTED:
                 
