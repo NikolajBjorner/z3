@@ -197,7 +197,7 @@ public:
 
     }
     
-    void bound_evidence_is_correct(bound_evidence & be) {
+    void bound_evidence_is_correct(bound_evidence const & be) {
         std::unordered_map<unsigned, mpq> coeff_map;
         auto rs = zero_of_type<mpq>();
         unsigned n_of_G = 0, n_of_L = 0;
