@@ -406,6 +406,7 @@ d_is_not_positive(unsigned j) const {
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 time_is_over() {
     if (m_settings.get_cancel_flag()) {
+        std::cout << "setting TIME_EXHAUSTED" << std::endl;
         m_status = lp_status::TIME_EXHAUSTED;
         return true;
     }

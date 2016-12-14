@@ -212,6 +212,8 @@ constraint_index lar_solver::add_constraint_for_existing_left_side(const canonic
 
     
 bool lar_solver::all_constraints_hold() const {
+    if (m_settings.get_cancel_flag())
+        return true;
     std::unordered_map<var_index, mpq> var_map;
     get_model(var_map);
     

@@ -769,7 +769,7 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
     if (numeric_traits<X>::precise() == false)
         update_or_init_column_norms(entering, leaving);
 
-    if (need_to_switch_costs() || m_recalc_reduced_costs || m_using_infeas_costs) {
+    if (need_to_switch_costs() || m_recalc_reduced_costs) {
         init_reduced_costs();
     }  else {
         update_reduced_costs_from_pivot_row(entering, leaving);
@@ -787,11 +787,8 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
     X t;
     int leaving = find_leaving_and_t_precise(entering, t);
     if (leaving == -1) {
-        lean_assert(current_x_is_feasible());
-            // we cannot have unbounded with inf costs
         this->m_status = UNBOUNDED;
         return;
-        
     }
     advance_on_entering_and_leaving(entering, leaving, t);
 }
@@ -895,13 +892,14 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
         switch (this->m_status) {
         case OPTIMAL:  // double check that we are at optimum
         case INFEASIBLE:
-            if (numeric_traits<T>::precise())
-                break;
             m_forbidden_enterings.clear();
-            this->init_lu();
-            if (this->m_factorization->get_status() != LU_status::OK) {
-                this->m_status = FLOATING_POINT_ERROR;
-                break;
+            if (!numeric_traits<T>::precise()) {
+                this->init_lu();
+
+                if (this->m_factorization->get_status() != LU_status::OK) {
+                    this->m_status = FLOATING_POINT_ERROR;
+                    break;
+                }
             }
             init_reduced_costs();
             if (choose_entering_column(1) == -1) {
@@ -921,6 +919,10 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
             init_reduced_costs();
             break;
         case UNBOUNDED:
+            if (current_x_is_infeasible()) {
+                init_reduced_costs();
+                this->m_status = UNKNOWN;
+            }
             break;
 
         case UNSTABLE:
