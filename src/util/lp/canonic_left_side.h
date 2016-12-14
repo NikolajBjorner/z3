@@ -29,7 +29,7 @@ namespace lean {
     }
 
 class lar_normalized_constraint; // forward definition
-inline   bool compare(const std::pair<mpq, var_index> & a, const std::pair<mpq, var_index> & b) {
+inline bool compare(const std::pair<mpq, var_index> & a, const std::pair<mpq, var_index> & b) {
     return a.second < b.second;
 }
 
