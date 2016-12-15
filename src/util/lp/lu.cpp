@@ -560,6 +560,10 @@ void lu<T, X>::swap_columns(int j, int pivot_column) {
 template <typename T, typename X>
 bool lu<T, X>::pivot_the_row(int row) {
     eta_matrix<T, X> * eta_matrix = get_eta_matrix_for_pivot(row);
+    if (get_status() != LU_status::OK) {
+        return false;
+    }
+
     if (eta_matrix == nullptr) {
         m_U.shorten_active_matrix(row, nullptr);
         return true;
@@ -574,7 +578,9 @@ bool lu<T, X>::pivot_the_row(int row) {
 template <typename T, typename X>
 eta_matrix<T, X> * lu<T, X>::get_eta_matrix_for_pivot(unsigned j) {
     eta_matrix<T, X> *ret;
-    m_U.fill_eta_matrix(j, &ret);
+    if(!m_U.fill_eta_matrix(j, &ret)) {
+        set_status(LU_status::Degenerated);
+    }
     return ret;
 }
 // we're processing the column j now

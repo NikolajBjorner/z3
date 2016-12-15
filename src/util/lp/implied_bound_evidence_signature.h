@@ -19,7 +19,7 @@ struct bound_signature {
 };
 template <typename T, typename X> 
 struct implied_bound_evidence_signature {
-    std::vector<bound_signature<T>> m_evidence;
+    std::vector<bound_signature<T>> m_vector_of_bound_signatures;
     unsigned m_j; // found new bound
     bool m_low_bound;    
     X m_bound;

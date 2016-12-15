@@ -16,5 +16,9 @@ struct lar_term {
     }
     bool operator==(const lar_term & a) const {  return m_coeffs == a.m_coeffs && m_v == a.m_v;}
     bool operator!=(const lar_term & a) const {  return ! (*this == a);}
+    // some terms get used in add constraint
+    // it is the same as the offset in the m_normalized_constraints
+    int m_first_time_constraint_index = -1; 
+
 };
 }
