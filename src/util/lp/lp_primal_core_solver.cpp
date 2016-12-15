@@ -893,20 +893,35 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
         case OPTIMAL:  // double check that we are at optimum
         case INFEASIBLE:
             m_forbidden_enterings.clear();
+            if (this->m_look_for_feasible_solution_only && current_x_is_feasible())
+                break;
             if (!numeric_traits<T>::precise()) {
+                if(this->m_look_for_feasible_solution_only)
+                    break;
                 this->init_lu();
-
+                
                 if (this->m_factorization->get_status() != LU_status::OK) {
                     this->m_status = FLOATING_POINT_ERROR;
                     break;
                 }
+                init_reduced_costs();
+                if (choose_entering_column(1) == -1) {
+                    decide_on_status_when_cannot_find_entering();
+                    break;
+                }
+                this->m_status = UNKNOWN;
+            } else { // precise case
+                if (this->m_look_for_feasible_solution_only) {
+                    if (!infeasibility_costs_are_correct()) {
+                        init_reduced_costs();
+                        if (choose_entering_column(1) == -1) {
+                            decide_on_status_when_cannot_find_entering();
+                            break;
+                        }
+                        this->m_status = UNKNOWN;
+                    }
+                }
             }
-            init_reduced_costs();
-            if (choose_entering_column(1) == -1) {
-                decide_on_status_when_cannot_find_entering();
-                break;
-            }
-            this->m_status = UNKNOWN;
             break;
         case TENTATIVE_UNBOUNDED:
             m_forbidden_enterings.clear();
@@ -1113,7 +1128,52 @@ void lp_primal_core_solver<T, X>::init_infeasibility_costs() {
         init_infeasibility_cost_for_column(j);
     m_using_infeas_costs = true;
 }
+template <typename T, typename X> bool 
+lp_primal_core_solver<T, X>::infeasibility_costs_are_correct() const {
+#ifdef LEAN_DEBUG
+    for (unsigned j = 0; j < this->m_n(); j++) {
+        if (this->m_basis_heading[j] < 0)
+            lean_assert(is_zero(this->m_costs[j]));
+    }
+#endif
+    for (unsigned j :this->m_basis) {
+        if (!infeasibility_cost_is_correct_for_column(j))
+            return false;
+    }
+    return true;
+}
+template <typename T, typename X> bool
+lp_primal_core_solver<T, X>::infeasibility_cost_is_correct_for_column(unsigned j)  const {
+    switch (this->m_column_types[j]) {
+    case fixed:
+    case boxed:
+        if (this->x_above_upper_bound(j)) {
+            return (this->m_costs[j] == 1);
+        }
+        if (this->x_below_low_bound(j)) {
+            return (this->m_costs[j] == -1);
+        }
+        return is_zero(this->m_costs[j]);
 
+    case low_bound:
+        if (this->x_below_low_bound(j)) {
+            return this->m_costs[j] == -1;
+        }
+        return is_zero(this->m_costs[j]);
+
+    case upper_bound:
+        if (this->x_above_upper_bound(j)) {
+            return this->m_costs[j] == 1;
+        }
+        return is_zero(this->m_costs[j]);
+    case free_column:
+        return is_zero(this->m_costs[j]);
+    default:
+        lean_assert(false);
+        return true;
+    }
+}
+    // changed m_inf_set too!
 template <typename T, typename X> void
 lp_primal_core_solver<T, X>::init_infeasibility_cost_for_column(unsigned j) {
     // the cost will be m_infeasibility, and we will minimize m_infeasibility

@@ -185,20 +185,20 @@ public:
         return above_bound_numeric<X>(x, bound, m_settings.primal_feasibility_tolerance);
     }
 
-    bool x_below_low_bound(unsigned p) {
+    bool x_below_low_bound(unsigned p) const {
         return below_bound(m_x[p], m_low_bounds[p]);
     }
 
-    bool x_above_low_bound(unsigned p) {
+    bool x_above_low_bound(unsigned p) const {
         return above_bound(m_x[p], m_low_bounds[p]);
     }
 
-    bool x_below_upper_bound(unsigned p) {
+    bool x_below_upper_bound(unsigned p) const {
         return below_bound(m_x[p], m_upper_bounds[p]);
     }
 
 
-    bool x_above_upper_bound(unsigned p) {
+    bool x_above_upper_bound(unsigned p) const {
         return above_bound(m_x[p], m_upper_bounds[p]);
     }
     bool x_is_at_low_bound(unsigned j) const {

@@ -197,7 +197,7 @@ public:
     
     bool bound_evidence_is_correct(bound_evidence const & be) const {
         std::unordered_map<unsigned, mpq> coeff_map;
-        auto rs = zero_of_type<mpq>();
+        auto rs_of_evidence = zero_of_type<mpq>();
         unsigned n_of_G = 0, n_of_L = 0;
         bool strict = false;
         for (auto & it : be.m_evidence) {
@@ -210,7 +210,7 @@ public:
                 strict = true;
             if (kind == GE || kind == GT) n_of_G++;
             else if (kind == LE || kind == LT) n_of_L++;
-            rs += coeff*constr.m_right_side;
+            rs_of_evidence += coeff*constr.m_right_side;
         }
         lean_assert(n_of_G == 0 || n_of_L == 0);
         lconstraint_kind kind = n_of_G ? GE : (n_of_L ? LE : EQ);
@@ -234,10 +234,11 @@ public:
                 if (ratio < 0) {
                     kind = flip_kind(kind);
                 }
-                rs *= ratio;
-                    
+                rs_of_evidence *= ratio;
         } else {
             const lar_term & t = get_term(be.m_j);
+            if (t.m_coeffs.size() == 0)
+                return true;
             const auto & first_coeff = t.m_coeffs[0];
             auto it = coeff_map.find(first_coeff.second);
             if(it == coeff_map.end())
@@ -246,10 +247,11 @@ public:
             if (ratio < 0) {
                 kind = flip_kind(kind);
             }
-            rs *= ratio;
+            rs_of_evidence *= ratio;
+            rs_of_evidence += t.m_v;
         }
 
-        return kind == be.m_kind && rs == be.m_bound;
+        return kind == be.m_kind && rs_of_evidence == be.m_bound;
     }
 
     std::function<column_type (unsigned)> m_column_type_function = [this] (unsigned j) {return m_mpq_lar_core_solver.m_column_types()[j];};
@@ -441,9 +443,11 @@ public:
     }
 
     bool all_propagated_bounds_are_correct(const std::vector<bound_evidence> & bound_evidence) const {
-        for (const auto & be : bound_evidence)
+        
+        for (const auto & be : bound_evidence) {
             if (!bound_evidence_is_correct(be))
                 return false;
+        }
         return true;
     }
     
@@ -550,9 +554,9 @@ public:
                 b.push_back(t.second.m_j);
         }
     }
-    var_index add_term(const std::vector<std::pair<mpq, var_index>> & m_coeffs,
-                      const mpq &m_v) {
-        m_terms.push_back(lar_term(m_coeffs, m_v));
+    var_index add_term(const std::vector<std::pair<mpq, var_index>> & coeffs,
+                       const mpq &m_v) {
+        m_terms.push_back(lar_term(coeffs, m_v));
         // std::cout << "term " << m_terms_start_index + m_terms.size() - 1 << std::endl;
         // print_term(lar_term(m_coeffs, m_v), std::cout);
         // std::cout << std::endl;
