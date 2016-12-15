@@ -1258,13 +1258,16 @@ namespace smt {
             std::vector<lean::bound_evidence> bound_evidences;
             int num_of_p = m_solver->settings().st().m_num_of_implied_bounds;
             m_solver->propagate_bounds_for_touched_rows(bound_evidences);
+            if (m.canceled()) {
+                return;
+            }
             int new_num_of_p = m_solver->settings().st().m_num_of_implied_bounds;
             CTRACE("arith", new_num_of_p > num_of_p, tout << "found " << new_num_of_p << " implied bounds\n";);
             if (m_solver->get_status() == lean::lp_status::INFEASIBLE) {
                 set_conflict();
             }
             else {
-                for (size_t i = 0; !ctx().inconsistent() && i < bound_evidences.size(); ++i) {
+                for (size_t i = 0; !m.canceled() && !ctx().inconsistent() && i < bound_evidences.size(); ++i) {
                     propagate_lp_solver_bound(bound_evidences[i]);
                 }
             }
@@ -2135,7 +2138,7 @@ namespace smt {
             }
             context nctx(m, ctx().get_fparams(), ctx().get_params());
             add_background(nctx);
-            return l_false == nctx.check();
+            return l_true != nctx.check();
         }
 
         bool validate_assign(literal lit) {
@@ -2146,7 +2149,7 @@ namespace smt {
             m_core.push_back(~lit);
             add_background(nctx);
             m_core.pop_back();
-            bool result = l_false == nctx.check();
+            bool result = l_true != nctx.check();
             CTRACE("arith", !result, ctx().display_lemma_as_smt_problem(tout, m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit););   
             return result;
         }
@@ -2155,7 +2158,7 @@ namespace smt {
             context nctx(m, ctx().get_fparams(), ctx().get_params());
             add_background(nctx);
             nctx.assert_expr(m.mk_not(m.mk_eq(x->get_owner(), y->get_owner())));
-            return l_false == nctx.check();
+            return l_true != nctx.check();
         }
 
         void add_background(context& nctx) {
