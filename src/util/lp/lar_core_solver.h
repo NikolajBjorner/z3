@@ -379,7 +379,7 @@ public:
             prepare_solver_x_with_signature(signature, m_r_solver);
             m_r_solver.start_tracing_basis_changes();
             m_r_solver.find_feasible_solution();
-            if (m_r_solver.get_status() == TIME_EXHAUSTED)
+            if (settings().get_cancel_flag())
                 return;
             m_r_solver.stop_tracing_basis_changes();
             // and now catch up in the double solver
@@ -479,7 +479,7 @@ public:
         prepare_solver_x_with_signature(signature, m_d_solver);
         m_d_solver.start_tracing_basis_changes();
         m_d_solver.find_feasible_solution();
-        if (m_d_solver.m_status == TIME_EXHAUSTED)
+        if (settings().get_cancel_flag())
             return std::vector<unsigned>();
             
         m_d_solver.stop_tracing_basis_changes();
