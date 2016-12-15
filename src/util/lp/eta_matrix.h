@@ -42,9 +42,9 @@ public:
         return m_column_vector.size() == 0 && m_diagonal_element == 1;
     }
 
-    void set_diagonal_element(T const & diagonal_element) {
-        lean_assert(!lp_settings::is_eps_small_general(diagonal_element, 1e-12));
+    bool set_diagonal_element(T const & diagonal_element) {
         m_diagonal_element = diagonal_element;
+        return !lp_settings::is_eps_small_general(diagonal_element, 1e-12);
     }
 
     const T & get_diagonal_element() const {

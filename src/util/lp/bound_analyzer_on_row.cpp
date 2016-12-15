@@ -65,6 +65,7 @@ void bound_analyzer_on_row<T, X>::analyze_bound_on_var_on_coeff(int j, const T &
 }
 template <typename T, typename X>    
 void bound_analyzer_on_row<T, X>::analyze_bound_on_row_one_var_case_boxed_fixed(int j, const T & a) {
+ 
     if (m_interested_in_u) {
         m_bound_u += a * (numeric_traits<T>::is_pos(a) ? m_upper_bounds[j] : m_low_bounds[j]); 
         m_n_u++;
@@ -105,6 +106,7 @@ template <typename T, typename X>
 void bound_analyzer_on_row<T, X>::analyze_for_l() {
     if (m_n_l < m_n_total - 1)
         return; // cannot pin anything
+
     if (m_n_l == m_n_total - 1) {
         lean_assert(m_cand_l != -1);
         implied_bound_evidence_signature<T, X> bnd_evid;
@@ -206,7 +208,7 @@ void bound_analyzer_on_row<T, X>::fill_bound_evidence_sign_on_coeff(int sign, un
     int a_sign = numeric_traits<T>::is_pos(a)? 1: -1;
     sign *= a_sign;
     bound_signature<T> bsig(a, j, sign > 0);
-    be.m_evidence.emplace_back(bsig);
+    be.m_vector_of_bound_signatures.emplace_back(bsig);
 }
 
 template <typename T, typename X>    

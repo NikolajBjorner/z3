@@ -1085,7 +1085,7 @@ bool sparse_matrix<T, X>::shorten_columns_by_pivot_row(unsigned i, unsigned pivo
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::fill_eta_matrix(unsigned j, eta_matrix<T, X> ** eta) {
+bool sparse_matrix<T, X>::fill_eta_matrix(unsigned j, eta_matrix<T, X> ** eta) {
     std::vector<indexed_value<T>> & col_chunk = get_column_values(adjust_column(j));
     bool is_unit = true;
     for (auto & iv : col_chunk) {
@@ -1102,7 +1102,7 @@ void sparse_matrix<T, X>::fill_eta_matrix(unsigned j, eta_matrix<T, X> ** eta) {
 
     if (is_unit) {
         *eta = nullptr;
-        return;
+        return true;
     }
 
 #ifdef LEAN_DEBUG
@@ -1118,10 +1118,17 @@ void sparse_matrix<T, X>::fill_eta_matrix(unsigned j, eta_matrix<T, X> ** eta) {
         if (i > j) {
             (*eta)->push_back(i, - iv.m_value);
         } else { // i == j
-            (*eta)->set_diagonal_element(iv.m_value);
+            if ( !(*eta)->set_diagonal_element(iv.m_value)) {
+                delete *eta;
+                *eta = nullptr;
+                return false;
+            }
+                
         }
     }
+        
     (*eta)->divide_by_diagonal_element();
+    return true;
 }
 #ifdef LEAN_DEBUG
 template <typename T, typename X>

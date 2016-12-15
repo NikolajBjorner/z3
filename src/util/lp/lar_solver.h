@@ -117,7 +117,7 @@ class lar_solver : public column_namer {
     template <typename V>
     void fill_bounds_for_core_solver(std::vector<V> & lb, std::vector<V> & ub);
 
-    void register_in_map(std::unordered_map<var_index, mpq> & coeffs, const lar_constraint & cn, const mpq & a);
+    static void register_in_map(std::unordered_map<var_index, mpq> & coeffs, const lar_constraint & cn, const mpq & a);
 
     const column_info<mpq> & get_column_info_from_var_index(var_index vi) const;
 
@@ -164,10 +164,12 @@ public:
         unsigned adj_term_index = adjust_term_index(j);
         constraint_index ci = add_constraint(m_terms[adj_term_index].m_coeffs, kind, right_side);
         if (A_r().column_count() > k) {
+            // the term is used the first time as a constraint left side
             // k now is the index of the last added column
             lean_assert(A_r().column_count() == k + 1);
             m_terms_to_columns[adj_term_index] = k;
             m_column_names[k].m_term_index = j; // pointing from the column to the term
+            m_terms[adj_term_index].m_first_time_constraint_index = ci;
         }
             
         return ci;
@@ -190,14 +192,10 @@ public:
             out << m_column_names[v].m_name;
         }
         out << " " << lconstraint_kind_string(be.m_kind) << " "  << be.m_bound << std::endl;
-        if (!is_term(v) && m_column_names[v].m_term_index >= 0) {
-            out << "term ";
-            print_term(m_terms[m_column_names[be.m_j].m_term_index - m_terms_start_index], out);
-        }
 
     }
     
-    void bound_evidence_is_correct(bound_evidence const & be) {
+    bool bound_evidence_is_correct(bound_evidence const & be) const {
         std::unordered_map<unsigned, mpq> coeff_map;
         auto rs = zero_of_type<mpq>();
         unsigned n_of_G = 0, n_of_L = 0;
@@ -205,8 +203,7 @@ public:
         for (auto & it : be.m_evidence) {
             mpq coeff = it.first;
             constraint_index con_ind = it.second;
-            const lar_normalized_constraint & norm_constr = m_normalized_constraints()[con_ind];
-            const lar_constraint & constr = norm_constr.m_origin_constraint;
+            const lar_normalized_constraint & constr = m_normalized_constraints()[con_ind];
             lconstraint_kind kind = coeff.is_pos() ? constr.m_kind : flip_kind(constr.m_kind);
             register_in_map(coeff_map, constr, coeff);
             if (kind == GT || kind == LT)
@@ -225,14 +222,34 @@ public:
             coeffs.emplace_back(p.second, p.first);
         }
         canonic_left_side cls(coeffs);
-        lean_assert(cls.size() > 0);
-        lean_assert(cls == m_vec_of_canonic_left_sides[be.m_j]);
-        
-        mpq c = coeff_map[coeffs[0].second];
-        if (c.is_neg())
-            kind = flip_kind(kind);
-        lean_assert(kind == be.m_kind);
-        lean_assert(be.m_bound == rs / c);
+        if (!is_term(be.m_j)) {
+                if (!(cls == m_vec_of_canonic_left_sides[be.m_j]))
+                    return false;
+                if (cls.size() != 1)
+                    return false;
+                auto it = coeff_map.find(be.m_j);
+                if(it == coeff_map.end())
+                    return false;
+                mpq ratio = one_of_type<mpq>() / it->second;
+                if (ratio < 0) {
+                    kind = flip_kind(kind);
+                }
+                rs *= ratio;
+                    
+        } else {
+            const lar_term & t = get_term(be.m_j);
+            const auto & first_coeff = t.m_coeffs[0];
+            auto it = coeff_map.find(first_coeff.second);
+            if(it == coeff_map.end())
+                return false;
+            mpq ratio = first_coeff.first / it->second;
+            if (ratio < 0) {
+                kind = flip_kind(kind);
+            }
+            rs *= ratio;
+        }
+
+        return kind == be.m_kind && rs == be.m_bound;
     }
 
     std::function<column_type (unsigned)> m_column_type_function = [this] (unsigned j) {return m_mpq_lar_core_solver.m_column_types()[j];};
@@ -277,11 +294,11 @@ public:
     }
 
     void fill_bound_evidence_for_low_bound(implied_bound_evidence_signature<mpq, numeric_pair<mpq>>& implied_evidence,
-                                             bound_evidence & be) {
+                                           bound_evidence & be) {
         be.m_j = implied_evidence.m_j;
         be.m_bound = implied_evidence.m_bound.x;
         be.m_kind = implied_evidence.m_bound.y.is_zero() ? GE : GT;
-        for (auto t : implied_evidence.m_evidence) {
+        for (auto t : implied_evidence.m_vector_of_bound_signatures) {
             const canonic_left_side & cls = m_vec_of_canonic_left_sides[t.m_i];
             const ul_pair & ul = m_map_of_canonic_left_sides_to_ul_pairs[cls];
             constraint_index witness = t.m_low_bound ? ul.m_low_bound_witness : ul.m_upper_bound_witness;
@@ -295,7 +312,7 @@ public:
         be.m_j = implied_evidence.m_j;
         be.m_bound = implied_evidence.m_bound.x;
         be.m_kind = implied_evidence.m_bound.y.is_zero() ? LE : LT;
-        for (auto t : implied_evidence.m_evidence) {
+        for (auto t : implied_evidence.m_vector_of_bound_signatures) {
             const canonic_left_side & cls = m_vec_of_canonic_left_sides[t.m_i];
             const ul_pair & ul = m_map_of_canonic_left_sides_to_ul_pairs[cls];
             constraint_index witness = t.m_low_bound ? ul.m_low_bound_witness : ul.m_upper_bound_witness;
@@ -325,7 +342,7 @@ public:
         std::vector<bound_evidence> & bound_evidences,
         std::unordered_map<unsigned, unsigned> & improved_low_bounds,
         std::unordered_map<unsigned, unsigned> & improved_upper_bounds) {
-        lean_assert(implied_evidence.m_evidence.size() > 0);
+        lean_assert(implied_evidence.m_vector_of_bound_signatures.size() > 0);
         if (implied_evidence.m_low_bound)
             process_new_implied_evidence_for_low_bound(implied_evidence, bound_evidences, improved_low_bounds);
         else 
@@ -344,8 +361,19 @@ public:
     void replace_indices_for_term_columns(std::vector<bound_evidence> & bound_evidences) {
         for (auto & be: bound_evidences) {
             int term_index = m_column_names[be.m_j].m_term_index;
-            if (term_index != -1)
-                be.m_j = term_index;
+            if (term_index == -1)
+                continue;
+            be.m_j = term_index;
+            const lar_term & term = get_term(term_index);
+            unsigned term_first_constr_index = static_cast<unsigned>(term.m_first_time_constraint_index);
+            lean_assert(is_valid(term_first_constr_index));
+            const lar_normalized_constraint & nc = m_normalized_constraints[term_first_constr_index];
+            const mpq &ratio = nc.m_ratio_to_original;
+
+            if (ratio.is_neg())
+                be.m_kind = flip_kind(be.m_kind);
+
+            be.m_bound *= ratio;
         }
     }
 
@@ -355,22 +383,25 @@ public:
         std::vector<implied_bound_evidence_signature<mpq, numeric_pair<mpq>>> evidence_vector;
         std::function<column_type (unsigned)> ct = [this](unsigned j) { return j < m_mpq_lar_core_solver.m_column_types.size() ? m_mpq_lar_core_solver.m_column_types[j] : free_column; };
         bound_analyzer_on_row<mpq, numeric_pair<mpq>>::analyze_row(it, m_mpq_lar_core_solver.m_r_low_bounds(),
-                                                                   m_mpq_lar_core_solver.m_r_low_bounds(),
+                                                                   m_mpq_lar_core_solver.m_r_upper_bounds(),
                                                                    - t.m_v, ct , evidence_vector, true);
         if (evidence_vector.size() == 0) return;
         // we have exactly one free variable corresponding to the right side of the term
         // we can get at most two new bounds
-        
         lean_assert(evidence_vector.size() <= 2);
         for (unsigned i = 0; i < evidence_vector.size(); i++) {
-            bound_evidence be;
+            bound_evidences.push_back(bound_evidence());
+            auto & be = bound_evidences.back();
             auto  & implied_evidence = evidence_vector[i];
             be.m_j = implied_evidence.m_j;
             be.m_bound = implied_evidence.m_bound.x;
             be.m_kind = implied_evidence.m_low_bound? GE : LE;
             if (!implied_evidence.m_bound.y.is_zero())
                 be.m_kind = static_cast<lconstraint_kind>((static_cast<int>(be.m_kind) / 2));
-            bound_evidences.push_back(be);
+            if (implied_evidence.m_low_bound)
+                fill_bound_evidence_for_low_bound(implied_evidence, be);
+            else 
+                fill_bound_evidence_for_upper_bound(implied_evidence, be);
         }
     }
     
@@ -395,6 +426,7 @@ public:
         for (auto i : m_touched_rows.m_index) {
             std::vector<implied_bound_evidence_signature<mpq, numeric_pair<mpq>>> evidence_vector;
             calculate_implied_bound_evidences(i, evidence_vector);
+            
             if (get_status() == INFEASIBLE) {
                 m_settings.st().m_num_of_implied_bounds += improved_low_bounds.size() + improved_upper_bounds.size();
                 return;
@@ -404,9 +436,17 @@ public:
         m_touched_rows.clear();
         replace_indices_for_term_columns(bound_evidences);
         propagate_bounds_on_terms(bound_evidences);
+        lean_assert( all_propagated_bounds_are_correct(bound_evidences));
         m_settings.st().m_num_of_implied_bounds += bound_evidences.size();
     }
 
+    bool all_propagated_bounds_are_correct(const std::vector<bound_evidence> & bound_evidence) const {
+        for (const auto & be : bound_evidence)
+            if (!bound_evidence_is_correct(be))
+                return false;
+        return true;
+    }
+    
     constraint_index add_constraint(const std::vector<std::pair<mpq, var_index>>& left_side, lconstraint_kind kind_par, mpq right_side_par);
 
     constraint_index add_constraint_for_existing_left_side(const canonic_left_side& cls, lconstraint_kind kind_par, mpq right_side_par);

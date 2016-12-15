@@ -370,7 +370,7 @@ public:
         return adjust_row_inverse(i) > pivot;
     }
 
-    void fill_eta_matrix(unsigned j, eta_matrix<T, X> ** eta);
+    bool fill_eta_matrix(unsigned j, eta_matrix<T, X> ** eta);
 #ifdef LEAN_DEBUG
     bool is_upper_triangular_and_maximums_are_set_correctly_in_rows(lp_settings & settings) const;
 

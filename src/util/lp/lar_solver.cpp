@@ -171,8 +171,6 @@ bool lar_solver::all_constrained_variables_are_registered(const std::vector<std:
     return true;
 }
 
-
-
 constraint_index lar_solver::add_constraint(const std::vector<std::pair<mpq, var_index>>& left_side_with_terms, lconstraint_kind kind_par, mpq right_side_par) {    
     std::vector<std::pair<mpq, var_index>> left_side;
     substitute_terms(one_of_type<mpq>(), left_side_with_terms, left_side, right_side_par);
