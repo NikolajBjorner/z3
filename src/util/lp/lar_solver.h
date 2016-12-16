@@ -48,6 +48,18 @@ struct conversion_helper <double> {
     static double get_upper_bound(const column_info<mpq> & ci);
 };
 
+struct constraint_index_and_column_struct {
+    int m_ci = -1;
+    int m_j = -1;
+    constraint_index_and_column_struct() {}
+    constraint_index_and_column_struct(unsigned ci, unsigned j):
+        m_ci(static_cast<int>(ci)),
+        m_j(static_cast<int>(j))
+    {}
+    bool operator==(const constraint_index_and_column_struct & a) const {  return a.m_ci == m_ci && a.m_j == m_j; }
+    bool operator!=(const constraint_index_and_column_struct & a) const {  return ! (*this == a);}
+};
+
 struct name_and_term_index {
     std::string m_name;
     int m_term_index = -1;
@@ -72,7 +84,7 @@ class lar_solver : public column_namer {
     lar_core_solver<mpq, numeric_pair<mpq>> m_mpq_lar_core_solver;
     stacked_value<canonic_left_side> m_infeasible_canonic_left_side; // such can be found at the initialization step
     std::vector<lar_term> m_terms;
-    stacked_vector<int> m_terms_to_columns;
+    stacked_vector<constraint_index_and_column_struct> m_terms_to_constraint_columns;
     const var_index m_terms_start_index = 1000000;
     indexed_vector<mpq> m_column_buffer;    
     
@@ -167,9 +179,8 @@ public:
             // the term is used the first time as a constraint left side
             // k now is the index of the last added column
             lean_assert(A_r().column_count() == k + 1);
-            m_terms_to_columns[adj_term_index] = k;
+            m_terms_to_constraint_columns[adj_term_index] = constraint_index_and_column_struct(ci, k);
             m_column_names[k].m_term_index = j; // pointing from the column to the term
-            m_terms[adj_term_index].m_first_time_constraint_index = ci;
         }
             
         return ci;
@@ -366,8 +377,9 @@ public:
             if (term_index == -1)
                 continue;
             be.m_j = term_index;
-            const lar_term & term = get_term(term_index);
-            unsigned term_first_constr_index = static_cast<unsigned>(term.m_first_time_constraint_index);
+            unsigned adjusted_term_index = adjust_term_index(term_index);
+            unsigned term_first_constr_index =
+                static_cast<unsigned>(m_terms_to_constraint_columns()[adjusted_term_index].m_ci);
             lean_assert(is_valid(term_first_constr_index));
             const lar_normalized_constraint & nc = m_normalized_constraints[term_first_constr_index];
             const mpq &ratio = nc.m_ratio_to_original;
@@ -408,9 +420,9 @@ public:
     }
     
     void propagate_bounds_on_terms(std::vector<bound_evidence> & bound_evidences) {
-        lean_assert(m_terms_to_columns.size() == m_terms.size());
-        for (unsigned i = 0; i < m_terms_to_columns.size(); i++) {
-            if (m_terms_to_columns[i] >= 0) continue; // this term is used a left side of a constraint,
+        lean_assert(m_terms_to_constraint_columns.size() == m_terms.size());
+        for (unsigned i = 0; i < m_terms_to_constraint_columns.size(); i++) {
+            if (m_terms_to_constraint_columns()[i].m_ci >= 0) continue; // this term is used a left side of a constraint,
             // it was processed as a touched row if needed
             propagate_bounds_on_a_term(m_terms[i], bound_evidences, i);
         }
@@ -560,7 +572,7 @@ public:
         // std::cout << "term " << m_terms_start_index + m_terms.size() - 1 << std::endl;
         // print_term(lar_term(m_coeffs, m_v), std::cout);
         // std::cout << std::endl;
-        m_terms_to_columns.push_back(-1);
+        m_terms_to_constraint_columns.push_back(constraint_index_and_column_struct());
         return m_terms_start_index + m_terms.size() - 1;
     }
 
