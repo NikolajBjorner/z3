@@ -83,7 +83,7 @@ class lar_solver : public column_namer {
     int_set m_touched_rows;
     lar_core_solver<mpq, numeric_pair<mpq>> m_mpq_lar_core_solver;
     stacked_value<canonic_left_side> m_infeasible_canonic_left_side; // such can be found at the initialization step
-    std::vector<lar_term> m_terms;
+    stacked_vector<lar_term> m_terms;
     stacked_vector<constraint_index_and_column_struct> m_terms_to_constraint_columns;
     const var_index m_terms_start_index = 1000000;
     indexed_vector<mpq> m_column_buffer;    
@@ -174,7 +174,7 @@ public:
         }
         // it is a term
         unsigned adj_term_index = adjust_term_index(j);
-        constraint_index ci = add_constraint(m_terms[adj_term_index].m_coeffs, kind, right_side);
+        constraint_index ci = add_constraint(m_terms()[adj_term_index].coeffs_as_vector(), kind, right_side);
         if (A_r().column_count() > k) {
             // the term is used the first time as a constraint left side
             // k now is the index of the last added column
@@ -250,11 +250,11 @@ public:
             const lar_term & t = get_term(be.m_j);
             if (t.m_coeffs.size() == 0)
                 return true;
-            const auto & first_coeff = t.m_coeffs[0];
-            auto it = coeff_map.find(first_coeff.second);
+            const auto first_coeff = t.m_coeffs.begin();;
+            auto it = coeff_map.find(first_coeff->first);
             if(it == coeff_map.end())
                 return false;
-            mpq ratio = first_coeff.first / it->second;
+            mpq ratio = first_coeff->second / it->second;
             if (ratio < 0) {
                 kind = flip_kind(kind);
             }
@@ -283,9 +283,34 @@ public:
         ra_pos.analyze();
     }
 
+    void substitute_basis_var_in_terms_for_row(unsigned i) {
+        // todo : create a map from term basic vars to the rows where they are used
+        unsigned basis_j = m_mpq_lar_core_solver.m_r_solver.m_basis[i];
+        iterator_on_pivot_row<mpq> li(m_mpq_lar_core_solver.m_r_solver.m_pivot_row, basis_j);
+        for (unsigned k = 0; k < m_terms.size(); k++) {
+            if (m_terms_to_constraint_columns()[k].m_ci >=0)
+                continue;
+            if (!m_terms()[k].contains(basis_j)) 
+                continue;
+            lar_term lt = m_terms[k]; // copy the term aside
+            //  std::cout<<"basis_j="<< m_column_names[basis_j].m_name << "\n";
+            //  std::cout << "term before subs ";
+            // print_term(lt, std::cout);
+            // std::cout << "\npivot row ";
+            auto deb_it=iterator_on_pivot_row<mpq>(m_mpq_lar_core_solver.m_r_solver.m_pivot_row, basis_j);
+            // this->print_linear_iterator(deb_it, std::cout);
+            lt.subst(basis_j, li);
+            // std::cout << "\nafter subs ";
+            // print_term(lt, std::cout); std::cout << "\n";
+            
+            m_terms[k] = lt;
+        }
+    }
+    
     void calculate_implied_bound_evidences(unsigned i,
                                            std::vector<implied_bound_evidence_signature<mpq, numeric_pair<mpq>>>& evidence_vector) {
         m_mpq_lar_core_solver.calculate_pivot_row(i);
+        substitute_basis_var_in_terms_for_row(i);
         analyze_new_bounds_on_row(evidence_vector, i);
     }
     void process_new_implied_evidence_for_low_bound(
@@ -391,7 +416,7 @@ public:
         }
     }
 
-    void propagate_bounds_on_a_term(lar_term& t, std::vector<bound_evidence> & bound_evidences, unsigned term_offset) {
+    void propagate_bounds_on_a_term(const lar_term& t, std::vector<bound_evidence> & bound_evidences, unsigned term_offset) {
         iterator_on_term it(t, term_offset + m_terms_start_index);
         
         std::vector<implied_bound_evidence_signature<mpq, numeric_pair<mpq>>> evidence_vector;
@@ -977,14 +1002,16 @@ public:
     }
 
 
-    void substitute_terms(const mpq & mult, const std::vector<std::pair<mpq, var_index>>& left_side_with_terms,std::vector<std::pair<mpq, var_index>> &left_side, mpq & right_side) const {
+    void substitute_terms(const mpq & mult,
+                          const std::vector<std::pair<mpq, var_index>>& left_side_with_terms,
+                          std::vector<std::pair<mpq, var_index>> &left_side, mpq & right_side) const {
         for (auto & t : left_side_with_terms) {
             if (t.second < m_terms_start_index) {
                 lean_assert(t.second < A_r().column_count());
                 left_side.push_back(std::pair<mpq, var_index>(mult * t.first, t.second));
             } else {
                 const lar_term & term = m_terms[adjust_term_index(t.second)];
-                substitute_terms(mult * t.first, term.m_coeffs, left_side, right_side);
+                substitute_terms(mult * t.first, left_side_with_terms, left_side, right_side);
                 right_side -= mult * term.m_v;
             }
         }

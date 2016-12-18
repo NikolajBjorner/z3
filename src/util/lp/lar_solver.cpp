@@ -545,7 +545,7 @@ void lar_solver::print_term(lar_term const& term, std::ostream & out) const {
     if (!numeric_traits<mpq>::is_zero(term.m_v)) {
         out << term.m_v << " + ";
     }
-    print_linear_combination_of_column_indices(term.m_coeffs, out);
+    print_linear_combination_of_column_indices(term.coeffs_as_vector(), out);
 }
 
 mpq lar_solver::get_infeasibility_of_solution(std::unordered_map<std::string, mpq> & solution) {
@@ -607,8 +607,8 @@ void lar_solver::fill_var_set_for_random_update(unsigned sz, var_index const * v
     for (unsigned i = 0; i < sz; i++) {        
         var_index var = vars[i];
         if (var >= m_terms_start_index) { // handle the term
-            for (auto & it : m_terms[var - m_terms_start_index].m_coeffs) {
-                column_list.push_back(it.second);
+            for (auto & it : m_terms()[var - m_terms_start_index].m_coeffs) {
+                column_list.push_back(it.first);
             }
         } else {
             column_list.push_back(var);
@@ -637,6 +637,7 @@ void lar_solver::push() {
     m_infeasible_canonic_left_side.push();
     m_mpq_lar_core_solver.push();
     m_terms_to_constraint_columns.push();
+    m_terms.push();
 }
 
 void lar_solver::pop() {
@@ -658,7 +659,7 @@ void lar_solver::pop(unsigned k) {
     m_columns_with_changed_bound.resize(n);
     m_touched_rows.clear();
     m_touched_rows.resize(A_r().row_count());
-    m_terms.resize(m_terms_to_constraint_columns.size());
+    m_terms.pop(k);
 }
 }
 
