@@ -37,7 +37,23 @@ public:
         operator const B&() const {
             return m_vec.m_vector[m_i];
         }
+
     };
+
+    class ref_const {
+        const stacked_vector<B> & m_vec;
+        unsigned m_i;
+    public:
+        ref_const(const stacked_vector<B> &m, unsigned key) :m_vec(m), m_i(key) {
+            lean_assert(key < m.size());
+        }
+ 
+        operator const B&() const {
+            return m_vec.m_vector[m_i];
+        }
+
+    };
+
 private:
     void emplace_replace(unsigned i,const B & b) {
         if (!m_stack.empty()) {
@@ -60,12 +76,16 @@ public:
         return ref(*this, a);
     }
 
+    ref_const operator[] (unsigned a) const {
+        return ref_const(*this, a);
+    }
+
+    /*
     const B & operator[](unsigned a) const {
         lean_assert(a < m_vector.size());
         return m_vector[a];
     }
-
-    
+    */    
     unsigned size() const {
         return m_vector.size();
     }

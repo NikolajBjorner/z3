@@ -251,7 +251,7 @@ void lar_solver::solve_with_core_solver() {
     fix_touched_columns(); // todo : should they be up to date?
     m_mpq_lar_core_solver.solve();
     m_status = m_mpq_lar_core_solver.m_r_solver.m_status;
-    if (m_status == TIME_EXHAUSTED)
+    if (m_settings.get_cancel_flag())
         return;
     lean_assert(m_status != OPTIMAL || all_constraints_hold());
     lean_assert(m_status != INFEASIBLE || evidence_is_correct());
@@ -545,7 +545,7 @@ void lar_solver::print_term(lar_term const& term, std::ostream & out) const {
     if (!numeric_traits<mpq>::is_zero(term.m_v)) {
         out << term.m_v << " + ";
     }
-    print_linear_combination_of_column_indices(term.m_coeffs, out);
+    print_linear_combination_of_column_indices(term.coeffs_as_vector(), out);
 }
 
 mpq lar_solver::get_infeasibility_of_solution(std::unordered_map<std::string, mpq> & solution) {
@@ -606,9 +606,9 @@ void lar_solver::print_constraint(const lar_base_constraint * c, std::ostream & 
 void lar_solver::fill_var_set_for_random_update(unsigned sz, var_index const * vars, std::vector<unsigned>& column_list) {
     for (unsigned i = 0; i < sz; i++) {        
         var_index var = vars[i];
-        if (var >= m_terms_start_index) { // handle the temr
-            for (auto & it : m_terms[var - m_terms_start_index].m_coeffs) {
-                column_list.push_back(it.second);
+        if (var >= m_terms_start_index) { // handle the term
+            for (auto & it : m_terms()[var - m_terms_start_index].m_coeffs) {
+                column_list.push_back(it.first);
             }
         } else {
             column_list.push_back(var);
@@ -636,7 +636,8 @@ void lar_solver::push() {
     m_var_names_to_var_index.push();
     m_infeasible_canonic_left_side.push();
     m_mpq_lar_core_solver.push();
-    m_terms_to_columns.push();
+    m_terms_to_constraint_columns.push();
+    m_terms.push();
 }
 
 void lar_solver::pop() {
@@ -650,7 +651,7 @@ void lar_solver::pop(unsigned k) {
     m_vec_of_canonic_left_sides.pop(k);
     m_var_names_to_var_index.pop(k);
     m_infeasible_canonic_left_side.pop(k);
-    m_terms_to_columns.pop(k);
+    m_terms_to_constraint_columns.pop(k);
     unsigned n = m_var_names_to_var_index.size();
     m_column_names.resize(n);
     m_mpq_lar_core_solver.pop(k);
@@ -658,7 +659,7 @@ void lar_solver::pop(unsigned k) {
     m_columns_with_changed_bound.resize(n);
     m_touched_rows.clear();
     m_touched_rows.resize(A_r().row_count());
-    m_terms.resize(m_terms_to_columns.size());
+    m_terms.pop(k);
 }
 }
 

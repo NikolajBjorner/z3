@@ -999,8 +999,8 @@ namespace smt {
             if (m_solver->is_term(vi)) {
                 const lean::lar_term& term = m_solver->get_term(vi);
                 rational result = term.m_v;
-                for (unsigned i = 0; i < term.m_coeffs.size(); ++i) {
-                    result += m_variable_values[term.m_coeffs[i].second] * term.m_coeffs[i].first;
+                for (auto i = term.m_coeffs.begin();  i != term.m_coeffs.end(); ++i) {
+                    result += m_variable_values[i->first] * i->second;
                 }
                 m_variable_values[vi] = result;
                 return result;
@@ -1697,9 +1697,8 @@ namespace smt {
             lean::var_index vi = get_var_index(v);
             if (m_solver->is_term(vi)) {
                 lean::lar_term const& term = m_solver->get_term(vi);
-                size_t sz = term.m_coeffs.size();
-                for (size_t i = 0; i < sz; ++i) {
-                    lean::var_index wi = term.m_coeffs[i].second;
+                for (auto i = term.m_coeffs.begin(); i != term.m_coeffs.end(); ++i) {
+                    lean::var_index wi = i->first;
                     unsigned w = m_var_index2theory_var[wi];
                     m_use_list.reserve(w + 1, ptr_vector<lp::bound>());
                     m_use_list[w].push_back(b);
@@ -1711,10 +1710,9 @@ namespace smt {
             theory_var v = b->get_var();
             lean::var_index vi = m_theory_var2var_index[v];
             if (m_solver->is_term(vi)) {
-                 lean::lar_term const& term = m_solver->get_term(vi);
-                size_t sz = term.m_coeffs.size();
-                for (size_t i = 0; i < sz; ++i) {
-                    lean::var_index wi = term.m_coeffs[i].second;
+                lean::lar_term const& term = m_solver->get_term(vi);
+                for (auto i = term.m_coeffs.begin(); i != term.m_coeffs.end(); ++i) {
+                    lean::var_index wi = i->first;
                     unsigned w = m_var_index2theory_var[wi];
                     SASSERT(m_use_list[w].back() == b);
                     m_use_list[w].pop_back();
@@ -1800,18 +1798,18 @@ namespace smt {
             lean::var_index vi = m_theory_var2var_index[v];
             SASSERT(m_solver->is_term(vi));
             lean::lar_term const& term = m_solver->get_term(vi);
-            for (auto const& coeff : term.m_coeffs) {
-                lean::var_index wi = coeff.second;
+            for (auto const coeff : term.m_coeffs) {
+                lean::var_index wi = coeff.first;
                 lean::constraint_index ci;
                 rational value;
                 bool is_strict;
-                if (coeff.first.is_neg() == is_lub) {
+                if (coeff.second.is_neg() == is_lub) {
                     // -3*x ... <= lub based on lower bound for x.
                     if (!m_solver->has_lower_bound(wi, ci, value, is_strict)) {
                         return false;
                     }
                     if (is_strict) {
-                        r += inf_rational(rational::zero(), coeff.first.is_pos());
+                        r += inf_rational(rational::zero(), coeff.second.is_pos());
                     }
                 }
                 else {
@@ -1819,10 +1817,10 @@ namespace smt {
                         return false;
                     }
                     if (is_strict) {
-                        r += inf_rational(rational::zero(), coeff.first.is_pos());
+                        r += inf_rational(rational::zero(), coeff.second.is_pos());
                     }
                 }                
-                r += value * coeff.first;
+                r += value * coeff.second;
                 set_evidence(ci);                    
             }
             TRACE("arith_verbose", tout << (is_lub?"lub":"glb") << " is " << r << "\n";);

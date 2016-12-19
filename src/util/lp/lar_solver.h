@@ -48,6 +48,18 @@ struct conversion_helper <double> {
     static double get_upper_bound(const column_info<mpq> & ci);
 };
 
+struct constraint_index_and_column_struct {
+    int m_ci = -1;
+    int m_j = -1;
+    constraint_index_and_column_struct() {}
+    constraint_index_and_column_struct(unsigned ci, unsigned j):
+        m_ci(static_cast<int>(ci)),
+        m_j(static_cast<int>(j))
+    {}
+    bool operator==(const constraint_index_and_column_struct & a) const {  return a.m_ci == m_ci && a.m_j == m_j; }
+    bool operator!=(const constraint_index_and_column_struct & a) const {  return ! (*this == a);}
+};
+
 struct name_and_term_index {
     std::string m_name;
     int m_term_index = -1;
@@ -71,8 +83,8 @@ class lar_solver : public column_namer {
     int_set m_touched_rows;
     lar_core_solver<mpq, numeric_pair<mpq>> m_mpq_lar_core_solver;
     stacked_value<canonic_left_side> m_infeasible_canonic_left_side; // such can be found at the initialization step
-    std::vector<lar_term> m_terms;
-    stacked_vector<int> m_terms_to_columns;
+    stacked_vector<lar_term> m_terms;
+    stacked_vector<constraint_index_and_column_struct> m_terms_to_constraint_columns;
     const var_index m_terms_start_index = 1000000;
     indexed_vector<mpq> m_column_buffer;    
     
@@ -162,14 +174,13 @@ public:
         }
         // it is a term
         unsigned adj_term_index = adjust_term_index(j);
-        constraint_index ci = add_constraint(m_terms[adj_term_index].m_coeffs, kind, right_side);
+        constraint_index ci = add_constraint(m_terms()[adj_term_index].coeffs_as_vector(), kind, right_side);
         if (A_r().column_count() > k) {
             // the term is used the first time as a constraint left side
             // k now is the index of the last added column
             lean_assert(A_r().column_count() == k + 1);
-            m_terms_to_columns[adj_term_index] = k;
+            m_terms_to_constraint_columns[adj_term_index] = constraint_index_and_column_struct(ci, k);
             m_column_names[k].m_term_index = j; // pointing from the column to the term
-            m_terms[adj_term_index].m_first_time_constraint_index = ci;
         }
             
         return ci;
@@ -197,7 +208,7 @@ public:
     
     bool bound_evidence_is_correct(bound_evidence const & be) const {
         std::unordered_map<unsigned, mpq> coeff_map;
-        auto rs = zero_of_type<mpq>();
+        auto rs_of_evidence = zero_of_type<mpq>();
         unsigned n_of_G = 0, n_of_L = 0;
         bool strict = false;
         for (auto & it : be.m_evidence) {
@@ -210,7 +221,7 @@ public:
                 strict = true;
             if (kind == GE || kind == GT) n_of_G++;
             else if (kind == LE || kind == LT) n_of_L++;
-            rs += coeff*constr.m_right_side;
+            rs_of_evidence += coeff*constr.m_right_side;
         }
         lean_assert(n_of_G == 0 || n_of_L == 0);
         lconstraint_kind kind = n_of_G ? GE : (n_of_L ? LE : EQ);
@@ -234,22 +245,24 @@ public:
                 if (ratio < 0) {
                     kind = flip_kind(kind);
                 }
-                rs *= ratio;
-                    
+                rs_of_evidence *= ratio;
         } else {
             const lar_term & t = get_term(be.m_j);
-            const auto & first_coeff = t.m_coeffs[0];
-            auto it = coeff_map.find(first_coeff.second);
+            if (t.m_coeffs.size() == 0)
+                return true;
+            const auto first_coeff = t.m_coeffs.begin();;
+            auto it = coeff_map.find(first_coeff->first);
             if(it == coeff_map.end())
                 return false;
-            mpq ratio = first_coeff.first / it->second;
+            mpq ratio = first_coeff->second / it->second;
             if (ratio < 0) {
                 kind = flip_kind(kind);
             }
-            rs *= ratio;
+            rs_of_evidence *= ratio;
+            rs_of_evidence += t.m_v;
         }
 
-        return kind == be.m_kind && rs == be.m_bound;
+        return kind == be.m_kind && rs_of_evidence == be.m_bound;
     }
 
     std::function<column_type (unsigned)> m_column_type_function = [this] (unsigned j) {return m_mpq_lar_core_solver.m_column_types()[j];};
@@ -270,9 +283,34 @@ public:
         ra_pos.analyze();
     }
 
+    void substitute_basis_var_in_terms_for_row(unsigned i) {
+        // todo : create a map from term basic vars to the rows where they are used
+        unsigned basis_j = m_mpq_lar_core_solver.m_r_solver.m_basis[i];
+        iterator_on_pivot_row<mpq> li(m_mpq_lar_core_solver.m_r_solver.m_pivot_row, basis_j);
+        for (unsigned k = 0; k < m_terms.size(); k++) {
+            if (m_terms_to_constraint_columns()[k].m_ci >=0)
+                continue;
+            if (!m_terms()[k].contains(basis_j)) 
+                continue;
+            lar_term lt = m_terms[k]; // copy the term aside
+            //  std::cout<<"basis_j="<< m_column_names[basis_j].m_name << "\n";
+            //  std::cout << "term before subs ";
+            // print_term(lt, std::cout);
+            // std::cout << "\npivot row ";
+            auto deb_it=iterator_on_pivot_row<mpq>(m_mpq_lar_core_solver.m_r_solver.m_pivot_row, basis_j);
+            // this->print_linear_iterator(deb_it, std::cout);
+            lt.subst(basis_j, li);
+            // std::cout << "\nafter subs ";
+            // print_term(lt, std::cout); std::cout << "\n";
+            
+            m_terms[k] = lt;
+        }
+    }
+    
     void calculate_implied_bound_evidences(unsigned i,
                                            std::vector<implied_bound_evidence_signature<mpq, numeric_pair<mpq>>>& evidence_vector) {
         m_mpq_lar_core_solver.calculate_pivot_row(i);
+        substitute_basis_var_in_terms_for_row(i);
         analyze_new_bounds_on_row(evidence_vector, i);
     }
     void process_new_implied_evidence_for_low_bound(
@@ -364,8 +402,9 @@ public:
             if (term_index == -1)
                 continue;
             be.m_j = term_index;
-            const lar_term & term = get_term(term_index);
-            unsigned term_first_constr_index = static_cast<unsigned>(term.m_first_time_constraint_index);
+            unsigned adjusted_term_index = adjust_term_index(term_index);
+            unsigned term_first_constr_index =
+                static_cast<unsigned>(m_terms_to_constraint_columns()[adjusted_term_index].m_ci);
             lean_assert(is_valid(term_first_constr_index));
             const lar_normalized_constraint & nc = m_normalized_constraints[term_first_constr_index];
             const mpq &ratio = nc.m_ratio_to_original;
@@ -377,7 +416,7 @@ public:
         }
     }
 
-    void propagate_bounds_on_a_term(lar_term& t, std::vector<bound_evidence> & bound_evidences, unsigned term_offset) {
+    void propagate_bounds_on_a_term(const lar_term& t, std::vector<bound_evidence> & bound_evidences, unsigned term_offset) {
         iterator_on_term it(t, term_offset + m_terms_start_index);
         
         std::vector<implied_bound_evidence_signature<mpq, numeric_pair<mpq>>> evidence_vector;
@@ -406,9 +445,9 @@ public:
     }
     
     void propagate_bounds_on_terms(std::vector<bound_evidence> & bound_evidences) {
-        lean_assert(m_terms_to_columns.size() == m_terms.size());
-        for (unsigned i = 0; i < m_terms_to_columns.size(); i++) {
-            if (m_terms_to_columns[i] >= 0) continue; // this term is used a left side of a constraint,
+        lean_assert(m_terms_to_constraint_columns.size() == m_terms.size());
+        for (unsigned i = 0; i < m_terms_to_constraint_columns.size(); i++) {
+            if (m_terms_to_constraint_columns()[i].m_ci >= 0) continue; // this term is used a left side of a constraint,
             // it was processed as a touched row if needed
             propagate_bounds_on_a_term(m_terms[i], bound_evidences, i);
         }
@@ -441,9 +480,11 @@ public:
     }
 
     bool all_propagated_bounds_are_correct(const std::vector<bound_evidence> & bound_evidence) const {
-        for (const auto & be : bound_evidence)
+        
+        for (const auto & be : bound_evidence) {
             if (!bound_evidence_is_correct(be))
                 return false;
+        }
         return true;
     }
     
@@ -550,13 +591,13 @@ public:
                 b.push_back(t.second.m_j);
         }
     }
-    var_index add_term(const std::vector<std::pair<mpq, var_index>> & m_coeffs,
-                      const mpq &m_v) {
-        m_terms.push_back(lar_term(m_coeffs, m_v));
+    var_index add_term(const std::vector<std::pair<mpq, var_index>> & coeffs,
+                       const mpq &m_v) {
+        m_terms.push_back(lar_term(coeffs, m_v));
         // std::cout << "term " << m_terms_start_index + m_terms.size() - 1 << std::endl;
         // print_term(lar_term(m_coeffs, m_v), std::cout);
         // std::cout << std::endl;
-        m_terms_to_columns.push_back(-1);
+        m_terms_to_constraint_columns.push_back(constraint_index_and_column_struct());
         return m_terms_start_index + m_terms.size() - 1;
     }
 
@@ -961,14 +1002,16 @@ public:
     }
 
 
-    void substitute_terms(const mpq & mult, const std::vector<std::pair<mpq, var_index>>& left_side_with_terms,std::vector<std::pair<mpq, var_index>> &left_side, mpq & right_side) const {
+    void substitute_terms(const mpq & mult,
+                          const std::vector<std::pair<mpq, var_index>>& left_side_with_terms,
+                          std::vector<std::pair<mpq, var_index>> &left_side, mpq & right_side) const {
         for (auto & t : left_side_with_terms) {
             if (t.second < m_terms_start_index) {
                 lean_assert(t.second < A_r().column_count());
                 left_side.push_back(std::pair<mpq, var_index>(mult * t.first, t.second));
             } else {
                 const lar_term & term = m_terms[adjust_term_index(t.second)];
-                substitute_terms(mult * t.first, term.m_coeffs, left_side, right_side);
+                substitute_terms(mult * t.first, left_side_with_terms, left_side, right_side);
                 right_side -= mult * term.m_v;
             }
         }

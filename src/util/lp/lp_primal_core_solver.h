@@ -437,6 +437,9 @@ public:
     bool can_enter_basis(unsigned j);
     bool done();
     void init_infeasibility_costs();
+    
+    bool infeasibility_costs_are_correct() const;
+    bool infeasibility_cost_is_correct_for_column(unsigned j) const;
     void init_infeasibility_cost_for_column(unsigned j);
     void init_infeasibility_costs_for_changed_basis_only();
 
