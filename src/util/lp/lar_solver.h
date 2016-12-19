@@ -297,7 +297,7 @@ public:
             // std::cout << "term before subs ";
             // print_term(lt, std::cout);
             // std::cout << "\npivot row ";
-            auto deb_it=iterator_on_pivot_row<mpq>(m_mpq_lar_core_solver.m_r_solver.m_pivot_row, basis_j);
+            // auto deb_it=iterator_on_pivot_row<mpq>(m_mpq_lar_core_solver.m_r_solver.m_pivot_row, basis_j);
             // this->print_linear_iterator(deb_it, std::cout);
             lt.subst(basis_j, li);
             // std::cout << "\nafter subs ";
