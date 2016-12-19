@@ -1223,6 +1223,7 @@ namespace smt {
                     assert_bound(bv, is_true, b);
                 }
 
+                TRACE("arith", display(tout););
                 ++m_asserted_qhead;
             }
             if (m_delay_constraints || ctx().inconsistent()) {
@@ -1237,6 +1238,8 @@ namespace smt {
 
             lbool lbl = make_feasible();
             
+            TRACE("arith", display(tout << lbl << "\n"););
+
             switch(lbl) {
             case l_false:
                 TRACE("arith", tout << "propagation conflict\n";);
@@ -1852,6 +1855,7 @@ namespace smt {
             }
             auto vi = get_var_index(b.get_var());
             auto ci = m_solver->add_var_bound(vi, k, b.get_value());
+            TRACE("arith", tout << "v" << b.get_var() << "\n";);
             add_ineq_constraint(ci, literal(bv, !is_true));
 
             propagate_eqs(vi, ci, k, b);
@@ -2148,7 +2152,8 @@ namespace smt {
             add_background(nctx);
             m_core.pop_back();
             bool result = l_true != nctx.check();
-            CTRACE("arith", !result, ctx().display_lemma_as_smt_problem(tout, m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit););   
+            CTRACE("arith", !result, ctx().display_lemma_as_smt_problem(tout, m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit);
+                   display(tout););   
             return result;
         }
 
@@ -2173,6 +2178,7 @@ namespace smt {
         void display(std::ostream & out) const {
             if (m_solver) {
                 m_solver->print_constraints(out);
+                m_solver->print_terms(out);
             }
             unsigned nv = th.get_num_vars();
             for (unsigned v = 0; v < nv; ++v) {
