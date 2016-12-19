@@ -293,8 +293,8 @@ public:
             if (!m_terms()[k].contains(basis_j)) 
                 continue;
             lar_term lt = m_terms[k]; // copy the term aside
-            //  std::cout<<"basis_j="<< m_column_names[basis_j].m_name << "\n";
-            //  std::cout << "term before subs ";
+            // std::cout<<"basis_j="<< m_column_names[basis_j].m_name << "\n";
+            // std::cout << "term before subs ";
             // print_term(lt, std::cout);
             // std::cout << "\npivot row ";
             auto deb_it=iterator_on_pivot_row<mpq>(m_mpq_lar_core_solver.m_r_solver.m_pivot_row, basis_j);
@@ -534,6 +534,8 @@ public:
     std::string get_variable_name(var_index vi) const;
 
     void print_constraints(std::ostream & out) const ;
+
+    void print_terms(std::ostream & out) const ;
 
     void print_constraint(constraint_index ci, std::ostream & out) const ;
 

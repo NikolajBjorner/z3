@@ -533,6 +533,13 @@ void lar_solver::print_constraints(std::ostream& out) const  {
     }
 }
 
+void lar_solver::print_terms(std::ostream& out) const  {
+    for (auto & it : m_terms()) {
+        print_term(it, out);
+        out << "\n";
+    }
+}
+
 void lar_solver::print_canonic_left_side(const canonic_left_side & c, std::ostream & out) const {
     print_linear_combination_of_column_indices(c.m_coeffs, out);
 }
