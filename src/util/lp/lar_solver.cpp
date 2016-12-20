@@ -645,6 +645,7 @@ void lar_solver::push() {
     m_mpq_lar_core_solver.push();
     m_terms_to_constraint_columns.push();
     m_terms.push();
+    m_orig_terms.push();
 }
 
 void lar_solver::pop() {
@@ -667,6 +668,7 @@ void lar_solver::pop(unsigned k) {
     m_touched_rows.clear();
     m_touched_rows.resize(A_r().row_count());
     m_terms.pop(k);
+    m_orig_terms.pop(k);
 }
 }
 
