@@ -84,6 +84,7 @@ class lar_solver : public column_namer {
     lar_core_solver<mpq, numeric_pair<mpq>> m_mpq_lar_core_solver;
     stacked_value<canonic_left_side> m_infeasible_canonic_left_side; // such can be found at the initialization step
     stacked_vector<lar_term> m_terms;
+    stacked_vector<lar_term> m_orig_terms;
     stacked_vector<constraint_index_and_column_struct> m_terms_to_constraint_columns;
     const var_index m_terms_start_index = 1000000;
     indexed_vector<mpq> m_column_buffer;    
@@ -174,11 +175,12 @@ public:
         }
         // it is a term
         unsigned adj_term_index = adjust_term_index(j);
-        constraint_index ci = add_constraint(m_terms()[adj_term_index].coeffs_as_vector(), kind, right_side);
+        constraint_index ci = add_constraint(m_orig_terms()[adj_term_index].coeffs_as_vector(), kind, right_side);
         if (A_r().column_count() > k) {
             // the term is used the first time as a constraint left side
             // k now is the index of the last added column
             lean_assert(A_r().column_count() == k + 1);
+            lean_assert (m_terms_to_constraint_columns()[adj_term_index].m_ci < 0);
             m_terms_to_constraint_columns[adj_term_index] = constraint_index_and_column_struct(ci, k);
             m_column_names[k].m_term_index = j; // pointing from the column to the term
         }
@@ -187,17 +189,15 @@ public:
     }
 
  
-    void print_bound_evidence(const bound_evidence& be, std::ostream & out) {
-        out << "implied bound\n";
+    void print_bound_evidence(const bound_evidence& be, std::ostream & out) const {
+        out << "bound evidence\n";
         // for (auto & p : be.m_evidence) {
         //     out << p.first << std::endl;
         //     print_constraint(p.second, out);
         // }
-        // out << "after summing up the constraints we get\n";
-        // print_linear_combination_of_column_indices(m_vec_of_canonic_left_sides()[be.m_j].m_coeffs, out);
         unsigned v = be.m_j;
         if (is_term(v)) {
-            print_term(get_term(v), out);
+            print_term(m_orig_terms()[be.m_j - m_terms_start_index],  out);
         }
         else {
             out << m_column_names[v].m_name;
@@ -247,7 +247,7 @@ public:
                 }
                 rs_of_evidence *= ratio;
         } else {
-            const lar_term & t = get_term(be.m_j);
+            const lar_term & t = m_orig_terms()[adjust_term_index(be.m_j)];
             if (t.m_coeffs.size() == 0)
                 return true;
             const auto first_coeff = t.m_coeffs.begin();;
@@ -293,17 +293,19 @@ public:
             if (!m_terms()[k].contains(basis_j)) 
                 continue;
             lar_term lt = m_terms[k]; // copy the term aside
-            // std::cout<<"basis_j="<< m_column_names[basis_j].m_name << "\n";
-            // std::cout << "term before subs ";
-            // print_term(lt, std::cout);
-            // std::cout << "\npivot row ";
-            // auto deb_it=iterator_on_pivot_row<mpq>(m_mpq_lar_core_solver.m_r_solver.m_pivot_row, basis_j);
-            // this->print_linear_iterator(deb_it, std::cout);
+            //  std::cout<<"term = " << m_terms_start_index+k  << " basis_j="<< m_column_names[basis_j].m_name << "\n";
+            //std::cout << "term before subs ";
+            //print_term(lt, std::cout);
+            //std::cout << "\npivot row ";
+            //        auto deb_it=iterator_on_pivot_row<mpq>(m_mpq_lar_core_solver.m_r_solver.m_pivot_row, basis_j);
+            //         this->print_linear_iterator(deb_it, std::cout);
             lt.subst(basis_j, li);
             // std::cout << "\nafter subs ";
-            // print_term(lt, std::cout); std::cout << "\n";
+            //if (lt.m_coeffs.size() == 2) std::cout << ", short term ";
+            //print_term(lt, std::cout); std::cout << "\n\n";
             
             m_terms[k] = lt;
+            li.reset();
         }
     }
     
@@ -398,6 +400,7 @@ public:
 
     void replace_indices_for_term_columns(std::vector<bound_evidence> & bound_evidences) {
         for (auto & be: bound_evidences) {
+            if (is_term(be.m_j)) continue;
             int term_index = m_column_names[be.m_j].m_term_index;
             if (term_index == -1)
                 continue;
@@ -417,6 +420,10 @@ public:
     }
 
     void propagate_bounds_on_a_term(const lar_term& t, std::vector<bound_evidence> & bound_evidences, unsigned term_offset) {
+        if (t.m_coeffs.size() == 0) {
+            // return on empty term;
+            return;
+        }
         iterator_on_term it(t, term_offset + m_terms_start_index);
         
         std::vector<implied_bound_evidence_signature<mpq, numeric_pair<mpq>>> evidence_vector;
@@ -462,7 +469,8 @@ public:
         std::unordered_map<unsigned, unsigned> improved_low_bounds;
         std::unordered_map<unsigned, unsigned> improved_upper_bounds;
 
-        for (auto i : m_touched_rows.m_index) {
+
+        for (unsigned i : m_touched_rows.m_index) {
             std::vector<implied_bound_evidence_signature<mpq, numeric_pair<mpq>>> evidence_vector;
             calculate_implied_bound_evidences(i, evidence_vector);
             
@@ -473,8 +481,8 @@ public:
             process_new_implied_evidences(evidence_vector, bound_evidences, improved_low_bounds, improved_upper_bounds);
         }
         m_touched_rows.clear();
-        replace_indices_for_term_columns(bound_evidences);
         propagate_bounds_on_terms(bound_evidences);
+        replace_indices_for_term_columns(bound_evidences);
         lean_assert( all_propagated_bounds_are_correct(bound_evidences));
         m_settings.st().m_num_of_implied_bounds += bound_evidences.size();
     }
@@ -596,16 +604,14 @@ public:
     var_index add_term(const std::vector<std::pair<mpq, var_index>> & coeffs,
                        const mpq &m_v) {
         m_terms.push_back(lar_term(coeffs, m_v));
-        // std::cout << "term " << m_terms_start_index + m_terms.size() - 1 << std::endl;
-        // print_term(lar_term(m_coeffs, m_v), std::cout);
-        // std::cout << std::endl;
+        m_orig_terms.push_back(lar_term(coeffs, m_v));
         m_terms_to_constraint_columns.push_back(constraint_index_and_column_struct());
         return m_terms_start_index + m_terms.size() - 1;
     }
 
     const lar_term &  get_term(unsigned j) const {
         lean_assert(j >= m_terms_start_index);
-        return m_terms[j - m_terms_start_index];
+        return m_terms()[j - m_terms_start_index];
     }
 
     void pop_core_solver_params() {

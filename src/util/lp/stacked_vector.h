@@ -17,7 +17,7 @@ template < typename B> class stacked_vector {
         //        std::vector<B> m_deb_copy;
     };
     std::vector<B> m_vector;
-    std::stack<delta> m_stack;
+    std::vector<delta> m_stack;
 public:
     class ref {
         stacked_vector<B> & m_vec;
@@ -59,7 +59,7 @@ private:
         if (!m_stack.empty()) {
             if (m_vector[i] == b)
                 return;
-            delta & d = m_stack.top();
+            delta & d = m_stack.back();
             if (i < d.m_size) {
                 auto & orig_changed = d.m_original_changed;
                 auto it = orig_changed.find(i);
@@ -72,6 +72,11 @@ private:
         m_vector[i] = b;
     }
 public:
+#ifdef LEAN_DEBUG
+    stacked_vector() {
+       push();
+    }
+#endif 
     ref operator[] (unsigned a) {
         return ref(*this, a);
     }
@@ -95,7 +100,7 @@ public:
         delta d;
         d.m_size = m_vector.size();
         //        d.m_deb_copy = m_vector;
-        m_stack.push(d);
+        m_stack.push_back(d);
     }
 
     void pop() {
@@ -106,7 +111,7 @@ public:
             if (m_stack.empty())
                 return;
             
-            delta & d = m_stack.top();
+            delta & d = m_stack.back();
             lean_assert(m_vector.size() >= d.m_size);
             while (m_vector.size() > d.m_size)
                 m_vector.pop_back();
@@ -116,7 +121,7 @@ public:
                 m_vector[t.first] = t.second;
             }
             //            lean_assert(d.m_deb_copy == m_vector);
-            m_stack.pop();
+            m_stack.pop_back();
         }
     }
 
@@ -136,8 +141,7 @@ public:
         m_vector.clear();
     }
 
-    void push_back(const B & b)
-    {
+    void push_back(const B & b) {
         m_vector.push_back(b);
     }
 
