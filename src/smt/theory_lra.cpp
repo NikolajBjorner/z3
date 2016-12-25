@@ -270,6 +270,7 @@ namespace smt {
         bool is_int(enode* n) const { return a.is_int(n->get_owner()); }
         enode* get_enode(theory_var v) const { return th.get_enode(v); }
         enode* get_enode(expr* e) const { return ctx().get_enode(e); }
+        expr*  get_owner(theory_var v) const { return get_enode(v)->get_owner(); }        
 
         void init_solver() {
             m_solver = alloc(lean::lar_solver); 
@@ -624,6 +625,10 @@ namespace smt {
                     m_var_trail.push_back(v);
                     TRACE("arith", tout << "v" << v << " := " << mk_pp(term, m) << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";
                           m_solver->print_term(m_solver->get_term(vi), tout); tout << "\n";);
+                }
+                rational val;
+                if (a.is_numeral(term, val)) {
+                    m_fixed_var_table.insert(value_sort_pair(val, is_int(v)), v);
                 }
                 return v;
             }
@@ -1103,6 +1108,7 @@ namespace smt {
         }
 
         final_check_status final_check_eh() {
+            std::cout << "final check\n";
             lbool is_sat = l_true;
             if (m_delay_constraints) {
                 init_solver();
@@ -1223,7 +1229,6 @@ namespace smt {
                     assert_bound(bv, is_true, b);
                 }
 
-                TRACE("arith", display(tout););
                 ++m_asserted_qhead;
             }
             if (m_delay_constraints || ctx().inconsistent()) {
@@ -1238,8 +1243,6 @@ namespace smt {
 
             lbool lbl = make_feasible();
             
-            TRACE("arith", display(tout << lbl << "\n"););
-
             switch(lbl) {
             case l_false:
                 TRACE("arith", tout << "propagation conflict\n";);
@@ -1381,7 +1384,6 @@ namespace smt {
         }
 
         void mk_bound_axioms(lp::bound& b) {
-            // b.display(std::cout); std::cout << "\n";
             if (!ctx().is_searching()) {
                 //
                 // NB. We make an assumption that user push calls propagation 
@@ -1635,6 +1637,9 @@ namespace smt {
         //   x <= hi -> ~(x >= hi')
 
         void propagate_bound(bool_var bv, bool is_true, lp::bound& b) {
+            if (BP_NONE == propagation_mode()) {
+                return;
+            }
             lp::bound_kind k = b.get_bound_kind();
             theory_var v = b.get_var();
             inf_rational val = b.get_value(is_true);
@@ -1732,7 +1737,7 @@ namespace smt {
         void propagate_bound_compound(bool_var bv, bool is_true, lp::bound& b) {
             lp::bound_kind k = b.get_bound_kind();
             theory_var v = b.get_var();
-            TRACE("arith", tout << mk_pp(get_enode(v)->get_owner(), m) << "\n";);
+            TRACE("arith", tout << mk_pp(get_owner(v), m) << "\n";);
             if (static_cast<unsigned>(v) >= m_use_list.size()) {
                 return;
             }
@@ -1932,8 +1937,18 @@ namespace smt {
         bool has_lower_bound(lean::var_index vi, lean::constraint_index& ci, rational const& bound) { return has_bound(vi, ci, bound, true); }
        
         bool has_bound(lean::var_index vi, lean::constraint_index& ci, rational const& bound, bool is_lower) {
+
             if (m_solver->is_term(vi)) {
+                
                 lean::var_index ti = m_solver->adjust_term_index(vi);
+                theory_var v = m_term_index2theory_var.get(ti, null_theory_var);
+                rational val;
+                TRACE("arith", tout << vi << " " << v << "\n";);
+                if (v != null_theory_var && a.is_numeral(get_owner(v), val) && bound == val) {
+                    ci = null_constraint_index;
+                    return bound == val;
+                }
+
                 auto& vec = is_lower ? m_lower_terms : m_upper_terms;
                 if (vec.size() > ti) {
                     constraint_bound& b = vec[ti];
@@ -1969,11 +1984,11 @@ namespace smt {
                     auto vi1 = get_var_index(v1);
                     auto vi2 = get_var_index(v2);
                     lean::constraint_index ci1, ci2, ci3, ci4;
+                    TRACE("arith", tout << "fixed: " << mk_pp(get_owner(v1), m) << " " << mk_pp(get_owner(v2), m) << " " << bound << " " << has_lower_bound(vi2, ci3, bound) << "\n";);
                     if (has_lower_bound(vi2, ci3, bound) && has_upper_bound(vi2, ci4, bound)) {
                         VERIFY (has_lower_bound(vi1, ci1, bound));
                         VERIFY (has_upper_bound(vi1, ci2, bound));
                         ++m_stats.m_fixed_eqs;
-                        TRACE("arith", tout << "fixing v" << v1 << " == v" << v2 << "\n";);
                         m_core.reset();
                         m_eqs.reset();
                         set_evidence(ci1);
@@ -1986,14 +2001,27 @@ namespace smt {
                             ctx().mk_justification(
                                 ext_theory_eq_propagation_justification(
                                     get_id(), ctx().get_region(), m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), x, y, 0, 0));
+
+                        TRACE("arith",
+                              for (unsigned i = 0; i <  m_core.size(); ++i) {
+                                  ctx().display_detailed_literal(tout, m_core[i]);
+                                  tout << "\n";
+                              } 
+                              for (unsigned i = 0; i < m_eqs.size(); ++i) {
+                                  tout << mk_pp(m_eqs[i].first->get_owner(), m) << " = " << mk_pp(m_eqs[i].second->get_owner(), m) << "\n";
+                              } 
+                              tout << " ==> ";
+                              tout << mk_pp(x->get_owner(), m) << " = " << mk_pp(y->get_owner(), m) << "\n";
+                              );
+
                         // parameters are TBD.
                         SASSERT(validate_eq(x, y));
                         ctx().assign_eq(x, y, eq_justification(js));
                     }
-                    else {
-                        // bounds on v2 were changed.
-                        m_fixed_var_table.insert(key, v1);
-                    }
+                }
+                else {
+                    // bounds on v2 were changed.
+                    m_fixed_var_table.insert(key, v1);
                 }
             }
             else {
@@ -2040,8 +2068,12 @@ namespace smt {
         literal_vector      m_core;
         svector<enode_pair> m_eqs;
         vector<parameter>   m_params;
+        lean::constraint_index const null_constraint_index = UINT_MAX;
 
         void set_evidence(lean::constraint_index idx) {
+            if (idx == null_constraint_index) {
+                return;
+            }
             switch (m_constraint_sources[idx]) {
             case inequality_source: {
                 literal lit = m_inequalities[idx];
@@ -2074,6 +2106,7 @@ namespace smt {
             ++m_num_conflicts;
             ++m_stats.m_conflicts;
             TRACE("arith", tout << "scope: " << ctx().get_scope_level() << "\n"; display_evidence(tout, m_evidence); );
+            TRACE("arith", display(tout););
             for (auto const& ev : m_evidence) {
                 if (!ev.first.is_zero()) { 
                     set_evidence(ev.second);
