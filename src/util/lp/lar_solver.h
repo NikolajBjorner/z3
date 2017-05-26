@@ -85,9 +85,11 @@ public:
 
     var_index add_var(unsigned ext_j, bool is_integer);
 
-    void register_new_ext_var_index(unsigned ext_v);
+    void register_new_ext_var_index(unsigned ext_v, bool is_int);
 
-    void add_non_basic_var_to_core_fields(unsigned ext_j);
+    bool term_is_int(const lar_term * t) const;
+    
+    void add_non_basic_var_to_core_fields(unsigned ext_j, bool is_int);
 
     void add_new_var_to_core_fields_for_doubles(bool register_in_basis);
 
@@ -399,11 +401,18 @@ public:
     void clean_inf_set_of_r_solver_after_pop();
     void shrink_explanation_to_minimum(vector<std::pair<mpq, constraint_index>> & explanation) const;
     inline
-    bool column_is_integer(unsigned j) const {
+    bool column_is_int(unsigned j) const {
         unsigned ext_var = m_columns_to_ext_vars_or_term_indices[j];
         return m_ext_vars_to_columns.find(ext_var)->second.is_integer();
     }
 
+    bool ext_var_is_int(var_index ext_var) const {
+        auto it = m_ext_vars_to_columns.find(ext_var);
+        if (it == m_ext_vars_to_columns.end())
+            return true; // do not care about vars that are not added
+        return it->second.is_integer();
+    }
+    
     static bool impq_is_int(const impq& v) {
         return v.x.is_int() && is_zero(v.y);
     }
@@ -414,7 +423,9 @@ public:
         return impq_is_int(v);
     }
 
-    inline bool column_is_real(unsigned j) const { return !column_is_integer(j); }	
+    inline bool column_is_real(unsigned j) const {
+        return !column_is_int(j);
+    }	
 	final_check_status check_int_feasibility();
 };
 }

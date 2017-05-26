@@ -12,7 +12,7 @@ bool lar_solver::strategy_is_undecided() const {
     return m_settings.simplex_strategy() == simplex_strategy_enum::undecided;
 }
 
-var_index lar_solver::add_var(unsigned ext_j, bool is_integer) {
+var_index lar_solver::add_var(unsigned ext_j, bool is_int) {
     var_index i;
     lean_assert (ext_j < m_terms_start_index); 
 
@@ -25,22 +25,22 @@ var_index lar_solver::add_var(unsigned ext_j, bool is_integer) {
     lean_assert(m_vars_to_ul_pairs.size() == A_r().column_count());
     i = A_r().column_count();
     m_vars_to_ul_pairs.push_back (ul_pair(static_cast<unsigned>(-1)));
-    add_non_basic_var_to_core_fields(ext_j);
+    add_non_basic_var_to_core_fields(ext_j, is_int);
     lean_assert(sizes_are_correct());
-    lean_assert(!column_is_integer(i));
     return i;
 }
 
-void lar_solver::register_new_ext_var_index(unsigned ext_v) {
+void lar_solver::register_new_ext_var_index(unsigned ext_v, bool is_int) {
+    std::cout << is_int << std::endl;
     lean_assert(!contains(m_ext_vars_to_columns, ext_v));
     unsigned j = static_cast<unsigned>(m_ext_vars_to_columns.size());
-    m_ext_vars_to_columns.insert(std::make_pair(ext_v, ext_var_info(j)));
+    m_ext_vars_to_columns.insert(std::make_pair(ext_v, ext_var_info(j, is_int)));
     lean_assert(m_columns_to_ext_vars_or_term_indices.size() == j);
     m_columns_to_ext_vars_or_term_indices.push_back(ext_v);
 }
 
-void lar_solver::add_non_basic_var_to_core_fields(unsigned ext_j) {
-    register_new_ext_var_index(ext_j);
+void lar_solver::add_non_basic_var_to_core_fields(unsigned ext_j, bool is_int) {
+    register_new_ext_var_index(ext_j, is_int);
     m_mpq_lar_core_solver.m_column_types.push_back(column_type::free_column);
     m_columns_with_changed_bound.increase_size_by_one();
     add_new_var_to_core_fields_for_mpq(false);
@@ -123,7 +123,7 @@ void lar_solver::add_row_for_term(const lar_term * term, unsigned term_ext_index
 }
 
 void lar_solver::add_row_from_term_no_constraint(const lar_term * term, unsigned term_ext_index) {
-    register_new_ext_var_index(term_ext_index);
+    register_new_ext_var_index(term_ext_index, term_is_int(term));
     // j will be a new variable
 	unsigned j = A_r().column_count();
     ul_pair ul(j);
