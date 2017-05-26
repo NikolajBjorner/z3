@@ -31,7 +31,6 @@ var_index lar_solver::add_var(unsigned ext_j, bool is_int) {
 }
 
 void lar_solver::register_new_ext_var_index(unsigned ext_v, bool is_int) {
-    std::cout << is_int << std::endl;
     lean_assert(!contains(m_ext_vars_to_columns, ext_v));
     unsigned j = static_cast<unsigned>(m_ext_vars_to_columns.size());
     m_ext_vars_to_columns.insert(std::make_pair(ext_v, ext_var_info(j, is_int)));
