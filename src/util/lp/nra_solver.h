@@ -6,12 +6,18 @@
 #pragma once
 #include "util/vector.h"
 #include "util/lp/lp_settings.h"
+#include "util/rlimit.h"
+#include "util/params.h"
+#include "nlsat/nlsat_solver.h"
 
 namespace lean {
     class lar_solver;
 }
 
+
 namespace nra {
+
+
 
     class solver {
         struct imp;
@@ -19,7 +25,7 @@ namespace nra {
 
     public:
 
-        solver(lean::lar_solver& s);
+        solver(lean::lar_solver& s, reslimit& lim, params_ref const& p = params_ref());
         
         ~solver();
 
@@ -33,7 +39,19 @@ namespace nra {
           \brief Check feasiblity of linear constraints augmented by polynomial definitions
           that are added.
          */
-        lean::final_check_status check(lean::nra_model_t& m, lean::explanation_t& ex);
+        lbool check(lean::explanation_t& ex);
+
+        /*
+          \brief determine whether nra check is needed.
+        */
+        bool need_check();
+
+        /*
+          \brief Access model.
+        */
+        nlsat::anum const& value(lean::var_index v) const;
+
+        nlsat::anum_manager& am();        
 
         /*
           \brief push and pop scope. 
@@ -42,5 +60,11 @@ namespace nra {
         void push();
         
         void pop(unsigned n);
+
+        /*
+          \brief display state
+         */
+        std::ostream& display(std::ostream& out) const;
+
     };
 }
