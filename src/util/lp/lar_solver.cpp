@@ -1396,10 +1396,33 @@ final_check_status lar_solver::check_int_feasibility() {
 
 bool lar_solver::term_is_int(const lar_term * t) const {
     for (auto const & p :  t->m_coeffs)
-        if (!column_is_int(p.first))
+        if (!column_is_int(p.first) || !impq_is_int(p.second))
             return false;
-    return true;
+    return impq_is_int(t->m_v);
 }
+
+bool lar_solver::var_is_int(var_index v) const {
+    if (is_term(v)) {
+        lar_term const& t = get_term(v);
+        return term_is_int(&t);
+    }
+    else {
+        return column_is_int(v);
+    }
+}
+
+bool lar_solver::column_is_int(unsigned j) const {
+    unsigned ext_var = m_columns_to_ext_vars_or_term_indices[j];
+    return m_ext_vars_to_columns.find(ext_var)->second.is_integer();
+}
+
+bool lar_solver::ext_var_is_int(var_index ext_var) const {
+    auto it = m_ext_vars_to_columns.find(ext_var);
+    lean_assert(it != m_ext_vars_to_columns.end());
+    return it == m_ext_vars_to_columns.end() || it->second.is_integer();
+}
+
+
 
 } // namespace lean
 

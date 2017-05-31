@@ -77,6 +77,7 @@ public:
     
     static bool valid_index(unsigned j){ return static_cast<int>(j) >= 0;}
 
+    bool column_is_int(unsigned j) const;
 
 public:
 
@@ -88,6 +89,10 @@ public:
     void register_new_ext_var_index(unsigned ext_v, bool is_int);
 
     bool term_is_int(const lar_term * t) const;
+
+    bool var_is_int(var_index v) const;
+
+    bool ext_var_is_int(var_index ext_var) const;
     
     void add_non_basic_var_to_core_fields(unsigned ext_j, bool is_int);
 
@@ -400,18 +405,7 @@ public:
     void pop_tableau();
     void clean_inf_set_of_r_solver_after_pop();
     void shrink_explanation_to_minimum(vector<std::pair<mpq, constraint_index>> & explanation) const;
-    inline
-    bool column_is_int(unsigned j) const {
-        unsigned ext_var = m_columns_to_ext_vars_or_term_indices[j];
-        return m_ext_vars_to_columns.find(ext_var)->second.is_integer();
-    }
 
-    bool ext_var_is_int(var_index ext_var) const {
-        auto it = m_ext_vars_to_columns.find(ext_var);
-        if (it == m_ext_vars_to_columns.end())
-            return true; // do not care about vars that are not added
-        return it->second.is_integer();
-    }
     
     static bool impq_is_int(const impq& v) {
         return v.x.is_int() && is_zero(v.y);

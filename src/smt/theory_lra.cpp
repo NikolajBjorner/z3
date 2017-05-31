@@ -262,12 +262,7 @@ namespace smt {
                 if (m_th.is_int(v1) != m_th.is_int(v2)) {
                     return false;
                 }
-                if (m_th.m_use_nra_model) {
-                    return m_th.m_nra->am().eq(m_th.nl_value(v1, *m_th.m_a1), m_th.nl_value(v2, *m_th.m_a2));
-                }
-                else {
-                    return m_th.get_ivalue(v1) == m_th.get_ivalue(v2); 
-                }
+                return m_th.is_eq(v1, v2);
             }
         };
         struct var_value_hash {
@@ -317,8 +312,6 @@ namespace smt {
         void ensure_nra() {
             if (!m_nra) {
                 m_nra = alloc(nra::solver, *m_solver.get(), m.limit(), ctx().get_params());
-                m_a1 = alloc(scoped_anum, m_nra->am());
-                m_a2 = alloc(scoped_anum, m_nra->am());
                 for (unsigned i = 0; i < m_scopes.size(); ++i) {
                     m_nra->push();
                 }
@@ -1224,13 +1217,22 @@ namespace smt {
                 enode* n2 = get_enode(v2);
                 m_assume_eq_head++;
                 CTRACE("arith", 
-                       get_ivalue(v1) == get_ivalue(v2) && n1->get_root() != n2->get_root(),
+                       is_eq(v1, v2) && n1->get_root() != n2->get_root(),
                        tout << "assuming eq: v" << v1 << " = v" << v2 << "\n";);
-                if (get_ivalue(v1) == get_ivalue(v2) &&  n1->get_root() != n2->get_root() && th.assume_eq(n1, n2)) {
+                if (is_eq(v1, v2) &&  n1->get_root() != n2->get_root() && th.assume_eq(n1, n2)) {
                     return true;
                 }
             }
             return false;
+        }
+
+        bool is_eq(theory_var v1, theory_var v2) {
+            if (m_use_nra_model) {
+                return m_nra->am().eq(nl_value(v1, *m_a1), nl_value(v2, *m_a2));
+            }
+            else {
+                return get_ivalue(v1) == get_ivalue(v2); 
+            }
         }
 
         bool has_delayed_constraints() const {
@@ -1318,7 +1320,10 @@ namespace smt {
             if (m.canceled()) return l_undef;
             if (!m_nra) return l_true;
             if (!m_nra->need_check()) return l_true;
+            m_a1 = 0; m_a2 = 0;
             lbool r = m_nra->check(m_explanation);
+            m_a1 = alloc(scoped_anum, m_nra->am());
+            m_a2 = alloc(scoped_anum, m_nra->am());
             switch (r) {
             case l_false:
                 set_conflict1();

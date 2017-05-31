@@ -25,7 +25,7 @@ namespace nra {
         reslimit&              m_limit;  
         params_ref             m_params; 
         u_map<polynomial::var> m_lp2nl;  // map from lar_solver variables to nlsat::solver variables
-        nlsat::solver          m_nlsat;
+        scoped_ptr<nlsat::solver>  m_nlsat;
         vector<mon_eq>         m_monomials;
         unsigned_vector        m_monomials_lim;
         mutable std::unordered_map<lean::var_index, rational> m_variable_values; // current model
@@ -33,8 +33,7 @@ namespace nra {
         imp(lean::lar_solver& s, reslimit& lim, params_ref const& p): 
             s(s), 
             m_limit(lim),
-            m_params(p),
-            m_nlsat(m_limit, m_params) {
+            m_params(p) {
         }
 
         bool need_check() {
@@ -86,10 +85,11 @@ namespace nra {
            with the remaining solver.
            
            TBD: use partial model from lra_solver to prime the state of nlsat_solver.
+           TBD: explore more incremental ways of applying nlsat (using assumptions)
         */
         lbool check(lean::explanation_t& ex) {
             SASSERT(need_check());
-            m_nlsat.reset();
+            m_nlsat = alloc(nlsat::solver, m_limit, m_params);
             m_lp2nl.reset();
             vector<nlsat::assumption, false> core;
 
@@ -104,14 +104,14 @@ namespace nra {
             }
             // TBD: add variable bounds?
 
-            lbool r = m_nlsat.check(); 
-            TRACE("arith", m_nlsat.display(tout << r << "\n"););
+            lbool r = m_nlsat->check(); 
+            TRACE("arith", m_nlsat->display(tout << r << "\n"););
             switch (r) {
             case l_true: 
                 break;
             case l_false: 
                 ex.reset();
-                m_nlsat.get_core(core);
+                m_nlsat->get_core(core);
                 for (auto c : core) {
                     unsigned idx = static_cast<unsigned>(static_cast<imp*>(c) - this);
                     ex.push_back(std::pair<rational, unsigned>(rational(1), idx));
@@ -126,7 +126,7 @@ namespace nra {
         }                
 
         void add_monomial_eq(mon_eq const& m) {
-            polynomial::manager& pm = m_nlsat.pm();
+            polynomial::manager& pm = m_nlsat->pm();
             svector<polynomial::var> vars;
             for (auto v : m.m_vs) {
                 vars.push_back(lp2nl(v));
@@ -140,13 +140,13 @@ namespace nra {
             polynomial::polynomial_ref p(pm.mk_polynomial(2, coeffs.c_ptr(), mls),  pm);
             polynomial::polynomial* ps[1] = { p };
             bool even[1] = { false };
-            nlsat::literal lit = m_nlsat.mk_ineq_literal(nlsat::atom::kind::EQ, 1, ps, even);
-            m_nlsat.mk_clause(1, &lit, 0);
+            nlsat::literal lit = m_nlsat->mk_ineq_literal(nlsat::atom::kind::EQ, 1, ps, even);
+            m_nlsat->mk_clause(1, &lit, 0);
         }
 
         void add_constraint(unsigned idx) {
             auto& c = s.get_constraint(idx);
-            auto& pm = m_nlsat.pm();
+            auto& pm = m_nlsat->pm();
             auto k = c.m_kind;
             auto rhs = c.m_right_side;
             auto lhs = c.get_left_side_coefficients();
@@ -166,49 +166,47 @@ namespace nra {
             polynomial::polynomial* ps[1] = { p };
             bool is_even[1] = { false };
             nlsat::literal lit;
+            nlsat::assumption a = this + idx;
             switch (k) {
             case lean::lconstraint_kind::LE:
-                lit = ~m_nlsat.mk_ineq_literal(nlsat::atom::kind::GT, 1, ps, is_even);
+                lit = ~m_nlsat->mk_ineq_literal(nlsat::atom::kind::GT, 1, ps, is_even);
                 break;
             case lean::lconstraint_kind::GE:
-                lit = ~m_nlsat.mk_ineq_literal(nlsat::atom::kind::LT, 1, ps, is_even);
+                lit = ~m_nlsat->mk_ineq_literal(nlsat::atom::kind::LT, 1, ps, is_even);
                 break;
             case lean::lconstraint_kind::LT:
-                lit = m_nlsat.mk_ineq_literal(nlsat::atom::kind::LT, 1, ps, is_even);
+                lit = m_nlsat->mk_ineq_literal(nlsat::atom::kind::LT, 1, ps, is_even);
                 break;
             case lean::lconstraint_kind::GT:
-                lit = m_nlsat.mk_ineq_literal(nlsat::atom::kind::GT, 1, ps, is_even);
+                lit = m_nlsat->mk_ineq_literal(nlsat::atom::kind::GT, 1, ps, is_even);
                 break;
             case lean::lconstraint_kind::EQ:
-                lit = m_nlsat.mk_ineq_literal(nlsat::atom::kind::EQ, 1, ps, is_even);
+                lit = m_nlsat->mk_ineq_literal(nlsat::atom::kind::EQ, 1, ps, is_even);                
                 break;
             }
-
-            nlsat::assumption a = this + idx;
-            m_nlsat.mk_clause(1, &lit, a);
+            m_nlsat->mk_clause(1, &lit, a);
         }               
 
         bool is_int(lean::var_index v) {
-            // TBD: is it s.column_is_integer(v), if then the function should take a var_index and not unsigned; s.is_int(v);
-            return false;
+            return s.var_is_int(v);
         }
 
 
         polynomial::var lp2nl(lean::var_index v) {
             polynomial::var r;
             if (!m_lp2nl.find(v, r)) {
-                r = m_nlsat.mk_var(is_int(v));
+                r = m_nlsat->mk_var(is_int(v));
                 m_lp2nl.insert(v, r);
             }
             return r;
         }
 
         nlsat::anum const& value(lean::var_index v) const {
-           return m_nlsat.value(m_lp2nl.find(v));
+           return m_nlsat->value(m_lp2nl.find(v));
         }
 
         nlsat::anum_manager& am() {
-            return m_nlsat.am();
+            return m_nlsat->am();
         }
 
         std::ostream& display(std::ostream& out) const {
