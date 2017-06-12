@@ -1384,14 +1384,13 @@ void lar_solver::shrink_explanation_to_minimum(vector<std::pair<mpq, constraint_
     lean_assert(this->explanation_is_correct(explanation));
 }
 
-final_check_status lar_solver::check_int_feasibility() {
+bool lar_solver::model_is_int_feasible() const {
     unsigned n = A_r().column_count();
     for (unsigned j = 0; j < n; j++) {
-        if (column_is_int(j) && column_value_is_integer(j))
-            continue;
-        return final_check_status::GIVEUP;
+		if (column_is_int(j) && !column_value_is_integer(j))
+			return false;
     }
-	return final_check_status::DONE;
+	return true;
 }
 
 bool lar_solver::term_is_int(const lar_term * t) const {

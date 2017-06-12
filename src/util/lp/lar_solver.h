@@ -420,6 +420,7 @@ public:
     inline bool column_is_real(unsigned j) const {
         return !column_is_int(j);
     }	
-	final_check_status check_int_feasibility();
+	
+	bool model_is_int_feasible() const;
 };
 }

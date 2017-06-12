@@ -569,7 +569,7 @@ namespace smt {
                 result = m_theory_var2var_index[v];
             }
             if (result == UINT_MAX) {
-                result = m_solver->add_var(v, false);
+                result = m_solver->add_var(v, is_int(v));
                 m_theory_var2var_index.setx(v, result, UINT_MAX);
                 m_var_index2theory_var.setx(result, v, UINT_MAX);
                 m_var_trail.push_back(v);
@@ -1311,8 +1311,15 @@ namespace smt {
         }
 
         lbool check_lia() {
+            std::cout << "called check_lia()\n";
             if (m.canceled()) return l_undef;
-            return l_true;
+            lean::int_solver int_solver(m_solver.get());
+            if (int_solver.check()) {
+                return l_true;
+            }
+            else {
+                return l_undef;
+            }
         }
 
         lbool check_nra() {
