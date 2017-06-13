@@ -21,11 +21,11 @@ typedef vector<std::pair<mpq, constraint_index>> explanation_t;
 
 enum class column_type  {
     free_column = 0,
-        low_bound = 1,
-        upper_bound = 2,
-        boxed = 3,
-        fixed = 4
-        };
+    low_bound = 1,
+    upper_bound = 2,
+    boxed = 3,
+    fixed = 4
+};
 
 enum class simplex_strategy_enum {
     undecided = 3,

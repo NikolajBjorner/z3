@@ -78,7 +78,7 @@ public:
     static bool valid_index(unsigned j){ return static_cast<int>(j) >= 0;}
 
     bool column_is_int(unsigned j) const;
-
+    bool column_is_fixed(unsigned j) const;
 public:
 
     // init region
@@ -411,16 +411,36 @@ public:
         return v.x.is_int() && is_zero(v.y);
     }
     
-    inline
+    
     bool column_value_is_integer(unsigned j) const {
         const impq & v = m_mpq_lar_core_solver.m_r_x[j];
         return impq_is_int(v);
     }
 
-    inline bool column_is_real(unsigned j) const {
+    
+    
+     bool column_is_real(unsigned j) const {
         return !column_is_int(j);
     }	
 	
 	bool model_is_int_feasible() const;
+
+    const impq & column_low_bound(unsigned j) const {
+        return m_mpq_lar_core_solver.low_bound(j);
+    }
+
+    const impq & column_upper_bound(unsigned j) const {
+        return m_mpq_lar_core_solver.upper_bound(j);
+    }
+
+    bool column_is_bounded(unsigned j) const {
+        return m_mpq_lar_core_solver.column_is_bounded(j);
+    }
+
+    void get_bound_constraint_witnesses_for_column(unsigned j, constraint_index & lc, constraint_index & uc) const {
+        const ul_pair & ul = m_vars_to_ul_pairs[j];
+        lc = ul.low_bound_witness();
+        uc = ul.upper_bound_witness();
+    }
 };
 }
