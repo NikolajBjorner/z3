@@ -1211,7 +1211,7 @@ void lar_solver::random_update(unsigned sz, var_index const * vars) {
 }
 
 
-void lar_solver::try_pivot_fixed_vars_from_basis() {
+void lar_solver::pivot_fixed_vars_from_basis() {
     m_mpq_lar_core_solver.m_r_solver.pivot_fixed_vars_from_basis();
 }
 

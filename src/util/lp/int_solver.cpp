@@ -8,10 +8,19 @@
 namespace lean {
 
 bool int_solver::check() {
+    // currently it is a reimplementation of
+    // final_check_status theory_arith<Ext>::check_int_feasibility()
+    // from theory_arith_int.h
 	if (m_lar_solver->model_is_int_feasible())
 		return true;
     if (!gcd_test())
         return false;
+    /*
+      if (m_params.m_arith_euclidean_solver)
+            apply_euclidean_solver();
+        
+    */
+    m_lar_solver->pivot_fixed_vars_from_basis();
     return false;
 }
 

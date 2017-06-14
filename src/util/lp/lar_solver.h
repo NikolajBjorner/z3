@@ -393,7 +393,7 @@ public:
     void fill_var_set_for_random_update(unsigned sz, var_index const * vars, vector<unsigned>& column_list);
 
     void random_update(unsigned sz, var_index const * vars);
-    void try_pivot_fixed_vars_from_basis();
+    void pivot_fixed_vars_from_basis();
     void pop();
     bool column_represents_row_in_tableau(unsigned j);
     void make_sure_that_the_bottom_right_elem_not_zero_in_tableau(unsigned i, unsigned j);

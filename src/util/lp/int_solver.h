@@ -48,6 +48,6 @@ private:
                       mpq const & consts);
     void fill_explanation_from_fixed_columns(iterator_on_row<mpq> & it);
     void add_to_explanation_from_fixed_or_boxed_column(unsigned j);
-    
+    void remove_fixed_vars_from_base();
 };
 }
