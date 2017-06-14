@@ -168,16 +168,7 @@ bool int_solver::ext_gcd_test(iterator_on_row<mpq> & it,
     mpq u1 = floor(u/gcds);
         
     if (u1 < l1) {
-        /*
-        TRACE("gcd_test", tout << "row failed the extended GCD test:\n"; display_row_info(tout, r););
-        collect_fixed_var_justifications(r, ante);
-        context & ctx         = get_context();
-        ctx.set_conflict(
-                         ctx.mk_justification(
-                                              ext_theory_conflict_justification(
-                                                                                get_id(), ctx.get_region(), 
-                                                                                ante.lits().size(), ante.lits().c_ptr(), ante.eqs().size(), ante.eqs().c_ptr(),
-                                                                                ante.num_params(), ante.params("gcd-test"))));*/
+        fill_explanation_from_fixed_columns(it);
         return false;
     }
         
