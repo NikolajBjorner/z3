@@ -35,7 +35,10 @@ Revision History:
 #include "smt/smt_model_generator.h"
 #include "smt/arith_eq_adapter.h"
 #include "util/nat_set.h"
+#include "util/lp/nra_solver.h"
 #include "tactic/filter_model_converter.h"
+#include "math/polynomial/algebraic_numbers.h"
+#include "math/polynomial/polynomial.h"
 
 namespace lp {
     enum bound_kind { lower_t, upper_t };
@@ -144,10 +147,10 @@ namespace smt {
         ast_manager&         m;
         theory_arith_params& m_arith_params;
         arith_util           a;
-
         arith_eq_adapter     m_arith_eq_adapter;
+        vector<rational>     m_columns;
+      
 
-        vector<rational>    m_columns;
         // temporary values kept during internalization
         struct internalize_state {
             expr_ref_vector     m_terms;                     
@@ -248,16 +251,31 @@ namespace smt {
 
         unsigned               m_num_conflicts;
 
+        scoped_ptr<nra::solver> m_nra;
+        bool                    m_use_nra_model;
+        scoped_ptr<scoped_anum> m_a1, m_a2;
 
         struct var_value_eq {
             imp & m_th;
             var_value_eq(imp & th):m_th(th) {}
-            bool operator()(theory_var v1, theory_var v2) const { return m_th.get_ivalue(v1) == m_th.get_ivalue(v2) && m_th.is_int(v1) == m_th.is_int(v2); }
+            bool operator()(theory_var v1, theory_var v2) const { 
+                if (m_th.is_int(v1) != m_th.is_int(v2)) {
+                    return false;
+                }
+                return m_th.is_eq(v1, v2);
+            }
         };
         struct var_value_hash {
             imp & m_th;
             var_value_hash(imp & th):m_th(th) {}
-            unsigned operator()(theory_var v) const { return (unsigned)std::hash<lean::impq>()(m_th.get_ivalue(v)); }
+            unsigned operator()(theory_var v) const { 
+                if (m_th.m_use_nra_model) {
+                    return m_th.is_int(v);
+                }
+                else {
+                    return (unsigned)std::hash<lean::impq>()(m_th.get_ivalue(v)); 
+                }
+            }
         };
         int_hashtable<var_value_hash, var_value_eq>   m_model_eqs;
 
@@ -291,12 +309,22 @@ namespace smt {
             //m_solver->settings().set_ostream(0);
         }
 
+        void ensure_nra() {
+            if (!m_nra) {
+                m_nra = alloc(nra::solver, *m_solver.get(), m.limit(), ctx().get_params());
+                for (unsigned i = 0; i < m_scopes.size(); ++i) {
+                    m_nra->push();
+                }
+            }
+        }
+
+
         void found_not_handled(expr* n) {
             m_not_handled = n;
             if (is_app(n) && is_underspecified(to_app(n))) {
+                TRACE("arith", tout << "Unhandled: " << mk_pp(n, m) << "\n";);
                 m_underspecified.push_back(to_app(n));
             }
-            TRACE("arith", tout << "Unhandled: " << mk_pp(n, m) << "\n";);
         }
 
         bool is_numeral(expr* term, rational& r) {
@@ -366,6 +394,14 @@ namespace smt {
                     terms[index] = n1;
                     st.terms_to_internalize().push_back(n2);
                 }
+                else if (a.is_mul(n)) {
+                    theory_var v;
+                    internalize_mul(to_app(n), v, r);
+                    coeffs[index] *= r;
+                    coeffs[vars.size()] = coeffs[index];
+                    vars.push_back(v);
+                    ++index;
+                }
                 else if (a.is_numeral(n, r)) {
                     coeff += coeffs[index]*r;
                     ++index;
@@ -415,6 +451,44 @@ namespace smt {
             }
         }
 
+        void internalize_mul(app* t, theory_var& v, rational& r) {
+            SASSERT(a.is_mul(t));
+            bool _has_var = has_var(t);
+            if (!_has_var) {
+                internalize_args(t);
+                mk_enode(t);
+            }
+            r = rational::one();
+            rational r1;
+            v = mk_var(t);
+            svector<lean::var_index> vars;
+            ptr_vector<expr> todo;
+            todo.push_back(t);
+            while (!todo.empty()) {
+                expr* n = todo.back();
+                todo.pop_back();
+                expr* n1, *n2;
+                if (a.is_mul(n, n1, n2)) {
+                    todo.push_back(n1);
+                    todo.push_back(n2);
+                }
+                else if (a.is_numeral(n, r1)) {
+                    r *= r1;
+                }
+                else {
+                    if (!ctx().e_internalized(n)) {
+                        ctx().internalize(n, false);
+                    }
+                    vars.push_back(get_var_index(mk_var(n)));
+                }
+            }
+            TRACE("arith", tout << mk_pp(t, m) << "\n";);
+            if (!_has_var) {
+                ensure_nra();
+                m_nra->add_monomial(get_var_index(v), vars.size(), vars.c_ptr());
+            }
+        }
+
         enode * mk_enode(app * n) {
             if (ctx().e_internalized(n)) {
                 return get_enode(n);
@@ -459,6 +533,14 @@ namespace smt {
             return m_arith_params.m_arith_reflect || is_underspecified(n);          
         }
 
+        bool has_var(expr* n) {
+            if (!ctx().e_internalized(n)) {
+                return false;
+            }
+            enode* e = get_enode(n);
+            return th.is_attached_to_var(e);
+        }
+
         theory_var mk_var(expr* n, bool internalize = true) {
             if (!ctx().e_internalized(n)) {
                 ctx().internalize(n, false);                
@@ -487,7 +569,7 @@ namespace smt {
                 result = m_theory_var2var_index[v];
             }
             if (result == UINT_MAX) {
-                result = m_solver->add_var(v, false);
+                result = m_solver->add_var(v, is_int(v));
                 m_theory_var2var_index.setx(v, result, UINT_MAX);
                 m_var_index2theory_var.setx(result, v, UINT_MAX);
                 m_var_trail.push_back(v);
@@ -658,7 +740,8 @@ namespace smt {
             m_num_conflicts(0),
             m_model_eqs(DEFAULT_HASHTABLE_INITIAL_CAPACITY, var_value_hash(*this), var_value_eq(*this)),
             m_solver(0),
-            m_resource_limit(*this) {
+            m_resource_limit(*this),
+            m_use_nra_model(false) {
         }
         
         ~imp() {
@@ -815,6 +898,7 @@ namespace smt {
             s.m_underspecified_lim = m_underspecified.size();
             s.m_var_trail_lim = m_var_trail.size();
             if (!m_delay_constraints) m_solver->push();
+            if (m_nra) m_nra->push();
         }
 
         void pop_scope_eh(unsigned num_scopes) {
@@ -847,6 +931,7 @@ namespace smt {
             // VERIFY(l_false != make_feasible());
             m_new_bounds.reset();
             m_to_check.reset();
+            if (m_nra) m_nra->pop(num_scopes);
             TRACE("arith", tout << "num scopes: " << num_scopes << " new scope level: " << m_scopes.size() << "\n";);
         }
 
@@ -1080,7 +1165,9 @@ namespace smt {
                   }
                   tout << "\n";
                   );
-            m_solver->random_update(vars.size(), vars.c_ptr());
+            if (!m_use_nra_model) {
+                m_solver->random_update(vars.size(), vars.c_ptr());
+            }
             m_model_eqs.reset();
             TRACE("arith", display(tout););
             
@@ -1130,13 +1217,22 @@ namespace smt {
                 enode* n2 = get_enode(v2);
                 m_assume_eq_head++;
                 CTRACE("arith", 
-                       get_ivalue(v1) == get_ivalue(v2) && n1->get_root() != n2->get_root(),
+                       is_eq(v1, v2) && n1->get_root() != n2->get_root(),
                        tout << "assuming eq: v" << v1 << " = v" << v2 << "\n";);
-                if (get_ivalue(v1) == get_ivalue(v2) &&  n1->get_root() != n2->get_root() && th.assume_eq(n1, n2)) {
+                if (is_eq(v1, v2) &&  n1->get_root() != n2->get_root() && th.assume_eq(n1, n2)) {
                     return true;
                 }
             }
             return false;
+        }
+
+        bool is_eq(theory_var v1, theory_var v2) {
+            if (m_use_nra_model) {
+                return m_nra->am().eq(nl_value(v1, *m_a1), nl_value(v2, *m_a2));
+            }
+            else {
+                return get_ivalue(v1) == get_ivalue(v2); 
+            }
         }
 
         bool has_delayed_constraints() const {
@@ -1144,6 +1240,7 @@ namespace smt {
         }
 
         final_check_status final_check_eh() {
+            m_use_nra_model = false;
             lbool is_sat = l_true;
             if (m_delay_constraints) {
                 init_solver();
@@ -1166,18 +1263,41 @@ namespace smt {
             else if (m_solver->get_status() != lean::lp_status::OPTIMAL) {
                 is_sat = make_feasible();
             }
+            final_check_status st = FC_DONE;
             switch (is_sat) {
             case l_true:
+                
                 if (delayed_assume_eqs()) {
                     return FC_CONTINUE;
                 }
                 if (assume_eqs()) {
                     return FC_CONTINUE;
                 }
-                if (m_not_handled != 0) {                    
-                    return FC_GIVEUP;
+
+                switch (check_lia()) {
+                case l_true:
+                    break;
+                case l_false:
+                    return FC_CONTINUE;
+                case l_undef:
+                    st = FC_GIVEUP;
+                    break;
                 }
-                return FC_DONE;
+                
+                switch (check_nra()) {
+                case l_true:
+                    break;
+                case l_false:
+                    return FC_CONTINUE;
+                case l_undef:
+                    st = FC_GIVEUP;
+                    break;
+                }
+                if (m_not_handled != 0) {                    
+                    st = FC_GIVEUP;
+                }
+
+                return st;
             case l_false:
                 set_conflict();
                 return FC_CONTINUE;
@@ -1190,6 +1310,42 @@ namespace smt {
             return FC_GIVEUP;
         }
 
+        lbool check_lia() {
+            std::cout << "called check_lia()\n";
+            if (m.canceled()) return l_undef;
+            lean::int_solver int_solver(m_solver.get());
+            if (int_solver.check()) {
+                return l_true;
+            }
+            else {
+                return l_undef;
+            }
+        }
+
+        lbool check_nra() {
+            m_use_nra_model = false;
+            if (m.canceled()) return l_undef;
+            if (!m_nra) return l_true;
+            if (!m_nra->need_check()) return l_true;
+            m_a1 = 0; m_a2 = 0;
+            lbool r = m_nra->check(m_explanation);
+            m_a1 = alloc(scoped_anum, m_nra->am());
+            m_a2 = alloc(scoped_anum, m_nra->am());
+            switch (r) {
+            case l_false:
+                set_conflict1();
+                break;
+            case l_true:
+                m_use_nra_model = true;
+                if (assume_eqs()) {
+                    return l_false;
+                }
+                break;
+            default:
+                break;
+            }
+            return r;
+        }
 
         /**
            \brief We must redefine this method, because theory of arithmetic contains
@@ -2197,11 +2353,15 @@ namespace smt {
         }
 
         void set_conflict() {
+            m_explanation.clear();
+            m_solver->get_infeasibility_explanation(m_explanation);
+            set_conflict1();
+        }
+
+        void set_conflict1() {
             m_eqs.reset();
             m_core.reset();
             m_params.reset();
-            m_explanation.clear();
-            m_solver->get_infeasibility_explanation(m_explanation);
             // m_solver->shrink_explanation_to_minimum(m_explanation); // todo, enable when perf is fixed
             /*
             static unsigned cn = 0;
@@ -2250,9 +2410,43 @@ namespace smt {
             TRACE("arith", display(tout););
         }
 
+        nlsat::anum const& nl_value(theory_var v, scoped_anum& r) {
+            SASSERT(m_nra);
+            SASSERT(m_use_nra_model);
+            lean::var_index vi = m_theory_var2var_index[v];
+            if (m_solver->is_term(vi)) {
+                lean::lar_term const& term = m_solver->get_term(vi);
+                scoped_anum r1(m_nra->am());
+                m_nra->am().set(r, term.m_v.to_mpq());
+                
+                for (auto const coeff : term.m_coeffs) {
+                    lean::var_index wi = coeff.first;
+                    m_nra->am().set(r1, coeff.second.to_mpq());
+                    m_nra->am().mul(m_nra->value(wi), r1, r1);
+                    m_nra->am().add(r1, r, r);
+                }
+                return r;
+            }
+            else {
+                return m_nra->value(vi);
+            }
+        }
+
         model_value_proc * mk_value(enode * n, model_generator & mg) {
             theory_var v = n->get_th_var(get_id());
-            return alloc(expr_wrapper_proc, m_factory->mk_value(get_value(v), m.get_sort(n->get_owner())));
+            expr* o = n->get_owner();
+            if (m_use_nra_model) {
+                anum const& an = nl_value(v, *m_a1);
+                if (a.is_int(o) && !m_nra->am().is_int(an)) {
+                    return alloc(expr_wrapper_proc, a.mk_numeral(rational::zero(), a.is_int(o)));
+                }
+                return alloc(expr_wrapper_proc, a.mk_numeral(nl_value(v, *m_a1), a.is_int(o)));
+            }
+            else {
+                rational r = get_value(v);
+                if (a.is_int(o) && !r.is_int()) r = floor(r);
+                return alloc(expr_wrapper_proc, m_factory->mk_value(r,  m.get_sort(o)));
+            }
         }
 
         bool get_value(enode* n, expr_ref& r) {
@@ -2278,6 +2472,7 @@ namespace smt {
             if (dump_lemmas()) {
                 ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), false_literal);
             }
+            if (m_arith_params.m_arith_mode == AS_LRA) return true;
             context nctx(m, ctx().get_fparams(), ctx().get_params());
             add_background(nctx);
             bool result = l_true != nctx.check();
@@ -2290,6 +2485,7 @@ namespace smt {
             if (dump_lemmas()) {                
                 ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit);
             }
+            if (m_arith_params.m_arith_mode == AS_LRA) return true;
             context nctx(m, ctx().get_fparams(), ctx().get_params());
             m_core.push_back(~lit);
             add_background(nctx);
@@ -2301,6 +2497,7 @@ namespace smt {
         }
 
         bool validate_eq(enode* x, enode* y) {
+            if (m_arith_params.m_arith_mode == AS_LRA) return true;
             context nctx(m, ctx().get_fparams(), ctx().get_params());
             add_background(nctx);
             nctx.assert_expr(m.mk_not(m.mk_eq(x->get_owner(), y->get_owner())));
