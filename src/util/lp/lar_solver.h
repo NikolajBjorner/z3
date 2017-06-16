@@ -442,5 +442,11 @@ public:
         lc = ul.low_bound_witness();
         uc = ul.upper_bound_witness();
     }
+    indexed_vector<mpq> & get_column_in_lu_mode(unsigned j) {
+        m_column_buffer.clear();
+        m_column_buffer.resize(A_r().row_count());
+        m_mpq_lar_core_solver.m_r_solver.solve_Bd(j, m_column_buffer);
+        return m_column_buffer;
+    }
 };
 }

@@ -49,5 +49,14 @@ private:
     void fill_explanation_from_fixed_columns(iterator_on_row<mpq> & it);
     void add_to_explanation_from_fixed_or_boxed_column(unsigned j);
     void remove_fixed_vars_from_base();
+    void patch_int_infeasible_columns();
+    bool get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
+    linear_combination_iterator<mpq> * get_column_iterator(unsigned j);
+    bool lower(unsigned j) const;
+    bool upper(unsigned j) const;
+    const impq & lower_bound(unsigned j) const;
+    const impq & upper_bound(unsigned j) const;
+    bool is_int(unsigned j) const;
+    void set_value(unsigned j, const impq & new_val);
 };
 }
