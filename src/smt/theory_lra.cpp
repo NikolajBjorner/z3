@@ -90,16 +90,12 @@ namespace lp {
         unsigned m_bounds_propagations;
         unsigned m_num_iterations;
         unsigned m_num_iterations_with_no_progress;
-        unsigned m_num_factorizations;
         unsigned m_need_to_solve_inf;
         unsigned m_fixed_eqs;
         unsigned m_conflicts;
         unsigned m_bound_propagations1;
         unsigned m_bound_propagations2;
         unsigned m_assert_diseq;
-        unsigned m_make_feasible;
-        unsigned m_max_cols;
-        unsigned m_max_rows;
         stats() { reset(); }
         void reset() {
             memset(this, 0, sizeof(*this));
@@ -2289,18 +2285,8 @@ namespace smt {
         }
 
         lbool make_feasible() {
-            reset_variable_values();
-            ++m_stats.m_make_feasible;
-            if (m_solver->A_r().column_count() > m_stats.m_max_cols)
-                m_stats.m_max_cols = m_solver->A_r().column_count();
-            if (m_solver->A_r().row_count() > m_stats.m_max_rows)
-                m_stats.m_max_rows = m_solver->A_r().row_count();
+            auto status = m_solver->find_feasible_solution();
             TRACE("arith_verbose", display(tout););
-            lean::lp_status status = m_solver->find_feasible_solution();
-            m_stats.m_num_iterations = m_solver->settings().st().m_total_iterations;
-            m_stats.m_num_factorizations = m_solver->settings().st().m_num_factorizations;
-            m_stats.m_need_to_solve_inf = m_solver->settings().st().m_need_to_solve_inf;
-
             switch (status) {
             case lean::lp_status::INFEASIBLE:
                 return l_false;
@@ -2692,7 +2678,7 @@ namespace smt {
             st.update("arith-rows", m_stats.m_add_rows);
             st.update("arith-propagations", m_stats.m_bounds_propagations);
             st.update("arith-iterations", m_stats.m_num_iterations);
-            st.update("arith-factorizations", m_stats.m_num_factorizations);
+            st.update("arith-factorizations", m_solver->settings().st().m_num_factorizations);
             st.update("arith-pivots", m_stats.m_need_to_solve_inf);
             st.update("arith-plateau-iterations", m_stats.m_num_iterations_with_no_progress);
             st.update("arith-fixed-eqs", m_stats.m_fixed_eqs);
@@ -2700,9 +2686,9 @@ namespace smt {
             st.update("arith-bound-propagations-lp", m_stats.m_bound_propagations1);
             st.update("arith-bound-propagations-cheap", m_stats.m_bound_propagations2);
             st.update("arith-diseq", m_stats.m_assert_diseq);
-            st.update("arith-make-feasible", m_stats.m_make_feasible);
-            st.update("arith-max-columns", m_stats.m_max_cols);
-            st.update("arith-max-rows", m_stats.m_max_rows);
+            st.update("arith-make-feasible", m_solver->settings().st().m_make_feasible);
+            st.update("arith-max-columns", m_solver->settings().st().m_max_cols);
+            st.update("arith-max-rows", m_solver->settings().st().m_max_rows);
         }        
     };
     

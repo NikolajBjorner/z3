@@ -407,10 +407,6 @@ public:
     void shrink_explanation_to_minimum(vector<std::pair<mpq, constraint_index>> & explanation) const;
 
     
-    static bool impq_is_int(const impq& v) {
-        return v.x.is_int() && is_zero(v.y);
-    }
-    
     
     bool column_value_is_integer(unsigned j) const {
         const impq & v = m_mpq_lar_core_solver.m_r_x[j];

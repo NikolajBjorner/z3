@@ -280,6 +280,11 @@ lp_status lar_solver::get_status() const { return m_status;}
 void lar_solver::set_status(lp_status s) {m_status = s;}
 
 lp_status lar_solver::find_feasible_solution() {
+    m_settings.st().m_make_feasible++;
+    if (A_r().column_count() > m_settings.st().m_max_cols)
+        m_settings.st().m_max_cols = A_r().column_count();
+    if (A_r().row_count() > m_settings.st().m_max_rows)
+        m_settings.st().m_max_rows = A_r().row_count();
     if (strategy_is_undecided())
         decide_on_strategy_and_adjust_initial_state();
 

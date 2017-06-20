@@ -82,11 +82,14 @@ public:
 };
 
 struct stats {
+    unsigned m_make_feasible;
     unsigned m_total_iterations;
     unsigned m_iters_with_no_cost_growing;
     unsigned m_num_factorizations;
     unsigned m_num_of_implied_bounds;
     unsigned m_need_to_solve_inf;
+    unsigned m_max_cols;
+    unsigned m_max_rows;
     stats() { reset(); }
     void reset() { memset(this, 0, sizeof(*this)); }
 };

@@ -58,5 +58,8 @@ private:
     const impq & upper_bound(unsigned j) const;
     bool is_int(unsigned j) const;
     void set_value(unsigned j, const impq & new_val);
+    void fix_non_base_vars();
+    void failed();
+    bool make_feasible();
 };
 }

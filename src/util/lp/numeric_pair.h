@@ -321,6 +321,8 @@ struct convert_struct<double, double> {
     }
 };
 
+inline bool impq_is_int(const impq& v) { return v.x.is_int() && v.y.is_zero();}    
+
 template <typename X> bool is_epsilon_small(const X & v, const double &eps) { return convert_struct<X, double>::is_epsilon_small(v, eps);}
 template <typename X> bool below_bound_numeric(const X & x, const X & bound, const double& eps) { return convert_struct<X, double>::below_bound_numeric(x, bound, eps);}
 template <typename X> bool above_bound_numeric(const X & x, const X & bound, const double& eps) { return convert_struct<X, double>::above_bound_numeric(x, bound, eps);}

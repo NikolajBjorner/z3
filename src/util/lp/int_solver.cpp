@@ -7,6 +7,21 @@
 #include "util/lp/lar_solver.h"
 namespace lean {
 
+void int_solver::fix_non_base_vars() {
+    auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
+    for (unsigned j : lcs.m_r_nbasis) {
+        if (impq_is_int(lcs.m_r_x[j]))
+            continue;
+        set_value(j, floor(lcs.m_r_x[j].x));
+    }
+    if (!make_feasible())
+        failed();
+}
+
+bool int_solver::make_feasible(){ return false;}
+void int_solver::failed() {
+}
+    
 bool int_solver::check() {
     // currently it is a reimplementation of
     // final_check_status theory_arith<Ext>::check_int_feasibility()
@@ -22,8 +37,8 @@ bool int_solver::check() {
     */
     m_lar_solver->pivot_fixed_vars_from_basis();
     patch_int_infeasible_columns();
+    fix_non_base_vars();
     /* //this is the not ported part
-              fix_non_base_vars();
         
         if (get_context().inconsistent())
             return FC_CONTINUE;
@@ -124,7 +139,7 @@ void int_solver::patch_int_infeasible_columns() {
     for (unsigned j : lcs.m_r_nbasis) {
         get_freedom_interval_for_column(j, inf_l, l, inf_u, u, m);
         impq & val = lcs.m_r_x[j];
-        if (m.is_one() && lar_solver::impq_is_int(val))
+        if (m.is_one() && impq_is_int(val))
             continue;
         // check whether value of j is already a multiple of m.
         if ((val.x / m).is_int())
