@@ -16,13 +16,16 @@ namespace lean {
 typedef unsigned var_index;
 typedef unsigned constraint_index;
 typedef unsigned row_index;
+
+typedef vector<std::pair<mpq, constraint_index>> explanation_t;
+
 enum class column_type  {
     free_column = 0,
-        low_bound = 1,
-        upper_bound = 2,
-        boxed = 3,
-        fixed = 4
-        };
+    low_bound = 1,
+    upper_bound = 2,
+    boxed = 3,
+    fixed = 4
+};
 
 enum class simplex_strategy_enum {
     undecided = 3,
@@ -79,11 +82,14 @@ public:
 };
 
 struct stats {
+    unsigned m_make_feasible;
     unsigned m_total_iterations;
     unsigned m_iters_with_no_cost_growing;
     unsigned m_num_factorizations;
     unsigned m_num_of_implied_bounds;
     unsigned m_need_to_solve_inf;
+    unsigned m_max_cols;
+    unsigned m_max_rows;
     stats() { reset(); }
     void reset() { memset(this, 0, sizeof(*this)); }
 };

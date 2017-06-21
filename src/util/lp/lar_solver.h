@@ -31,8 +31,10 @@
 #include "util/lp/quick_xplain.h"
 #include "util/lp/conversion_helper.h"
 #include "util/lp/int_solver.h"
+#include "util/lp/nra_solver.h"
 
 namespace lean {
+
 
 class lar_solver : public column_namer {
     class ext_var_info {
@@ -61,7 +63,7 @@ class lar_solver : public column_namer {
     stacked_value<unsigned> m_term_count;
     vector<lar_term*> m_terms;
     const var_index m_terms_start_index;
-    indexed_vector<mpq> m_column_buffer;    
+    indexed_vector<mpq> m_column_buffer;
 public:
     lar_core_solver m_mpq_lar_core_solver;
     unsigned constraint_count() const;
@@ -75,7 +77,8 @@ public:
     
     static bool valid_index(unsigned j){ return static_cast<int>(j) >= 0;}
 
-
+    bool column_is_int(unsigned j) const;
+    bool column_is_fixed(unsigned j) const;
 public:
 
     // init region
@@ -83,9 +86,15 @@ public:
 
     var_index add_var(unsigned ext_j, bool is_integer);
 
-    void register_new_ext_var_index(unsigned ext_v);
+    void register_new_ext_var_index(unsigned ext_v, bool is_int);
 
-    void add_non_basic_var_to_core_fields(unsigned ext_j);
+    bool term_is_int(const lar_term * t) const;
+
+    bool var_is_int(var_index v) const;
+
+    bool ext_var_is_int(var_index ext_var) const;
+    
+    void add_non_basic_var_to_core_fields(unsigned ext_j, bool is_int);
 
     void add_new_var_to_core_fields_for_doubles(bool register_in_basis);
 
@@ -199,11 +208,11 @@ public:
 
     void set_status(lp_status s);
 
-    lp_status find_feasible_solution();
+    lp_status find_feasible_solution();   
     
     lp_status solve();
 
-    void fill_explanation_from_infeasible_column(vector<std::pair<mpq, constraint_index>> & evidence) const;
+    void fill_explanation_from_infeasible_column(explanation_t & evidence) const;
 
     
     unsigned get_total_iterations() const;
@@ -384,7 +393,7 @@ public:
     void fill_var_set_for_random_update(unsigned sz, var_index const * vars, vector<unsigned>& column_list);
 
     void random_update(unsigned sz, var_index const * vars);
-    void try_pivot_fixed_vars_from_basis();
+    void pivot_fixed_vars_from_basis();
     void pop();
     bool column_represents_row_in_tableau(unsigned j);
     void make_sure_that_the_bottom_right_elem_not_zero_in_tableau(unsigned i, unsigned j);
@@ -396,11 +405,44 @@ public:
     void pop_tableau();
     void clean_inf_set_of_r_solver_after_pop();
     void shrink_explanation_to_minimum(vector<std::pair<mpq, constraint_index>> & explanation) const;
-    inline
-    bool column_is_integer(unsigned j) const {
-        unsigned ext_var = m_columns_to_ext_vars_or_term_indices[j];
-        return m_ext_vars_to_columns.find(ext_var)->second.is_integer();
+
+    
+    
+    bool column_value_is_integer(unsigned j) const {
+        const impq & v = m_mpq_lar_core_solver.m_r_x[j];
+        return impq_is_int(v);
     }
-    inline bool column_is_real(unsigned j) const { return !column_is_integer(j); }
+
+    
+    
+     bool column_is_real(unsigned j) const {
+        return !column_is_int(j);
+    }	
+	
+	bool model_is_int_feasible() const;
+
+    const impq & column_low_bound(unsigned j) const {
+        return m_mpq_lar_core_solver.low_bound(j);
+    }
+
+    const impq & column_upper_bound(unsigned j) const {
+        return m_mpq_lar_core_solver.upper_bound(j);
+    }
+
+    bool column_is_bounded(unsigned j) const {
+        return m_mpq_lar_core_solver.column_is_bounded(j);
+    }
+
+    void get_bound_constraint_witnesses_for_column(unsigned j, constraint_index & lc, constraint_index & uc) const {
+        const ul_pair & ul = m_vars_to_ul_pairs[j];
+        lc = ul.low_bound_witness();
+        uc = ul.upper_bound_witness();
+    }
+    indexed_vector<mpq> & get_column_in_lu_mode(unsigned j) {
+        m_column_buffer.clear();
+        m_column_buffer.resize(A_r().row_count());
+        m_mpq_lar_core_solver.m_r_solver.solve_Bd(j, m_column_buffer);
+        return m_column_buffer;
+    }
 };
 }
