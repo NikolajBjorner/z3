@@ -1580,9 +1580,16 @@ void lar_solver::add_basic_var_to_core_fields() {
 		add_new_var_to_core_fields_for_doubles(true);
 }
 
+bool lar_solver::bound_is_integer_if_needed(var_index j, const mpq & right_side) const {
+    if (!m_ext_vars_to_columns.find(j)->second.is_integer())
+        return true;
+    return right_side.is_int();
+}
+
 constraint_index lar_solver::add_var_bound(var_index j, lconstraint_kind kind, const mpq & right_side) {
 	constraint_index ci = m_constraints.size();
 	if (!is_term(j)) { // j is a var
+        lean_assert(bound_is_integer_if_needed(j, right_side));
 		auto vc = new lar_var_constraint(j, kind, right_side);
 		m_constraints.push_back(vc);
 		update_column_type_and_bound(j, kind, right_side, ci);
@@ -1619,6 +1626,7 @@ void lar_solver::update_column_type_and_bound(var_index j, lconstraint_kind kind
 void lar_solver::add_var_bound_on_constraint_for_term(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
 	lean_assert(is_term(j));
 	unsigned adjusted_term_index = adjust_term_index(j);
+    lean_assert(!term_is_int(m_terms[adjusted_term_index]) || right_side.is_int());
 	auto it = m_ext_vars_to_columns.find(j);
 	if (it != m_ext_vars_to_columns.end()) {
 		unsigned term_j = it->second.ext_j();

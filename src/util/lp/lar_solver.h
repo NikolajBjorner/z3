@@ -444,5 +444,7 @@ public:
         m_mpq_lar_core_solver.m_r_solver.solve_Bd(j, m_column_buffer);
         return m_column_buffer;
     }
+    
+    bool bound_is_integer_if_needed(var_index j, const mpq & right_side) const;
 };
 }

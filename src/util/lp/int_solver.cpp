@@ -143,7 +143,6 @@ void int_solver::set_value(unsigned j, const impq & new_val) {
 }
 
 void int_solver::patch_int_infeasible_columns() {
-    std::cout << "calling patch_int_infeasible_columns\n";
     bool inf_l, inf_u;
     impq l, u;
     mpq m;
@@ -154,6 +153,7 @@ void int_solver::patch_int_infeasible_columns() {
         get_freedom_interval_for_column(j, inf_l, l, inf_u, u, m);
         impq & val = lcs.m_r_x[j];
         bool val_is_int = impq_is_int(val);
+        bool m_is_one = m.is_one();
         if (m.is_one() && val_is_int)
             continue;
         // check whether value of j is already a multiple of m.
@@ -161,29 +161,32 @@ void int_solver::patch_int_infeasible_columns() {
             continue;
         TRACE("patch_int",
               tout << "TARGET j" << j << " -> [";
-              if (inf_l) tout << "-oo"; else tout << ceil(l.x);
+              if (inf_l) tout << "-oo"; else tout << l;
               tout << ", ";
-              if (inf_u) tout << "oo"; else tout << floor(u.x);
+              if (inf_u) tout << "oo"; else tout << u;
               tout << "]";
               tout << ", m: " << m << ", val: " << val << ", is_int: " << m_lar_solver->column_is_int(j) << "\n";);
-        if (!inf_l)
-            l.x = ceil(l.x);
-        if (!inf_u)
-            u.x = floor(u.x);
-        if (!m.is_one()) {
-            if (!inf_l)
-                l.x = m*ceil(l.x/m);
-            if (!inf_u)
-                u.x = m*floor(u.x/m);
-        }
-        if (!inf_l && !inf_u && l.x > u.x)
-            continue; // cannot patch
-        if (!inf_l)
-            set_value(j, l);
-        else if (!inf_u)
+        if (!inf_l) {
+            l = m_is_one? ceil(l) : m * ceil(l / m);
+            if (inf_u || l <= u) {
+                TRACE("patch_int",
+                      tout << "patching with l: " << l << '\n';);
+                
+                set_value(j, l);
+            } else {
+                TRACE("patch_int", 
+                      tout << "not patching " << l << "\n";);
+            }
+        } else if (!inf_u) {
+            u = m_is_one? floor(u) : m * floor(u / m);
             set_value(j, u);
-        else 
+            TRACE("patch_int",
+                  tout << "patching with u: " << u << '\n';);
+        } else {
             set_value(j, impq(0));
+            TRACE("patch_int",
+                  tout << "patching with 0\n";);
+        }
     }
 }
 
