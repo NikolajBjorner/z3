@@ -65,5 +65,6 @@ private:
     bool is_feasible() const;
     const impq & get_value(unsigned j) const;
     void display_var(std::ostream & out, unsigned j) const;
+    int find_infeasible_int_base_var();
 };
 }

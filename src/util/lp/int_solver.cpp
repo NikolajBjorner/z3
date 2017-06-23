@@ -73,24 +73,14 @@ bool int_solver::check() {
                   }
               }
               tout << "num of int infeasible: " << num << "\n";);
-        /*    
-        theory_var int_var = find_infeasible_int_base_var();
-        if (int_var == null_theory_var) {
-            TRACE("arith_int_incomp", tout << "FC_DONE 2...\n"; display(tout););
-            return m_liberal_final_check || !m_changed_assignment ? FC_DONE : FC_CONTINUE;
+        int int_var = find_infeasible_int_base_var();
+        if (int_var == -1) {
+            //            TRACE("arith_int_incomp", tout << "FC_DONE 2...\n"; display(tout););
+            // return m_liberal_final_check || !m_changed_assignment ? FC_DONE : FC_CONTINUE;
+            return true;
         }
         
-#if 0
-        if (find_bounded_infeasible_int_base_var() == null_theory_var) {
-            // TODO: this is too expensive... I should replace it by a procedure
-            // that refine bounds using the current state of the tableau.
-            if (!max_min_infeasible_int_vars())
-                return FC_CONTINUE;
-            if (!gcd_test())
-                return FC_CONTINUE;
-        }
-#endif 
-
+        /*
         m_branch_cut_counter++;
         // TODO: add giveup code
         if (m_branch_cut_counter % m_params.m_arith_branch_cut_ratio == 0) {
@@ -498,5 +488,9 @@ const impq & int_solver::get_value(unsigned j) const {
 void int_solver::display_var(std::ostream & out, unsigned j) const {
     m_lar_solver->m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out);
 }
-    
+
+int int_solver::find_infeasible_int_base_var() {
+    lean_assert(false);
+    return 0;
+}
 }
