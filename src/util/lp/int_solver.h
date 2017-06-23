@@ -62,5 +62,8 @@ private:
     void set_value(unsigned j, const impq & new_val);
     void fix_non_base_vars();
     void failed();
+    bool is_feasible() const;
+    const impq & get_value(unsigned j) const;
+    void display_var(std::ostream & out, unsigned j) const;
 };
 }

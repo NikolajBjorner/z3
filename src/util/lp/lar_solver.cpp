@@ -1400,9 +1400,9 @@ bool lar_solver::model_is_int_feasible() const {
 
 bool lar_solver::term_is_int(const lar_term * t) const {
     for (auto const & p :  t->m_coeffs)
-        if (!column_is_int(p.first) || !impq_is_int(p.second))
+        if (!column_is_int(p.first) || p.second.is_int())
             return false;
-    return impq_is_int(t->m_v);
+    return t->m_v.is_int();
 }
 
 bool lar_solver::var_is_int(var_index v) const {

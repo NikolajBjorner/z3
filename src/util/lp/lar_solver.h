@@ -410,7 +410,7 @@ public:
     
     bool column_value_is_integer(unsigned j) const {
         const impq & v = m_mpq_lar_core_solver.m_r_x[j];
-        return impq_is_int(v);
+        return v.is_int();
     }
 
     

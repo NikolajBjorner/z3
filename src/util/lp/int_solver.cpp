@@ -12,7 +12,7 @@ void int_solver::fix_non_base_vars() {
     for (unsigned j : lcs.m_r_nbasis) {
         if (!is_int(j))
             continue;
-        if (impq_is_int(lcs.m_r_x[j]))
+        if (lcs.m_r_x[j].is_int())
             continue;
         set_value(j, floor(lcs.m_r_x[j].x));
     }
@@ -25,11 +25,16 @@ void int_solver::failed() {
     
     for (unsigned j : m_old_values_set.m_index) {
         lcs.m_r_x[j] = m_old_values_data[j];
+        lean_assert(lcs.m_r_solver.column_is_feasible(j));
+        lcs.m_r_solver.remove_column_from_inf_set(j);
     }
+    lean_assert(lcs.m_r_solver.calc_current_x_is_feasible_include_non_basis());
+    lean_assert(lcs.m_r_solver.current_x_is_feasible());
     m_old_values_set.clear();
 }
     
 bool int_solver::check() {
+    lean_assert(is_feasible());
     // currently it is a reimplementation of
     // final_check_status theory_arith<Ext>::check_int_feasibility()
     // from theory_arith_int.h
@@ -45,35 +50,30 @@ bool int_solver::check() {
     m_lar_solver->pivot_fixed_vars_from_basis();
     patch_int_infeasible_columns();
     fix_non_base_vars();
-    /* //this is the not ported part
-        
-        if (get_context().inconsistent())
-            return FC_CONTINUE;
-        
-        TRACE("arith_int_inf",
-              int num = get_num_vars();
-              for (theory_var v = 0; v < num; v++) {
-                  if (is_int(v) && !get_value(v).is_int()) {
-                      display_var(tout, v);
-                  }
-              });
+    lean_assert(is_feasible());
 
+    
+    TRACE("arith_int_inf",
+          unsigned num = m_lar_solver->A_r().column_count();
+          for (unsigned v = 0; v < num; v++) {
+              if (is_int(v) && !get_value(v).is_int()) {
+                  display_var(tout, v);
+              }
+          });
+    
         TRACE("arith_int_rows",
               unsigned num = 0;
-              typename vector<row>::const_iterator it  = m_rows.begin();
-              typename vector<row>::const_iterator end = m_rows.end();
-              for (; it != end; ++it) {
-                  theory_var v = it->get_base_var();
-                  if (v == null_theory_var)
-                      continue;
-                  if (is_int(v) && !get_value(v).is_int()) {
+              for (unsigned i = 0; i < m_lar_solver->A_r().row_count(); i++) {
+                  unsigned j = m_lar_solver->m_mpq_lar_core_solver.m_r_basis[i];
+                  if (is_int(j) && !get_value(j).is_int()) {
                       num++;
-                      display_simplified_row(tout, *it);
+                      iterator_on_row<mpq> it(m_lar_solver->A_r().m_rows[i]);
+                      m_lar_solver->print_linear_iterator(&it, tout);
                       tout << "\n";
                   }
               }
-              tout << "num infeasible: " << num << "\n";);
-        
+              tout << "num of int infeasible: " << num << "\n";);
+        /*    
         theory_var int_var = find_infeasible_int_base_var();
         if (int_var == null_theory_var) {
             TRACE("arith_int_incomp", tout << "FC_DONE 2...\n"; display(tout););
@@ -152,7 +152,7 @@ void int_solver::patch_int_infeasible_columns() {
             continue;
         get_freedom_interval_for_column(j, inf_l, l, inf_u, u, m);
         impq & val = lcs.m_r_x[j];
-        bool val_is_int = impq_is_int(val);
+        bool val_is_int = val.is_int();
         bool m_is_one = m.is_one();
         if (m.is_one() && val_is_int)
             continue;
@@ -484,4 +484,19 @@ bool int_solver::is_int(unsigned j) const {
     return m_lar_solver->column_is_int(j);
 }
 
+bool int_solver::is_feasible() const {
+    auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
+    lean_assert(
+                lcs.m_r_solver.calc_current_x_is_feasible_include_non_basis() ==
+                lcs.m_r_solver.current_x_is_feasible());
+    return lcs.m_r_solver.current_x_is_feasible();
+}
+const impq & int_solver::get_value(unsigned j) const {
+    return m_lar_solver->m_mpq_lar_core_solver.m_r_x[j];
+}
+
+void int_solver::display_var(std::ostream & out, unsigned j) const {
+    m_lar_solver->m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out);
+}
+    
 }
