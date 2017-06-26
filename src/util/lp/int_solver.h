@@ -72,5 +72,6 @@ private:
     void update_column_in_inf_set_set(unsigned j);
     bool column_is_int_inf(unsigned j) const;
     void trace_inf_rows() const;
+    int find_infeasible_int_base_var();
 };
 }

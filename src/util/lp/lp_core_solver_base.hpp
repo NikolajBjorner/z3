@@ -925,13 +925,14 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::transpose_row
 }
 // j is the new basic column, j_basic - the leaving column
 template <typename T, typename X> bool lp_core_solver_base<T, X>::pivot_column_general(unsigned j, unsigned j_basic, indexed_vector<T> & w)  {
+    unsigned row_index = m_basis_heading[j_basic];
     change_basis(j, j_basic);
     if (m_settings.m_simplex_strategy == simplex_strategy_enum::lu) {
         if (m_factorization->need_to_refactor()) {
             init_lu();
         } else {
             m_factorization->prepare_entering(j, w); // to init vector w
-            m_factorization->replace_column(zero_of_type<T>(), w, m_basis_heading[j_basic]);
+            m_factorization->replace_column(zero_of_type<T>(), w, row_index);
         }
         if (m_factorization->get_status() != LU_status::OK) {
             change_basis(j_basic, j);
@@ -939,7 +940,7 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::pivot_column_g
             return false;
         }
     } else { // the tableau case
-        pivot_column_tableau(j, this->m_basis_heading[j_basic]);
+        pivot_column_tableau(j, row_index);
     }
     return true;
 }
