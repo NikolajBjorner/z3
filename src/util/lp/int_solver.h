@@ -18,6 +18,7 @@ public:
     vector<std::pair<mpq, constraint_index>> m_explanation;
     int_set m_old_values_set;
     vector<impq> m_old_values_data;
+    int_set m_inf_int_set;
     int_solver(lar_solver* lp);
     bool check();// main function to check that solution provided by lar_solver is valid for integral values or can be adjusted.
 private:
@@ -59,11 +60,17 @@ private:
     const impq & lower_bound(unsigned j) const;
     const impq & upper_bound(unsigned j) const;
     bool is_int(unsigned j) const;
+    bool value_is_int(unsigned j) const;
     void set_value(unsigned j, const impq & new_val);
     void fix_non_base_vars();
     void failed();
     bool is_feasible() const;
     const impq & get_value(unsigned j) const;
     void display_var(std::ostream & out, unsigned j) const;
+    bool inf_int_set_is_correct() const;
+    void init_inf_int_set();
+    void update_column_in_inf_set_set(unsigned j);
+    bool column_is_int_inf(unsigned j) const;
+    void trace_inf_rows() const;
 };
 }

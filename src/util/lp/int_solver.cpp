@@ -10,11 +10,9 @@ namespace lean {
 void int_solver::fix_non_base_vars() {
     auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
     for (unsigned j : lcs.m_r_nbasis) {
-        if (!is_int(j))
-            continue;
-        if (lcs.m_r_x[j].is_int())
-            continue;
-        set_value(j, floor(lcs.m_r_x[j].x));
+        if (column_is_int_inf(j)) {
+            set_value(j, floor(lcs.m_r_x[j].x));
+        }
     }
     if (m_lar_solver->find_feasible_solution() == INFEASIBLE)
         failed();
@@ -32,9 +30,32 @@ void int_solver::failed() {
     lean_assert(lcs.m_r_solver.current_x_is_feasible());
     m_old_values_set.clear();
 }
+
+void int_solver::trace_inf_rows() const {
+    unsigned num = m_lar_solver->A_r().column_count();
+    for (unsigned v = 0; v < num; v++) {
+        if (is_int(v) && !get_value(v).is_int()) {
+            display_var(tout, v);
+        }
+    }
+    
+    num = 0;
+    for (unsigned i = 0; i < m_lar_solver->A_r().row_count(); i++) {
+        unsigned j = m_lar_solver->m_mpq_lar_core_solver.m_r_basis[i];
+        if (column_is_int_inf(j)) {
+            num++;
+            iterator_on_row<mpq> it(m_lar_solver->A_r().m_rows[i]);
+            m_lar_solver->print_linear_iterator(&it, tout);
+            tout << "\n";
+        }
+    }
+    tout << "num of int infeasible: " << num << "\n";
+}
     
 bool int_solver::check() {
     lean_assert(is_feasible());
+    init_inf_int_set();
+    lean_assert(inf_int_set_is_correct());
     // currently it is a reimplementation of
     // final_check_status theory_arith<Ext>::check_int_feasibility()
     // from theory_arith_int.h
@@ -51,28 +72,9 @@ bool int_solver::check() {
     patch_int_infeasible_columns();
     fix_non_base_vars();
     lean_assert(is_feasible());
+    TRACE("arith_int_rows", trace_inf_rows(););
 
     
-    TRACE("arith_int_inf",
-          unsigned num = m_lar_solver->A_r().column_count();
-          for (unsigned v = 0; v < num; v++) {
-              if (is_int(v) && !get_value(v).is_int()) {
-                  display_var(tout, v);
-              }
-          });
-    
-        TRACE("arith_int_rows",
-              unsigned num = 0;
-              for (unsigned i = 0; i < m_lar_solver->A_r().row_count(); i++) {
-                  unsigned j = m_lar_solver->m_mpq_lar_core_solver.m_r_basis[i];
-                  if (is_int(j) && !get_value(j).is_int()) {
-                      num++;
-                      iterator_on_row<mpq> it(m_lar_solver->A_r().m_rows[i]);
-                      m_lar_solver->print_linear_iterator(&it, tout);
-                      tout << "\n";
-                  }
-              }
-              tout << "num of int infeasible: " << num << "\n";);
         /*    
         theory_var int_var = find_infeasible_int_base_var();
         if (int_var == null_theory_var) {
@@ -140,6 +142,7 @@ void int_solver::set_value(unsigned j, const impq & new_val) {
     auto delta = new_val - x;
     x = new_val;
     m_lar_solver->change_basic_x_by_delta_on_column(j, delta);
+    update_column_in_inf_set_set(j);
 }
 
 void int_solver::patch_int_infeasible_columns() {
@@ -484,6 +487,12 @@ bool int_solver::is_int(unsigned j) const {
     return m_lar_solver->column_is_int(j);
 }
 
+bool int_solver::value_is_int(unsigned j) const {
+    return m_lar_solver->m_mpq_lar_core_solver.m_r_x[j].is_int();
+}
+
+    
+
 bool int_solver::is_feasible() const {
     auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
     lean_assert(
@@ -497,6 +506,35 @@ const impq & int_solver::get_value(unsigned j) const {
 
 void int_solver::display_var(std::ostream & out, unsigned j) const {
     m_lar_solver->m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out);
+}
+
+bool int_solver::inf_int_set_is_correct() const {
+    auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
+    for (unsigned j = 0; j < m_lar_solver->A_r().column_count(); j++) {
+        if (m_inf_int_set.contains(j) != is_int(j) && (!value_is_int(j)))
+            return false;
+    }
+    return true;
+}
+
+bool int_solver::column_is_int_inf(unsigned j) const {
+    return is_int(j) && (!value_is_int(j));
+}
+    
+void int_solver::init_inf_int_set() {
+    m_inf_int_set.clear();
+    m_inf_int_set.resize(m_lar_solver->A_r().column_count());
+    for (unsigned j : m_lar_solver->m_mpq_lar_core_solver.m_r_basis) {
+        if (column_is_int_inf(j))
+            m_inf_int_set.insert(j);
+    }
+}
+
+void int_solver::update_column_in_inf_set_set(unsigned j) {
+    if (is_int(j) && (!value_is_int(j)))
+        m_inf_int_set.insert(j);
+    else
+        m_inf_int_set.erase(j);
 }
     
 }
