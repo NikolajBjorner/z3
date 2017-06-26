@@ -60,18 +60,22 @@ private:
     const impq & lower_bound(unsigned j) const;
     const impq & upper_bound(unsigned j) const;
     bool is_int(unsigned j) const;
+    bool is_base(unsigned j) const;
+    bool is_boxed(unsigned j) const;
     bool value_is_int(unsigned j) const;
     void set_value(unsigned j, const impq & new_val);
-    void fix_non_base_vars();
+    void fix_non_base_columns();
     void failed();
     bool is_feasible() const;
     const impq & get_value(unsigned j) const;
-    void display_var(std::ostream & out, unsigned j) const;
+    void display_column(std::ostream & out, unsigned j) const;
     bool inf_int_set_is_correct() const;
     void init_inf_int_set();
     void update_column_in_inf_set_set(unsigned j);
     bool column_is_int_inf(unsigned j) const;
     void trace_inf_rows() const;
-    int find_infeasible_int_base_var();
+    int find_inf_int_base_column();
+    int find_inf_int_boxed_base_column_with_smallest_range();
+    lp_settings& settings();
 };
 }

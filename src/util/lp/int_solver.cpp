@@ -7,7 +7,7 @@
 #include "util/lp/lar_solver.h"
 namespace lean {
 
-void int_solver::fix_non_base_vars() {
+void int_solver::fix_non_base_columns() {
     auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
     for (unsigned j : lcs.m_r_nbasis) {
         if (column_is_int_inf(j)) {
@@ -35,7 +35,7 @@ void int_solver::trace_inf_rows() const {
     unsigned num = m_lar_solver->A_r().column_count();
     for (unsigned v = 0; v < num; v++) {
         if (is_int(v) && !get_value(v).is_int()) {
-            display_var(tout, v);
+            display_column(tout, v);
         }
     }
     
@@ -51,7 +51,56 @@ void int_solver::trace_inf_rows() const {
     }
     tout << "num of int infeasible: " << num << "\n";
 }
+
+int int_solver::find_inf_int_base_column() {
+    if (m_inf_int_set.is_empty())
+        return -1;
+    int j = find_inf_int_boxed_base_column_with_smallest_range();
+    if (j != -1)
+        return j;
+    unsigned k = settings().random_next() % m_inf_int_set.m_index.size();
+    return m_inf_int_set.m_index[k];
+}
+
+int int_solver::find_inf_int_boxed_base_column_with_smallest_range() {
+    int result = -1;
+    mpq range;
+    mpq new_range;
+    mpq small_range_thresold(1024);
+    unsigned n = 0;
+    lar_core_solver & lcs = m_lar_solver->m_mpq_lar_core_solver;
+
+    for (int j : m_inf_int_set.m_index) {
+        lean_assert(is_base(j) && column_is_int_inf(j));
+        if (!is_boxed(j))
+            continue;
+        new_range  = lcs.m_r_upper_bounds()[j].x - lcs.m_r_low_bounds()[j].x;
+        if (new_range > small_range_thresold) 
+            continue;
+        if (result == -1) {
+            result = j;
+            range  = new_range;
+            n      = 1;
+            continue;
+        }
+        if (new_range < range) {
+            n      = 1;
+            result = j;
+            range  = new_range;
+            continue;
+        }
+        if (new_range == range) {
+            n++;
+            if (settings().random_next() % n == 0) {
+                result = j;
+                continue;
+            }
+        }
+    }
+    return result;
     
+}
+
 bool int_solver::check() {
     lean_assert(is_feasible());
     init_inf_int_set();
@@ -70,29 +119,17 @@ bool int_solver::check() {
     */
     m_lar_solver->pivot_fixed_vars_from_basis();
     patch_int_infeasible_columns();
-    fix_non_base_vars();
+    fix_non_base_columns();
     lean_assert(is_feasible());
     TRACE("arith_int_rows", trace_inf_rows(););
 
+    int j = find_inf_int_base_column();
     
-        /*    
-        theory_var int_var = find_infeasible_int_base_var();
-        if (int_var == null_theory_var) {
-            TRACE("arith_int_incomp", tout << "FC_DONE 2...\n"; display(tout););
-            return m_liberal_final_check || !m_changed_assignment ? FC_DONE : FC_CONTINUE;
-        }
+    if (j == -1) {
+        return true;
+    }
         
-#if 0
-        if (find_bounded_infeasible_int_base_var() == null_theory_var) {
-            // TODO: this is too expensive... I should replace it by a procedure
-            // that refine bounds using the current state of the tableau.
-            if (!max_min_infeasible_int_vars())
-                return FC_CONTINUE;
-            if (!gcd_test())
-                return FC_CONTINUE;
-        }
-#endif 
-
+        /*
         m_branch_cut_counter++;
         // TODO: add giveup code
         if (m_branch_cut_counter % m_params.m_arith_branch_cut_ratio == 0) {
@@ -504,12 +541,11 @@ const impq & int_solver::get_value(unsigned j) const {
     return m_lar_solver->m_mpq_lar_core_solver.m_r_x[j];
 }
 
-void int_solver::display_var(std::ostream & out, unsigned j) const {
+void int_solver::display_column(std::ostream & out, unsigned j) const {
     m_lar_solver->m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out);
 }
 
 bool int_solver::inf_int_set_is_correct() const {
-    auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
     for (unsigned j = 0; j < m_lar_solver->A_r().column_count(); j++) {
         if (m_inf_int_set.contains(j) != is_int(j) && (!value_is_int(j)))
             return false;
@@ -536,5 +572,17 @@ void int_solver::update_column_in_inf_set_set(unsigned j) {
     else
         m_inf_int_set.erase(j);
 }
-    
+
+bool int_solver::is_base(unsigned j) const {
+    return m_lar_solver->m_mpq_lar_core_solver.m_r_heading[j] >= 0;
+}
+
+bool int_solver::is_boxed(unsigned j) const {
+    return m_lar_solver->m_mpq_lar_core_solver.m_column_types[j] == column_type::boxed;
+}
+
+lp_settings& int_solver::settings() {
+    return m_lar_solver->settings();
+}
+
 }
