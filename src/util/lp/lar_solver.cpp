@@ -1417,6 +1417,7 @@ bool lar_solver::var_is_int(var_index v) const {
 
 bool lar_solver::column_is_int(unsigned j) const {
     unsigned ext_var = m_columns_to_ext_vars_or_term_indices[j];
+    lean_assert(contains(m_ext_vars_to_columns, ext_var));
     return m_ext_vars_to_columns.find(ext_var)->second.is_integer();
 }
 
@@ -1581,10 +1582,8 @@ void lar_solver::add_basic_var_to_core_fields() {
 		add_new_var_to_core_fields_for_doubles(true);
 }
 
-bool lar_solver::bound_is_integer_if_needed(var_index j, const mpq & right_side) const {
-    auto it = m_ext_vars_to_columns.find(j);
-    lean_assert(it != m_ext_vars_to_columns.end());
-    if (!(it->second.is_integer()))
+bool lar_solver::bound_is_integer_if_needed(unsigned j, const mpq & right_side) const {
+    if (!column_is_int(j))
         return true;
     return right_side.is_int();
 }

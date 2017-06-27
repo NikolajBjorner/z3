@@ -445,6 +445,6 @@ public:
         return m_column_buffer;
     }
     
-    bool bound_is_integer_if_needed(var_index j, const mpq & right_side) const;
+    bool bound_is_integer_if_needed(unsigned j, const mpq & right_side) const;
 };
 }
