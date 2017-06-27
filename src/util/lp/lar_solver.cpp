@@ -1438,6 +1438,7 @@ bool lar_solver::strategy_is_undecided() const {
 }
 
 var_index lar_solver::add_var(unsigned ext_j, bool is_int) {
+    TRACE("add_var", tout << "adding var " << ext_j << (is_int? " int" : " nonint") << std::endl;);
 	var_index i;
 	lean_assert(ext_j < m_terms_start_index);
 
@@ -1581,7 +1582,9 @@ void lar_solver::add_basic_var_to_core_fields() {
 }
 
 bool lar_solver::bound_is_integer_if_needed(var_index j, const mpq & right_side) const {
-    if (!m_ext_vars_to_columns.find(j)->second.is_integer())
+    auto it = m_ext_vars_to_columns.find(j);
+    lean_assert(it != m_ext_vars_to_columns.end());
+    if (!(it->second.is_integer()))
         return true;
     return right_side.is_int();
 }
