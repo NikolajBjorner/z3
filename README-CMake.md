@@ -1,4 +1,4 @@
-    # Z3's CMake build system
+# Z3's CMake build system
 
 [CMake](https://cmake.org/) is a "meta build system" that reads a description
 of the project written in the ``CMakeLists.txt`` files and emits a build
@@ -32,34 +32,6 @@ git clean -fx src
 ```
 
 which will remove the generated source files.
-
-### Bootstrapping
-
-Most of Z3's CMake files do not live in their correct location. Instead those
-files live in the ``contrib/cmake`` folder and a script is provided that will
-copy (or hard link) the files into their correct location.
-
-To copy the files run
-
-```
-python contrib/cmake/bootstrap.py create
-```
-
-in the root of the repository. Once you have done this you can now build Z3 using CMake.
-Make sure you remember to rerun this command if you pull down new code/rebase/change branch so
-that the copied CMake files are up to date.
-
-To remove the copied files run
-
-```
-python contrib/cmake/bootstrap.py remove
-```
-
-Note if you plan to do development on Z3 you should read the developer
-notes on bootstrapping in this document.
-
-What follows is a brief walk through of how to build Z3 using some
-of the more commonly used CMake generators.
 
 ### Unix Makefiles
 
@@ -293,6 +265,7 @@ The following useful options can be passed to CMake whilst configuring.
 * ``ALWAYS_BUILD_DOCS`` - BOOL. If set to ``TRUE`` and ``BUILD_DOCUMENTATION`` is ``TRUE`` then documentation for API bindings will always be built.
     Disabling this is useful for faster incremental builds. The documentation can be manually built by invoking the ``api_docs`` target.
 * ``LINK_TIME_OPTIMIZATION`` - BOOL. If set to ``TRUE`` link time optimization will be enabled.
+* ``API_LOG_SYNC`` - BOOL. If set to ``TRUE`` will enable experimental API log sync feature.
 
 On the command line these can be passed to ``cmake`` using the ``-D`` option. In ``ccmake`` and ``cmake-gui`` these can be set in the user interface.
 
@@ -326,44 +299,6 @@ link is not created when building under Windows.
 ## Developer/packager notes
 
 These notes are help developers and packagers of Z3.
-
-### Boostrapping the CMake build
-
-Z3's CMake system is experimental and not officially supported. Consequently
-Z3's developers have decided that they do not want the CMake files in the
-``src/`` and ``examples/`` folders. Instead the ``contrib/cmake/bootstrap.py``
-script copies or hard links them into the correct locations. For context
-on this decision see https://github.com/Z3Prover/z3/pull/461 .
-
-The ``contrib/cmake/bootstrap.py create`` command just copies over files which makes
-development harder because you have to copy your modifications over to the
-files in ``contrib/cmake`` for your changes to committed to git. If you are on a UNIX like
-platform you can create hard links instead by running
-
-```
-contrib/cmake/boostrap.py create --hard-link
-```
-
-Using hard links means that modifying any of the "copied" files also modifies the
-file under version control. Using hard links also means that the file modification time
-will appear correct (i.e. the hard-linked "copies" have the same file modification time
-as the corresponding file under version control) which means CMake will correctly reconfigure
-when invoked. This is why using symbolic links is not an option because the file modification
-time of a symbolic link is not the same as the file modification of the file being pointed to.
-
-Unfortunately a downside to using hard links (or just plain copies) is that if
-you pull down new code (i.e. ``git pull``) then some of the CMake files under
-version control may change but the corresponding hard-linked "copies" will not.
-
-This mean that (regardless of whether or not you use hard links) every time you
-pull down new code or change branch or do an interactive rebase you must run
-(with or without ``--hard-link``):
-
-```
-contrb/cmake/boostrap.py create
-```
-
-in order to be sure that the copied CMake files are not out of date.
 
 ### Install/Uninstall
 
