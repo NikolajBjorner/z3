@@ -101,7 +101,7 @@ int int_solver::find_inf_int_boxed_base_column_with_smallest_range() {
     
 }
 
-bool int_solver::check() {
+lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
     lean_assert(is_feasible());
     init_inf_int_set();
     lean_assert(inf_int_set_is_correct());
@@ -109,9 +109,9 @@ bool int_solver::check() {
     // final_check_status theory_arith<Ext>::check_int_feasibility()
     // from theory_arith_int.h
 	if (m_lar_solver->model_is_int_feasible())
-		return true;
-    if (!gcd_test())
-        return false;
+		return lia_move::ok;
+    if (!gcd_test(ex))
+        return lia_move::conflict;
     /*
       if (m_params.m_arith_euclidean_solver)
             apply_euclidean_solver();
@@ -124,7 +124,7 @@ bool int_solver::check() {
     TRACE("arith_int_rows", trace_inf_rows(););
     
     if (find_inf_int_base_column() == -1)
-        return true;
+        return lia_move::ok;
         
 
     if ((++m_branch_cut_counter) % settings().m_int_branch_cut_threshold == 0) {
@@ -157,7 +157,7 @@ bool int_solver::check() {
             }*/
     }
     //    return true;
-    return false;
+    return lia_move::give_up;
 }
 
 void int_solver::move_non_base_vars_to_bounds() {
@@ -257,7 +257,7 @@ mpq get_denominators_lcm(iterator_on_row<mpq> &it) {
     return r;
 }
     
-bool int_solver::gcd_test_for_row(static_matrix<mpq, numeric_pair<mpq>> & A, unsigned i) {
+bool int_solver::gcd_test_for_row(static_matrix<mpq, numeric_pair<mpq>> & A, unsigned i, explanation & ex) {
     iterator_on_row<mpq> it(A.m_rows[i]);
     std::cout << "gcd_test_for_row(" << i << ")\n";
     mpq lcm_den = get_denominators_lcm(it);
@@ -306,7 +306,7 @@ bool int_solver::gcd_test_for_row(static_matrix<mpq, numeric_pair<mpq>> & A, uns
         }
         
         if (!(consts / gcds).is_int())
-            fill_explanation_from_fixed_columns(it);
+            fill_explanation_from_fixed_columns(it, ex);
         
         if (least_coeff.is_one() && !least_coeff_is_bounded) {
             SASSERT(gcds.is_one());
@@ -314,31 +314,31 @@ bool int_solver::gcd_test_for_row(static_matrix<mpq, numeric_pair<mpq>> & A, uns
         }
         
         if (least_coeff_is_bounded) {
-            return ext_gcd_test(it, least_coeff, lcm_den, consts);
+            return ext_gcd_test(it, least_coeff, lcm_den, consts, ex);
         }
         return true;
 }
 
-void int_solver::add_to_explanation_from_fixed_or_boxed_column(unsigned j) {
+void int_solver::add_to_explanation_from_fixed_or_boxed_column(unsigned j, explanation & ex) {
     constraint_index lc, uc;
     m_lar_solver->get_bound_constraint_witnesses_for_column(j, lc, uc);
-    m_explanation.push_back(std::make_pair(mpq(1), lc));
-    m_explanation.push_back(std::make_pair(mpq(1), uc));
+    ex.m_explanation.push_back(std::make_pair(mpq(1), lc));
+    ex.m_explanation.push_back(std::make_pair(mpq(1), uc));
 }
-void int_solver::fill_explanation_from_fixed_columns(iterator_on_row<mpq> & it) {
+void int_solver::fill_explanation_from_fixed_columns(iterator_on_row<mpq> & it, explanation & ex) {
     it.reset();
     unsigned j;
     while (it.next(j)) {
         if (!m_lar_solver->column_is_fixed(j))
             continue;
-        add_to_explanation_from_fixed_or_boxed_column(j);
+        add_to_explanation_from_fixed_or_boxed_column(j, ex);
     }
 }
     
-bool int_solver::gcd_test() {
+bool int_solver::gcd_test(explanation & ex) {
 	auto & A = m_lar_solver->A_r(); // getting the matrix
 	for (unsigned i = 0; i < A.row_count(); i++)
-        if (!gcd_test_for_row(A, i)) {
+        if (!gcd_test_for_row(A, i, ex)) {
             std::cout << "false from gcd_test\n" ;
             return false;
         }
@@ -349,13 +349,12 @@ bool int_solver::gcd_test() {
 bool int_solver::ext_gcd_test(iterator_on_row<mpq> & it,
                               mpq const & least_coeff, 
                               mpq const & lcm_den,
-                              mpq const & consts) {
+                              mpq const & consts, explanation& ex) {
 
     std::cout << "calling ext_gcd_test" << std::endl;
     mpq gcds(0);
     mpq l(consts);
     mpq u(consts);
-    m_explanation.clear();
 
     it.reset();
     mpq a;
@@ -381,7 +380,7 @@ bool int_solver::ext_gcd_test(iterator_on_row<mpq> & it,
                 // u += ncoeff * lower_bound(j).get_rational();
                 u.addmul(ncoeff, m_lar_solver->column_low_bound(j).x);
             }
-            add_to_explanation_from_fixed_or_boxed_column(j);
+            add_to_explanation_from_fixed_or_boxed_column(j, ex);
         }
         else if (gcds.is_zero()) {
             gcds = abs_ncoeff; 
@@ -400,7 +399,7 @@ bool int_solver::ext_gcd_test(iterator_on_row<mpq> & it,
     mpq u1 = floor(u/gcds);
         
     if (u1 < l1) {
-        fill_explanation_from_fixed_columns(it);
+        fill_explanation_from_fixed_columns(it, ex);
         return false;
     }
         

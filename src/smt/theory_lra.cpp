@@ -1310,12 +1310,17 @@ namespace smt {
             std::cout << "called check_lia()\n";
             if (m.canceled()) return l_undef;
             lean::int_solver int_solver(m_solver.get());
-            if (int_solver.check()) {
+            lean::lar_term term;
+            lean::mpq k;
+            lean::explanation ex;
+            switch(int_solver.check(term, k, ex)) {
+            case lean::lia_move::ok:
                 return l_true;
-            }
-            else {
+            default:
+                // todo: execute the move!
                 return l_undef;
             }
+            return l_undef;
         }
 
         lbool check_nra() {
