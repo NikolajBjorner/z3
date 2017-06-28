@@ -1307,7 +1307,6 @@ namespace smt {
         }
 
         lbool check_lia() {
-            std::cout << "called check_lia()\n";
             if (m.canceled()) return l_undef;
             lean::int_solver int_solver(m_solver.get());
             lean::lar_term term;
