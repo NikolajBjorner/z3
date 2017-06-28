@@ -14,11 +14,14 @@ struct lp_constraint;
 
 class int_solver {
 public:
+    // fields
     lar_solver *m_lar_solver;
     vector<std::pair<mpq, constraint_index>> m_explanation;
     int_set m_old_values_set;
     vector<impq> m_old_values_data;
     int_set m_inf_int_set;
+    unsigned m_branch_cut_counter;
+    // methods
     int_solver(lar_solver* lp);
     bool check();// main function to check that solution provided by lar_solver is valid for integral values or can be adjusted.
 private:
@@ -77,5 +80,6 @@ private:
     int find_inf_int_base_column();
     int find_inf_int_boxed_base_column_with_smallest_range();
     lp_settings& settings();
+    void move_non_base_vars_to_bounds();
 };
 }

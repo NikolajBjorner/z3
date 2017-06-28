@@ -122,53 +122,70 @@ bool int_solver::check() {
     fix_non_base_columns();
     lean_assert(is_feasible());
     TRACE("arith_int_rows", trace_inf_rows(););
-
-    int j = find_inf_int_base_column();
     
-    if (j == -1) {
+    if (find_inf_int_base_column() == -1)
         return true;
-    }
         
+
+    if ((++m_branch_cut_counter) % settings().m_int_branch_cut_threshold == 0) {
+        move_non_base_vars_to_bounds();
         /*
-        m_branch_cut_counter++;
-        // TODO: add giveup code
-        if (m_branch_cut_counter % m_params.m_arith_branch_cut_ratio == 0) {
-            TRACE("opt_verbose", display(tout););
-            move_non_base_vars_to_bounds();
-            if (!make_feasible()) {
-                TRACE("arith_int", tout << "failed to move variables to bounds.\n";);
-                failed();
-                return FC_CONTINUE;
-            }
-            theory_var int_var = find_infeasible_int_base_var();
-            if (int_var != null_theory_var) {
-                TRACE("arith_int", tout << "v" << int_var << " does not have an integer assignment: " << get_value(int_var) << "\n";);
-                SASSERT(is_base(int_var));
-                row const & r = m_rows[get_var_row(int_var)];
-                if (!mk_gomory_cut(r)) {
-                    // silent failure
-                }
-                return FC_CONTINUE;
-            }
+        if (!make_feasible()) {
+            TRACE("arith_int", tout << "failed to move variables to bounds.\n";);
+            failed();
+            return FC_CONTINUE;
         }
-        else {
-            if (m_params.m_arith_int_eq_branching && branch_infeasible_int_equality()) {
-                return FC_CONTINUE;
+        int int_var = find_inf_int_base_var();
+        if (int_var != null_int) {
+            TRACE("arith_int", tout << "v" << int_var << " does not have an integer assignment: " << get_value(int_var) << "\n";);
+            SASSERT(is_base(int_var));
+            row const & r = m_rows[get_var_row(int_var)];
+            if (!mk_gomory_cut(r)) {
+                // silent failure
             }
-
-            theory_var int_var = find_infeasible_int_base_var();
-            if (int_var != null_theory_var) {
-                TRACE("arith_int", tout << "v" << int_var << " does not have an integer assignment: " << get_value(int_var) << "\n";);
-                // apply branching 
-                branch_infeasible_int_var(int_var);
-                return FC_CONTINUE;
-            }
-        }
-        return m_liberal_final_check || !m_changed_assignment ? FC_DONE : FC_CONTINUE;
-
-     */
+            return FC_CONTINUE;
+            }*/
+    }
+    else {
+        int j = find_inf_int_base_column();
+        /*
+        if (j != -1) {
+            TRACE("arith_int", tout << "v" << j << " does not have an integer assignment: " << get_value(j) << "\n";);
+            // apply branching 
+            branch_infeasible_int_var(int_var);
+            return false;
+            }*/
+    }
+    //    return true;
     return false;
 }
+
+void int_solver::move_non_base_vars_to_bounds() {
+    auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
+    for (unsigned j : lcs.m_r_nbasis) {
+        auto & val = lcs.m_r_x[j];
+        switch (lcs.m_column_types()[j]) {
+        case column_type::boxed:
+            if (val != lcs.m_r_low_bounds()[j] && val != lcs.m_r_upper_bounds()[j])
+                set_value(j, lcs.m_r_low_bounds()[j]);
+            break;
+        case column_type::low_bound:
+            if (val != lcs.m_r_low_bounds()[j])
+                set_value(j, lcs.m_r_low_bounds()[j]);
+            break;
+        case column_type::upper_bound:
+            if (val != lcs.m_r_upper_bounds()[j])
+                set_value(j, lcs.m_r_upper_bounds()[j]);
+            break;
+        default:
+            if (is_int(j) && !val.is_int()) {
+                set_value(j, impq(floor(val)));
+            }
+        }
+    }
+}
+
+
 
 void int_solver::set_value(unsigned j, const impq & new_val) {
     auto & x = m_lar_solver->m_mpq_lar_core_solver.m_r_x[j];
@@ -398,7 +415,9 @@ linear_combination_iterator<mpq> * int_solver::get_column_iterator(unsigned j) {
 }
 
 
-int_solver::int_solver(lar_solver* lar_slv) : m_lar_solver(lar_slv) {
+int_solver::int_solver(lar_solver* lar_slv) :
+    m_lar_solver(lar_slv),
+    m_branch_cut_counter(0) {
     lean_assert(m_old_values_set.size() == 0);
     m_old_values_set.resize(lar_slv->A_r().column_count());
     m_old_values_data.resize(lar_slv->A_r().column_count(), zero_of_type<impq>());    
