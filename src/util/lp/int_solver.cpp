@@ -148,13 +148,13 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
     }
     else {
         int j = find_inf_int_base_column();
-        /*
         if (j != -1) {
-            TRACE("arith_int", tout << "v" << j << " does not have an integer assignment: " << get_value(j) << "\n";);
-            // apply branching 
-            branch_infeasible_int_var(int_var);
-            return false;
-            }*/
+            TRACE("arith_int", tout << "j" << j << " does not have an integer assignment: " << get_value(j) << "\n";);
+            lean_assert(t.is_empty());
+            t.add_to_map(j, mpq(1));
+            k = ceil(get_value(j));
+            return lia_move::branch;
+        }
     }
     //    return true;
     return lia_move::give_up;
@@ -259,7 +259,6 @@ mpq get_denominators_lcm(iterator_on_row<mpq> &it) {
     
 bool int_solver::gcd_test_for_row(static_matrix<mpq, numeric_pair<mpq>> & A, unsigned i, explanation & ex) {
     iterator_on_row<mpq> it(A.m_rows[i]);
-    std::cout << "gcd_test_for_row(" << i << ")\n";
     mpq lcm_den = get_denominators_lcm(it);
     mpq consts(0);
     mpq gcds(0);

@@ -96,5 +96,6 @@ private:
     int find_inf_int_boxed_base_column_with_smallest_range();
     lp_settings& settings();
     void move_non_base_vars_to_bounds();
+    void branch_infeasible_int_var(unsigned);
 };
 }
