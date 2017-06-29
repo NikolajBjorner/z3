@@ -328,6 +328,11 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
         int j = find_inf_int_base_column();
         if (j != -1) {
             TRACE("arith_int", tout << "j" << j << " does not have an integer assignment: " << get_value(j) << "\n";);
+            TRACE("arith_int", tout << "branching v" << v << " = " << get_value(v) << "\n";
+              display_var(tout, v);
+              tout << "k = " << k << ", _k = "<< _k << std::endl;
+              );
+
             lean_assert(t.is_empty());
             t.add_to_map(j, mpq(1));
             k = ceil(get_value(j));
