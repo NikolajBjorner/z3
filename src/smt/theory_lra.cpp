@@ -1217,15 +1217,22 @@ namespace smt {
             app_ref t = mk_term(term, true);
             theory_var v = internalize_def(t);
             app_ref atom(a.mk_ge(t, a.mk_numeral(k, true)), m);
-            bool_var bv = ctx().mk_bool_var(atom);
-            lp::bound_kind bkind = lp::bound_kind::upper_t;
-            lp::bound* result = alloc(lp::bound, bv, v, k, bkind);
-            m_bounds[v].push_back(result);
-            updt_unassigned_bounds(v, +1);
-            m_bounds_trail.push_back(v);
-            m_bool_var2bound.insert(bv, result);
-            mk_bound_axioms(*result);
-            return result;
+            TRACE("arith", tout << atom << "\n";);
+            if (!ctx().b_internalized(atom)) {
+                bool_var bv = ctx().mk_bool_var(atom);
+                lp::bound_kind bkind = lp::bound_kind::upper_t;
+                lp::bound* result = alloc(lp::bound, bv, v, k, bkind);
+                m_bounds[v].push_back(result);
+                updt_unassigned_bounds(v, +1);
+                m_bounds_trail.push_back(v);
+                m_bool_var2bound.insert(bv, result);
+                mk_bound_axioms(*result);
+                return result;
+            }
+            else {
+                bool_var bv = ctx().get_bool_var(atom);
+                return m_bool_var2bound[bv];
+            }
         }
 
         lbool check_lia() {
