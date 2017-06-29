@@ -1211,16 +1211,19 @@ namespace smt {
             return FC_GIVEUP;
         }
 
-        // create a bound atom representing term <= k
+        // create a bound atom representing term >= k
         lp::bound* mk_bound(lean::lar_term const& term, rational const& k) {
             SASSERT(k.is_int());
             app_ref t = mk_term(term, true);
-            theory_var v = internalize_def(t);
             app_ref atom(a.mk_ge(t, a.mk_numeral(k, true)), m);
-            TRACE("arith", tout << atom << "\n";);
+            TRACE("arith", tout << atom << "\n";
+                  m_solver->print_term(term, tout << "bound atom: "); tout << " >= " << k << "\n";
+                  display(tout);
+                  );
             if (!ctx().b_internalized(atom)) {
+                theory_var v = internalize_def(t);
                 bool_var bv = ctx().mk_bool_var(atom);
-                lp::bound_kind bkind = lp::bound_kind::upper_t;
+                lp::bound_kind bkind = lp::bound_kind::lower_t;
                 lp::bound* result = alloc(lp::bound, bv, v, k, bkind);
                 m_bounds[v].push_back(result);
                 updt_unassigned_bounds(v, +1);
@@ -1245,13 +1248,13 @@ namespace smt {
                 return l_true;
             case lean::lia_move::branch: {
                 (void)mk_bound(term, k);
-                // branch on term <= k
+                // branch on term >= k
                 // at this point we have a new unassigned atom that the 
                 // SAT core assigns a value to
                 return l_false;
             }
             case lean::lia_move::cut: {
-                // m_explanation implies term <= k
+                // m_explanation implies term >= k
                 lp::bound* b = mk_bound(term, k);
                 m_eqs.reset();
                 m_core.reset();
@@ -2530,9 +2533,19 @@ namespace smt {
             for (auto & ti : term.m_coeffs) {
                 theory_var w = m_var_index2theory_var[ti.first];
                 expr* o = get_enode(w)->get_owner();
-                args.push_back(a.mk_mul(a.mk_numeral(ti.second, is_int), o));
+                if (ti.second.is_one()) {
+                    args.push_back(o);
+                }
+                else {
+                    args.push_back(a.mk_mul(a.mk_numeral(ti.second, is_int), o));
+                }
             }
-            args.push_back(a.mk_numeral(term.m_v, is_int));
+            if (!term.m_v.is_zero()) {
+                args.push_back(a.mk_numeral(term.m_v, is_int));
+            }
+            if (args.size() == 1) {
+                return app_ref(to_app(args[0].get()), m);
+            }
             return app_ref(a.mk_add(args.size(), args.c_ptr()), m);
         }
 

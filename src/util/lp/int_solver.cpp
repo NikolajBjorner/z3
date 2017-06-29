@@ -335,7 +335,7 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
 
             lean_assert(t.is_empty());
             t.add_to_map(j, mpq(1));
-            k = ceil(get_value(j));
+            k = floor(get_value(j));
             return lia_move::branch;
         }
     }
