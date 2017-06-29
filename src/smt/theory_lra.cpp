@@ -1230,7 +1230,7 @@ namespace smt {
                   display(tout);
                   );
             ctx().internalize(atom, true);
-            ctx().mark_as_relevant(atom);
+            ctx().mark_as_relevant(atom.get());
             return atom;
         }
 
