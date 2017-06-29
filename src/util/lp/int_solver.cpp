@@ -328,9 +328,14 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
         int j = find_inf_int_base_column();
         if (j != -1) {
             TRACE("arith_int", tout << "j" << j << " does not have an integer assignment: " << get_value(j) << "\n";);
+
             lean_assert(t.is_empty());
             t.add_to_map(j, mpq(1));
-            k = ceil(get_value(j));
+            k = floor(get_value(j));
+            TRACE("arith_int", tout << "branching v" << j << " = " << get_value(j) << "\n";
+              display_column(tout, j);
+              tout << "k = " << k << std::endl;
+              );
             return lia_move::branch;
         }
     }
