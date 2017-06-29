@@ -1211,33 +1211,52 @@ namespace smt {
             return FC_GIVEUP;
         }
 
-        // create a bound atom representing term >= k
+        // create a bound atom representing term <= k
         lp::bound* mk_bound(lean::lar_term const& term, rational const& k) {
-            NOT_IMPLEMENTED_YET();
-            lp::bound_kind bkind = lp::bound_kind::lower_t;
-            bool_var bv = null_bool_var; 
-            theory_var v = null_theory_var;
+            SASSERT(k.is_int());
+            app_ref t = mk_term(term, true);
+            theory_var v = internalize_def(t);
+            app_ref atom(a.mk_ge(t, a.mk_numeral(k, true)), m);
+            bool_var bv = ctx().mk_bool_var(atom);
+            lp::bound_kind bkind = lp::bound_kind::upper_t;
             lp::bound* result = alloc(lp::bound, bv, v, k, bkind);
+            m_bounds[v].push_back(result);
+            updt_unassigned_bounds(v, +1);
+            m_bounds_trail.push_back(v);
+            m_bool_var2bound.insert(bv, result);
+            mk_bound_axioms(*result);
             return result;
         }
 
         lbool check_lia() {
-            std::cout << "called check_lia()\n";
+            if (m.canceled()) return l_undef;
             lean::lar_term term;
             lean::mpq k;
             lean::explanation ex; // TBD, this should be streamlined accross different explanations
             switch(m_lia->check(term, k, ex)) {
             case lean::lia_move::ok:
                 return l_true;
-            case lean::lia_move::branch:
+            case lean::lia_move::branch: {
+                (void)mk_bound(term, k);
                 // branch on term <= k
-                NOT_IMPLEMENTED_YET();
+                // at this point we have a new unassigned atom that the 
+                // SAT core assigns a value to
                 return l_false;
-            case lean::lia_move::cut:
+            }
+            case lean::lia_move::cut: {
                 // m_explanation implies term <= k
-                m_explanation = ex.m_explanation;
-                NOT_IMPLEMENTED_YET();
+                lp::bound* b = mk_bound(term, k);
+                m_eqs.reset();
+                m_core.reset();
+                m_params.reset();
+                for (auto const& ev : ex.m_explanation) {
+                    if (!ev.first.is_zero()) { 
+                        set_evidence(ev.second);
+                    }
+                }
+                assign(literal(b->get_bv(), false));
                 return l_false;
+            }
             case lean::lia_move::conflict:
                 // ex contains unsat core
                 m_explanation = ex.m_explanation;
@@ -2499,19 +2518,22 @@ namespace smt {
             return internalize_def(term);
         }
 
+        app_ref mk_term(lean::lar_term const& term, bool is_int) {     
+            expr_ref_vector args(m);
+            for (auto & ti : term.m_coeffs) {
+                theory_var w = m_var_index2theory_var[ti.first];
+                expr* o = get_enode(w)->get_owner();
+                args.push_back(a.mk_mul(a.mk_numeral(ti.second, is_int), o));
+            }
+            args.push_back(a.mk_numeral(term.m_v, is_int));
+            return app_ref(a.mk_add(args.size(), args.c_ptr()), m);
+        }
+
         app_ref mk_obj(theory_var v) {
             lean::var_index vi = m_theory_var2var_index[v];
             bool is_int = a.is_int(get_enode(v)->get_owner());
-            if (m_solver->is_term(vi)) {                
-                expr_ref_vector args(m);
-                const lean::lar_term& term = m_solver->get_term(vi);
-                for (auto & ti : term.m_coeffs) {
-                    theory_var w = m_var_index2theory_var[ti.first];
-                    expr* o = get_enode(w)->get_owner();
-                    args.push_back(a.mk_mul(a.mk_numeral(ti.second, is_int), o));
-                }
-                args.push_back(a.mk_numeral(term.m_v, is_int));
-                return app_ref(a.mk_add(args.size(), args.c_ptr()), m);
+            if (m_solver->is_term(vi)) {           
+                return mk_term(m_solver->get_term(vi), is_int);
             }
             else {
                 theory_var w = m_var_index2theory_var[vi];
