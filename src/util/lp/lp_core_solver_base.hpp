@@ -83,8 +83,8 @@ pivot_for_tableau_on_basis() {
 // i is the pivot row, and j is the pivot column
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 pivot_to_reduced_costs_tableau(unsigned i, unsigned j) {
-	if (j >= m_d.size())
-		return;
+    if (j >= m_d.size())
+        return;
     T &a = m_d[j];
     if (is_zero(a))
         return;
@@ -925,6 +925,8 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::transpose_row
 }
 // j is the new basic column, j_basic - the leaving column
 template <typename T, typename X> bool lp_core_solver_base<T, X>::pivot_column_general(unsigned j, unsigned j_basic, indexed_vector<T> & w)  {
+    lean_assert(m_basis_heading[j] < 0);
+    lean_assert(m_basis_heading[j_basic] >= 0);
     unsigned row_index = m_basis_heading[j_basic];
     change_basis(j, j_basic);
     if (m_settings.m_simplex_strategy == simplex_strategy_enum::lu) {
@@ -940,15 +942,17 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::pivot_column_g
             return false;
         }
     } else { // the tableau case
-        pivot_column_tableau(j, row_index);
+       return pivot_column_tableau(j, row_index);
     }
     return true;
 }
+
 template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_vars_from_basis() {
     // run over basis and non-basis at the same time
     indexed_vector<T> w(m_basis.size()); // the buffer
     unsigned i = 0; // points to basis
     unsigned j = 0; // points to nonbasis
+    
     for (; i < m_basis.size() && j < m_nbasis.size(); i++) {
         unsigned ii = m_basis[i];
         unsigned jj;
@@ -964,7 +968,8 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_v
                 break;
             j++;
             if (!pivot_column_general(jj, ii, w))
-                break;
+                return; // total failure
+            break;
         } 
     }
 }
