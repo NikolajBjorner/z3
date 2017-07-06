@@ -1220,17 +1220,17 @@ namespace smt {
             return FC_GIVEUP;
         }
 
-        // create a bound atom representing term >= k
+        // create a bound atom representing term <= k
         app_ref mk_bound(lean::lar_term const& term, rational const& k) {
             SASSERT(k.is_int());
             app_ref t = mk_term(term, true);
-            app_ref atom(a.mk_ge(t, a.mk_numeral(k, true)), m);
+            app_ref atom(a.mk_le(t, a.mk_numeral(k, true)), m);
             TRACE("arith", tout << atom << "\n";
-                  m_solver->print_term(term, tout << "bound atom: "); tout << " >= " << k << "\n";
+                  m_solver->print_term(term, tout << "bound atom: "); tout << " <= " << k << "\n";
                   display(tout);
                   );
             ctx().internalize(atom, true);
-            ctx().mark_as_relevant(atom);
+            ctx().mark_as_relevant(atom.get());
             return atom;
         }
 
@@ -1244,13 +1244,13 @@ namespace smt {
                 return l_true;
             case lean::lia_move::branch: {
                 (void)mk_bound(term, k);
-                // branch on term >= k
+                // branch on term <= k
                 // at this point we have a new unassigned atom that the 
                 // SAT core assigns a value to
                 return l_false;
             }
             case lean::lia_move::cut: {
-                // m_explanation implies term >= k
+                // m_explanation implies term <= k
                 app_ref b = mk_bound(term, k);
                 m_eqs.reset();
                 m_core.reset();
