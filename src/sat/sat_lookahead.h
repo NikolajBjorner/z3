@@ -89,7 +89,7 @@ namespace sat {
                 m_min_cutoff = 30;
                 m_preselect = false;
                 m_level_cand = 600;
-                m_delta_rho = (double)0.99995;
+                m_delta_rho = (double)0.25;
                 m_dl_max_iterations = 2;
                 m_tc1_limit = 10000000;
                 m_reward_type = ternary_reward;
@@ -147,6 +147,7 @@ namespace sat {
 
         config                 m_config;
         double                 m_delta_trigger; 
+        double                 m_delta_decrease;
 
         drat                   m_drat;
         literal_vector         m_assumptions;
@@ -164,8 +165,11 @@ namespace sat {
 
         vector<unsigned_vector> m_nary;           // lit |-> vector of clause_id
         unsigned_vector         m_nary_count;     // lit |-> number of valid clause_id in m_clauses2[lit]
+        unsigned_vector         m_nary_len;       // the current length of each clause
+        unsigned_vector         m_nary_first_sat; // the first literal satisfied in each clause
+        unsigned_vector         m_nary2lit_idx;   // maps the clause index to the starting index in m_nary_literals
         unsigned_vector         m_nary_literals;  // the actual literals, clauses start at offset clause_id, 
-                                                  // the first entry is the current length, clauses are separated by a null_literal
+                                                  // clauses are separated by a null_literal
 
         unsigned               m_num_tc1;
         unsigned_vector        m_num_tc1_lim;
@@ -434,6 +438,7 @@ namespace sat {
         void pop();
         bool push_lookahead2(literal lit, unsigned level);
         unsigned push_lookahead1(literal lit, unsigned level);
+        void lookahead_backtrack();
         void pop_lookahead1(literal lit, unsigned num_units);
         double mix_diff(double l, double r) const;
         clause const& get_clause(watch_list::iterator it) const;

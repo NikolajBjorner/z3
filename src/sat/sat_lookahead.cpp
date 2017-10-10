@@ -323,20 +323,14 @@ namespace sat {
 
     bool lookahead::is_unsat() const {
         bool all_false = true;
-        bool first = true;
         // check if there is a clause whose literals are false.
         // every clause is terminated by a null-literal.
         for (unsigned l_idx : m_nary_literals) {
             literal l = to_literal(l_idx);
-            if (first) {
-                // skip the first entry, the length indicator.
-                first = false;
-            }
-            else if (l == null_literal) {
+            if (l == null_literal) {
                 // when reaching the end of a clause check if all entries are false
                 if (all_false) return true;
                 all_false = true;
-                first = true;
             }
             else {
                 all_false &= is_false(l);
@@ -377,19 +371,13 @@ namespace sat {
             }
         }
         bool no_true = true;
-        bool first = true;
         // check if there is a clause whose literals are false.
         // every clause is terminated by a null-literal.
         for (unsigned l_idx : m_nary_literals) {
             literal l = to_literal(l_idx);
-            if (first) {
-                // skip the first entry, the length indicator.
-                first = false;
-            }
-            else if (l == null_literal) {
+            if (l == null_literal) {
                 if (no_true) return false;
                 no_true = true;
-                first = true;
             }
             else {
                 no_true &= !is_true(l);
@@ -473,14 +461,14 @@ namespace sat {
         for (unsigned idx : m_nary[(~l).index()]) {
             if (sz-- == 0) break;
             literal lit;
-            unsigned j = idx;
+            unsigned j = m_nary2lit_idx[idx];
             double to_add = 0;
-            while ((lit = to_literal(m_nary_literals[++j])) != null_literal) {
+            while ((lit = to_literal(m_nary_literals[j++])) != null_literal) {
                 if (!is_fixed(lit) && lit != ~l) {
                     to_add += literal_occs(lit);
                 }
             }
-            unsigned len = m_nary_literals[idx];
+            unsigned len = m_nary_len[idx];
             sum += pow(0.5, len) * to_add / len;            
         }
         return sum;
@@ -501,9 +489,9 @@ namespace sat {
         }
         sum += 0.25 * m_ternary_count[(~l).index()];
         unsigned sz = m_nary_count[(~l).index()];
-        for (unsigned cls_idx : m_nary[(~l).index()]) {
+        for (unsigned idx : m_nary[(~l).index()]) {
             if (sz-- == 0) break;
-            sum += pow(0.5, m_nary_literals[cls_idx]);
+            sum += pow(0.5, m_nary_len[idx]);
         }
         return sum;
     }
@@ -914,6 +902,7 @@ namespace sat {
 
     void lookahead::init() {
         m_delta_trigger = 0.0;
+        m_delta_decrease = 0.0;
         m_config.m_dl_success = 0.8;
         m_inconsistent = false;
         m_qhead = 0;
@@ -1019,6 +1008,9 @@ namespace sat {
             set_undef(l);
             TRACE("sat", tout << "inserting free var v" << l.var() << "\n";);
             m_freevars.insert(l.var());
+            for (unsigned idx : m_nary[(~l).index()]) {
+                ++m_nary_len[idx];
+            }
         }
             
         m_num_tc1 = m_num_tc1_lim.back();
@@ -1051,6 +1043,7 @@ namespace sat {
         scoped_level _sl(*this, level);
         SASSERT(m_search_mode == lookahead_mode::lookahead1);
         m_search_mode = lookahead_mode::lookahead2;
+        lookahead_backtrack();
         assign(lit);
         propagate();
         bool unsat = inconsistent();
@@ -1064,10 +1057,32 @@ namespace sat {
         SASSERT(m_search_mode == lookahead_mode::searching);
         m_search_mode = lookahead_mode::lookahead1;
         scoped_level _sl(*this, level);
+        lookahead_backtrack();
         unsigned old_sz = m_trail.size();
         assign(lit);
         propagate();
         return m_trail.size() - old_sz;
+    }
+
+    void lookahead::lookahead_backtrack() {
+        unsigned old_sz = m_trail_lim.back();
+        unsigned j = m_trail.size();
+        while (j > old_sz) {
+            literal l = m_trail[j - 1];
+            if (is_fixed(l)) {
+                break;
+            }
+            else {
+                --j;
+                //SASSERT(is_undef(l));
+                set_undef(l);
+                for (unsigned idx : m_nary[(~l).index()]) {
+                    ++m_nary_len[idx];
+                }
+            }
+        }
+        m_trail.shrink(j);
+        m_qhead = std::min(m_qhead, j);
     }
 
     void lookahead::pop_lookahead1(literal lit, unsigned num_units) {
@@ -1284,17 +1299,20 @@ namespace sat {
     // new n-ary clause managment
 
     void lookahead::add_clause(clause const& c) {
-        unsigned sz = c.size();        
+        unsigned sz = c.size();
         SASSERT(sz > 3);
-        unsigned idx = m_nary_literals.size();
-        m_nary_literals.push_back(sz);
+        unsigned cl_idx = m_nary2lit_idx.size();
+        unsigned lit_idx = m_nary_literals.size();
+        m_nary2lit_idx.push_back(lit_idx);
+        m_nary_len.push_back(sz);
         for (literal l : c) {
             m_nary_literals.push_back(l.index());
             m_nary_count[l.index()]++;
-            m_nary[l.index()].push_back(idx);
+            m_nary[l.index()].push_back(cl_idx);
             SASSERT(m_nary_count[l.index()] == m_nary[l.index()].size());
         }
-        m_nary_literals.push_back(null_literal.index());        
+        m_nary_literals.push_back(null_literal.index());
+        m_nary_first_sat.push_back(m_nary_literals[lit_idx]); // first lit is undef; sat checked using is_true
     }
 
 
@@ -1306,16 +1324,16 @@ namespace sat {
 
         for (unsigned idx : m_nary[(~l).index()]) {
             if (sz-- == 0) break;
-            unsigned len = --m_nary_literals[idx];
+            unsigned len = m_nary_len[idx];
             if (m_inconsistent) continue;
             if (len <= 1) continue; // already processed
             // find the two unassigned literals, if any
             if (len == 2) {
                 literal l1 = null_literal;
                 literal l2 = null_literal;
-                unsigned j = idx;
+                unsigned j = m_nary2lit_idx[idx];
                 bool found_true = false;
-                while ((lit = to_literal(m_nary_literals[++j])) != null_literal) {
+                while ((lit = to_literal(m_nary_literals[j++])) != null_literal) {
                     if (!is_fixed(lit)) {
                         if (l1 == null_literal) {
                             l1 = lit;
@@ -1368,14 +1386,28 @@ namespace sat {
         SASSERT(m_search_mode == lookahead_mode::lookahead1 ||
                 m_search_mode == lookahead_mode::lookahead2);
         
-        for (unsigned idx : m_nary[(~l).index()]) {
+        for (unsigned cl_idx : m_nary[(~l).index()]) {
             if (sz-- == 0) break;
+            if (is_true(to_literal(m_nary_first_sat[cl_idx]))) continue; // skip, clause is satisfied
+            unsigned lit_idx = m_nary2lit_idx[cl_idx];
+            unsigned nonfixed = m_nary_len[cl_idx];
+            if (nonfixed == 0) {
+                set_conflict();
+                return;
+            }
+            else if (nonfixed == 1) {
+                unsigned j = lit_idx;
+                while (is_fixed(lit = to_literal(m_nary_literals[j++])));
+                SASSERT(lit != null_literal);
+                propagated(lit);
+            }
+            /*unsigned lit_idx = m_nary2lit_idx[cl_idx];
             literal l1 = null_literal;
             literal l2 = null_literal;
-            unsigned j = idx;
+            unsigned j = lit_idx;
             bool found_true = false;
             unsigned nonfixed = 0;
-            while ((lit = to_literal(m_nary_literals[++j])) != null_literal) {
+            while ((lit = to_literal(m_nary_literals[j++])) != null_literal) {
                 if (!is_fixed(lit)) {
                     ++nonfixed;
                     if (l1 == null_literal) {
@@ -1399,8 +1431,8 @@ namespace sat {
             }
             else if (l2 == null_literal) {
                 propagated(l1);
-            }
-            else if (m_search_mode == lookahead_mode::lookahead2) {
+            }*/
+            else  if (m_search_mode == lookahead_mode::lookahead2) {
                 continue;
             }
             else {
@@ -1408,9 +1440,9 @@ namespace sat {
                 SASSERT(m_search_mode == lookahead_mode::lookahead1);
                 switch (m_config.m_reward_type) {
                 case heule_schur_reward: {
-                    j = idx;
+                    unsigned j = lit_idx;
                     double to_add = 0;
-                    while ((lit = to_literal(m_nary_literals[++j])) != null_literal) {
+                    while ((lit = to_literal(m_nary_literals[j++])) != null_literal) {
                         if (!is_fixed(lit)) {
                             to_add += literal_occs(lit);
                         }
@@ -1426,6 +1458,21 @@ namespace sat {
                     break;
                 case ternary_reward:
                     if (nonfixed == 2) {
+                        unsigned j = lit_idx;
+                        literal l1 = null_literal;
+                        literal l2 = null_literal;
+                        while ((lit = to_literal(m_nary_literals[j++])) != null_literal && l2 == null_literal) {
+                            if (!is_fixed(lit)) {
+                                if (l1 == null_literal) {
+                                    l1 = lit;
+                                }
+                                else {
+                                    SASSERT(l2 != null_literal);
+                                    l2 = lit;
+                                }
+                            }
+                        }
+                        SASSERT(l1 != null_literal && l2 != null_literal);
                         m_lookahead_reward += (*m_heur)[l1.index()] * (*m_heur)[l2.index()];
                     }
                     else {
@@ -1441,9 +1488,9 @@ namespace sat {
 
 
     void lookahead::remove_clause_at(literal l, unsigned clause_idx) {
-        unsigned j = clause_idx;
+        unsigned j = m_nary2lit_idx[clause_idx];
         literal lit;
-        while ((lit = to_literal(m_nary_literals[++j])) != null_literal) {
+        while ((lit = to_literal(m_nary_literals[j++])) != null_literal) {
             if (lit != l) {
                 remove_clause(lit, clause_idx);
             }
@@ -1466,23 +1513,16 @@ namespace sat {
     void lookahead::restore_clauses(literal l) {
         SASSERT(m_search_mode == lookahead_mode::searching);
 
-        // increase the length of clauses where l is negative
-        unsigned sz = m_nary_count[(~l).index()];
-        for (unsigned idx : m_nary[(~l).index()]) {
-            if (sz-- == 0) break;
-            ++m_nary_literals[idx]; 
-        }
-
         // add idx back to clause list where l is positive
         // add them back in the same order as they were inserted
         // in this way we can check that the clauses are the same.
-        sz = m_nary_count[l.index()];
+        unsigned sz = m_nary_count[l.index()];
         unsigned_vector const& pclauses = m_nary[l.index()];
         for (unsigned i = sz; i > 0; ) {
             --i;
-            unsigned j = pclauses[i];
+            unsigned j = m_nary2lit_idx[pclauses[i]];
             literal lit;
-            while ((lit = to_literal(m_nary_literals[++j])) != null_literal) {
+            while ((lit = to_literal(m_nary_literals[j++])) != null_literal) {
                 if (lit != l) {
                     // SASSERT(m_nary[lit.index()] == pclauses[i]);
                     m_nary_count[lit.index()]++;
@@ -1567,7 +1607,6 @@ namespace sat {
     // FIXME: counts occurences of ~l; misleading
     double lookahead::literal_occs(literal l) {
         double result = m_binary[l.index()].size();
-        //unsigned_vector const& nclauses = m_nary[(~l).index()];
         result += literal_big_occs(l);
         return result;
     }
@@ -1608,6 +1647,7 @@ namespace sat {
     void lookahead::compute_lookahead_reward() {
         init_lookahead_reward();
         TRACE("sat", display_lookahead(tout); );
+        m_delta_decrease = pow(m_config.m_delta_rho, 1.0 / (double)m_lookahead.size());
         unsigned base = 2;
         bool change = true;
         literal last_changed = null_literal;
@@ -1617,6 +1657,7 @@ namespace sat {
                 checkpoint();
                 literal lit = m_lookahead[i].m_lit;
                 if (lit == last_changed) {
+                    SASSERT(change == false);
                     break;
                 }
                 if (is_fixed_at(lit, c_fixed_truth)) continue;
@@ -1630,11 +1671,10 @@ namespace sat {
                 TRACE("sat", tout << "lookahead: " << lit << " @ " << m_lookahead[i].m_offset << "\n";);
                 unsigned old_trail_sz = m_trail.size();
                 reset_lookahead_reward(lit);
-                push_lookahead1(lit, level);
+                unsigned num_units = push_lookahead1(lit, level);
                 do_double(lit, base);
-                bool unsat = inconsistent();           
-                unsigned num_units = m_trail.size() - old_trail_sz;
-                pop_lookahead1(lit, num_units); 
+                bool unsat = inconsistent();
+                pop_lookahead1(lit, num_units);
                 if (unsat) {
                     TRACE("sat", tout << "backtracking and settting " << ~lit << "\n";);
                     reset_lookahead_reward();
@@ -1671,7 +1711,11 @@ namespace sat {
         TRACE("sat", tout << "reset_lookahead_reward: " << m_qhead << "\n";);
         unsigned old_sz = m_trail_lim.back();
         for (unsigned i = old_sz; i < m_trail.size(); ++i) {
-            set_undef(m_trail[i]);
+            literal l = m_trail[i];
+            set_undef(l);
+            for (unsigned idx : m_nary[(~l).index()]) {
+                ++m_nary_len[idx];
+            }
         }
         m_trail.shrink(old_sz);            
         m_trail_lim.pop_back();
@@ -1811,7 +1855,8 @@ namespace sat {
                 }
             }
             else {
-                m_delta_trigger *= m_config.m_delta_rho;
+                SASSERT(m_delta_decrease > 0.0);
+                m_delta_trigger *= m_delta_decrease;
             }
         }
     }
@@ -1823,6 +1868,7 @@ namespace sat {
         unsigned dl_truth = base + m_lookahead.size() * m_config.m_dl_max_iterations;
         scoped_level _sl(*this, dl_truth);
         IF_VERBOSE(2, verbose_stream() << "double: " << l << " depth: " << m_trail_lim.size() << "\n";);
+        lookahead_backtrack();
         init_lookahead_reward();
         assign(l);
         propagate();
@@ -1877,6 +1923,14 @@ namespace sat {
             TRACE("sat", tout << "assign: " << l << " @ " << m_level << " " << m_trail_lim.size() << " " << m_search_mode << "\n";);
             set_true(l);
             m_trail.push_back(l);
+            for (unsigned idx : m_nary[l.index()]) {
+                if (!is_true(to_literal(m_nary_first_sat[idx]))) {
+                    m_nary_first_sat[idx] = l.index();
+                }
+            }
+            for (unsigned idx : m_nary[(~l).index()]) {
+                --m_nary_len[idx];
+            }
             if (m_search_mode == lookahead_mode::searching) {
                 m_stats.m_propagations++;
                 TRACE("sat", tout << "removing free var v" << l.var() << "\n";);
@@ -2069,8 +2123,6 @@ namespace sat {
     }
 
     std::ostream& lookahead::display_clauses(std::ostream& out) const {
-        bool first = true;
-
         for (unsigned idx = 0; idx < m_ternary.size(); ++idx) {
             literal lit = to_literal(idx);
             unsigned sz = m_ternary_count[idx];
@@ -2084,13 +2136,7 @@ namespace sat {
 
         for (unsigned l_idx : m_nary_literals) {
             literal l = to_literal(l_idx);
-            if (first) {
-                // the first entry is a length indicator of non-false literals.
-                out << l_idx << ": ";
-                first = false;
-            }
-            else if (l == null_literal) {
-                first = true;
+            if (l == null_literal) {
                 out << "\n";
             }
             else {
