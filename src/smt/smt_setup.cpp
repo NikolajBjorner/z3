@@ -35,6 +35,7 @@ Revision History:
 #include "smt/theory_pb.h"
 #include "smt/theory_fpa.h"
 #include "smt/theory_str.h"
+#include "ast/recfun_decl_plugin.h" // TODO: instead, theory_recfuns
 
 namespace smt {
 
