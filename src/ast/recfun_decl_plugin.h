@@ -94,14 +94,28 @@ namespace recfun {
 
         // compute cases for a function, given its RHS (possibly containing `ite`).
         void compute_cases(var * vars, unsigned n_vars, expr* rhs);
+        void add_case(std::string & name, expr* rhs);
 
         bool contains_ite(expr* e); // expression contains a test?
     public:
         vars const & get_vars() const { return m_vars; }
         cases const & get_cases() const { return m_cases; }
+        
+        bool is_fun_macro() const {
+            SASSERT(m_kind == OP_FUN_DEFINED || m_kind == OP_FUN_MACRO);
+            bool r = (m_kind==OP_FUN_MACRO);
+            SASSERT(!r||m_cases.size()==1);
+            return r;
+        }
+        bool is_fun_defined() const { return !is_fun_macro(); }
+
+        expr * get_macro_rhs() const {
+            SASSERT(m_kind == OP_FUN_MACRO);
+            return get_cases()[0].rhs();
+        }
     };
 
-    // TODO: decl_plugin?
+    // TODO: decl_plugin
     
     // Varus utils for recursive functions
     class util {
