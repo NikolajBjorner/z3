@@ -17,7 +17,6 @@ Revision History:
 
 #include <sstream>
 #include "ast/expr_functors.h"
-#include "ast/rewriter/th_rewriter.h"
 #include "ast/expr_substitution.h"
 #include "ast/recfun_decl_plugin.h"
 
@@ -193,12 +192,12 @@ namespace recfun {
     }
 
     // substitute `subst` in `e`
-    expr * replace_subst(ast_manager & m, expr_substitution & subst, expr * e) {
-        th_rewriter rw(m);
-        rw.set_substitution(&subst);
+    expr * replace_subst(th_rewriter & th_rw, ast_manager & m, expr_substitution & subst, expr * e) {
+        th_rw.reset();
+        th_rw.set_substitution(&subst);
         expr_ref res(m);
         proof_ref pr(m);
-        rw(e, res, pr);
+        th_rw(e, res, pr);
         return res.get();
     }
 
@@ -208,7 +207,7 @@ namespace recfun {
     }
     
     // Compute a set of cases, given the RHS
-    void def::compute_cases(var * vars, unsigned n_vars, expr* rhs) {
+    void def::compute_cases(th_rewriter & th_rw, var * vars, unsigned n_vars, expr* rhs0) {
         std::string name;
         name.append("case_");
         name.append(m_name.bare_str());
@@ -216,6 +215,13 @@ namespace recfun {
 
         for (unsigned i=0; i<n_vars; ++i) m_vars.push_back(&vars[i]);
 
+        // simplify `rhs`
+        expr_ref simplified_rhs(m());
+        expr* rhs;
+        th_rw.reset();
+        th_rw(rhs0, simplified_rhs);
+        rhs = simplified_rhs.get();
+        
         if (n_vars == 0 || !contains_ite(rhs)) {
             // constant function or trivial control flow, only one (dummy) case
             m_kind = OP_FUN_MACRO;
@@ -242,7 +248,7 @@ namespace recfun {
 
             // yield term `subst(rhs)` and make it into a case
             {
-                expr* case_rhs = replace_subst(m(), st.m_subst, rhs);
+                expr* case_rhs = replace_subst(th_rw, m(), st.m_subst, rhs);
                 unsigned old_name_len = name.size();
                 {   // TODO: optimize? this does many copies
                     std::ostringstream sout;
@@ -270,7 +276,7 @@ namespace recfun {
      * Main manager for defined functions
      */
 
-    util::util(ast_manager & m) : m_manager(m), m_family_id() {
+    util::util(ast_manager & m) : m_manager(m), m_family_id(), m_th_rw(m) {
         // TODO: decl plugin, to obtain family_id
     }
 

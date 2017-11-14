@@ -18,6 +18,7 @@ Revision History:
 #pragma once
 
 #include "ast/ast.h"
+#include "ast/rewriter/th_rewriter.h"
 
 namespace recfun {
     class decl; //<! declaration of a (recursive) function, along with its definition
@@ -93,7 +94,7 @@ namespace recfun {
         def(ast_manager &m, symbol s, sort* args, unsigned n_args, sort* ret);
 
         // compute cases for a function, given its RHS (possibly containing `ite`).
-        void compute_cases(var * vars, unsigned n_vars, expr* rhs);
+        void compute_cases(th_rewriter & th_rw, var * vars, unsigned n_vars, expr* rhs);
         void add_case(std::string & name, expr* rhs);
 
         bool contains_ite(expr* e); // expression contains a test?
@@ -121,6 +122,7 @@ namespace recfun {
     class util {
         ast_manager &           m_manager;
         family_id               m_family_id;
+        th_rewriter             m_th_rw;
         //mutable decl::plugin*   m_plugin;
 
         ast_manager & m() { return m_manager; }
