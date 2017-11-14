@@ -21,7 +21,6 @@ Revision History:
 #include "ast/rewriter/th_rewriter.h"
 
 namespace recfun {
-    class decl; //<! declaration of a (recursive) function, along with its definition
     class case_def; //<! one possible control path of a function
     class case_pred; //<! a predicate guarding a given control flow path of a function
     class util; //<! util for other modules
@@ -91,7 +90,7 @@ namespace recfun {
         symbol const & name() const { return m_name; }
         sort_ref_vector const & sort_args() const { return m_arg_sorts; }
         sort_ref const & sort_ret() const { return m_ret_sort; }
-        def(ast_manager &m, symbol s, sort* args, unsigned n_args, sort* ret);
+        def(ast_manager &m, symbol const & s, sort * args, unsigned n_args, sort* ret);
 
         // compute cases for a function, given its RHS (possibly containing `ite`).
         void compute_cases(th_rewriter & th_rw, var * vars, unsigned n_vars, expr* rhs);
@@ -116,14 +115,58 @@ namespace recfun {
         }
     };
 
-    // TODO: decl_plugin
-    
+    class util;
+
+    namespace decl {
+        class plugin : public decl_plugin {
+            mutable scoped_ptr<util> m_util;
+            map<symbol, def*, symbol_hash_proc, symbol_eq_proc> m_defs; 
+            svector<symbol>          m_def_block;
+            unsigned                 m_class_id;
+            util & u() const; // build or return util
+
+            ast_manager & m() { return *m_manager; }
+            virtual void inherit(decl_plugin* other_p, ast_translation& tr);
+        public:
+            plugin();
+            virtual ~plugin() override;
+            virtual void finalize() override;
+
+            virtual bool is_fully_interp(sort * s) const override { return false; } // might depend on unin sorts
+        
+            virtual decl_plugin * mk_fresh() override { return alloc(plugin); }
+        
+            virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override { UNREACHABLE(); }
+        
+            virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
+                                             unsigned arity, sort * const * domain, sort * range) override;
+                
+            // to start a block of mutually recursive functions
+            void begin_def_block() { m_class_id++; m_def_block.reset(); }
+            void end_def_block();
+
+            def* mk_decl(symbol const& name, unsigned n, sort * params, sort * range);
+
+            def* mk_def(symbol const& name, unsigned n, sort * params, sort * range, var * vars, unsigned n_vars, expr * rhs);
+
+            def const& get_def(const symbol& s) const { return *(m_defs[s]); }
+            def& get_def(symbol const& s) { return *(m_defs[s]); }
+            bool is_declared(symbol const& s) const { return m_defs.contains(s); }
+        private:
+            func_decl * mk_fun_pred_decl(unsigned num_parameters, parameter const * parameters, 
+                                                 unsigned arity, sort * const * domain, sort * range);
+            func_decl * mk_fun_defined_decl(decl_kind k,
+                                                    unsigned num_parameters, parameter const * parameters, 
+                                                    unsigned arity, sort * const * domain, sort * range);
+        };
+    }
+
     // Varus utils for recursive functions
     class util {
+        friend class decl::plugin;
         ast_manager &           m_manager;
         family_id               m_family_id;
         th_rewriter             m_th_rw;
-        //mutable decl::plugin*   m_plugin;
 
         ast_manager & m() { return m_manager; }
     public:
@@ -132,8 +175,10 @@ namespace recfun {
         bool is_case_pred(app * e) const { return is_app_of(e, m_family_id, OP_FUN_CASE_PRED); }
         bool is_defined(app * e) const { return is_app_of(e, m_family_id, OP_FUN_DEFINED); }
 
-        // Add a function declaration (TODO: allow mutual definitions)
-        void add_fun(symbol s, sort * args, unsigned n_args, var * vars, unsigned n_vars, expr * rhs);
-    };
+        //<! add a function declaration
+        def * decl_fun(symbol const & s, sort * args, unsigned n_args, sort * range);
 
+        //<! Add a function definition (TODO: allow mutual definitions)
+        def * add_fun(symbol const & s, sort * args, unsigned n_args, sort * range, var * vars, unsigned n_vars, expr * rhs);
+    };
 }

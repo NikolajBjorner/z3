@@ -38,7 +38,7 @@ namespace recfun {
         }
     }
 
-    def::def(ast_manager &m, symbol s, sort* args, unsigned n_args, sort* ret)
+    def::def(ast_manager &m, symbol const & s, sort * args, unsigned n_args, sort* ret)
         :   m_kind(OP_FUN_DEFINED), m_manager(m), m_name(s),
             m_arg_sorts(m), m_ret_sort(ret, m), m_vars(), m_cases()
     {
@@ -280,7 +280,91 @@ namespace recfun {
         // TODO: decl plugin, to obtain family_id
     }
 
-    void util::add_fun(symbol s, sort * args, unsigned n_args, var * vars, unsigned n_vars, expr * rhs) {
-        // TODO:
+    def* util::decl_fun(symbol const& name, sort * params, unsigned n, sort * range) {
+        return alloc(def, m(), name, params, n, range);
+    }
+
+    def* util::add_fun(symbol const& name, sort * args, unsigned n_args, sort * range,
+                       var * vars, unsigned n_vars, expr * rhs) {
+        SASSERT(range == m().get_sort(rhs));
+        def * d = decl_fun(name, args, n_args, range);
+        d->compute_cases(m_th_rw, vars, n_vars, rhs);
+        return d;
+    }
+
+    namespace decl {
+        plugin::plugin()
+            : decl_plugin(), m_defs(), m_def_block(), m_class_id(0)
+            {}
+        plugin::~plugin() { finalize(); }
+
+        void plugin::finalize() {
+            for (auto& kv : m_defs) {
+                dealloc(kv.m_value);
+            }
+            m_defs.reset();
+            m_util = 0; // force deletion
+        }
+
+        util & plugin::u() const {
+            SASSERT(m_manager);
+            SASSERT(m_family_id != null_family_id);
+            if (m_util.get() == 0) {
+                m_util = alloc(util, *m_manager);
+            }
+            return *(m_util.get());
+        }
+
+        def* plugin::mk_decl(symbol const& name, unsigned n, sort * params, sort * range) {
+            def* d = u().decl_fun(name, params, n, range);
+            m_defs[name] = d;
+            return d;
+        }
+
+        def* plugin::mk_def(symbol const& name, unsigned n, sort * params, sort * range,
+                            var * vars, unsigned n_vars, expr * rhs) {
+            def* d = u().add_fun(name, params, n, range, vars, n_vars, rhs);
+            m_defs[name] = d;
+            return d;
+        }
+
+        void plugin::end_def_block() {
+            UNREACHABLE(); // TODO: add all definitions at once
+        }
+
+#define VALIDATE_PARAM(_pred_) if (!(_pred_)) m_manager->raise_exception("invalid parameter to recfun "  #_pred_);
+
+        func_decl * plugin::mk_fun_pred_decl(unsigned num_parameters, parameter const * parameters, 
+                                             unsigned arity, sort * const * domain, sort * range)
+        {
+            VALIDATE_PARAM(m().is_bool(range) && num_parameters == 1 && parameters[0].is_ast());
+            func_decl_info info(m_family_id, OP_FUN_CASE_PRED, num_parameters, parameters);
+            info.m_private_parameters = true;
+            return m().mk_func_decl(symbol(parameters[0].get_symbol()), arity, domain, range, info);
+        }
+
+        func_decl * plugin::mk_fun_defined_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
+                                                unsigned arity, sort * const * domain, sort * range)
+        {
+            VALIDATE_PARAM(num_parameters == 1 && parameters[0].is_ast());
+            func_decl_info info(m_family_id, k, num_parameters, parameters);
+            info.m_private_parameters = true;
+            return m().mk_func_decl(symbol(parameters[0].get_symbol()), arity, domain, range, info);
+        }
+
+        // generic declaration of symbols
+        func_decl * plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
+                                         unsigned arity, sort * const * domain, sort * range)
+        {
+            switch(k) {
+                case OP_FUN_CASE_PRED:
+                    return mk_fun_pred_decl(num_parameters, parameters, arity, domain, range);
+                case OP_FUN_DEFINED:
+                case OP_FUN_MACRO:
+                    return mk_fun_defined_decl(k, num_parameters, parameters, arity, domain, range);
+                default:
+                    UNREACHABLE();
+            }
+        }
     }
 }
