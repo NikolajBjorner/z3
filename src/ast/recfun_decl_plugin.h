@@ -52,6 +52,8 @@ namespace recfun {
         sort_ref_vector const & args() const { return m_arg_sorts; }
     };
 
+    typedef ptr_vector<var>  vars;
+
     class case_def {
         friend class def;
         case_pred           m_pred; //<! predicate used for this case
@@ -69,19 +71,21 @@ namespace recfun {
 
         void add_guard(expr_ref && e) { m_guards.push_back(e); }
     public:
-        symbol const& name() const { return m_pred.name(); }
-        case_pred const & pred() const { return m_pred; }
-        vector<expr_ref> const & guards() const { return m_guards; }
-        expr * guards_c_ptr() const { return *m_guards.c_ptr(); }
-        expr * guard(unsigned i) const { return m_guards[i]; }
-        expr * rhs() const { return m_rhs; }
+        symbol const& get_name() const { return m_pred.name(); }
+        case_pred const & get_pred() const { return m_pred; }
+        def * get_def() const { return m_def; }
+        vector<expr_ref> const & get_guards() const { return m_guards; }
+        expr * get_guards_c_ptr() const { return *m_guards.c_ptr(); }
+        expr * get_guard(unsigned i) const { return m_guards[i]; }
+        expr * get_rhs() const { return m_rhs; }
         unsigned num_guards() const { return m_guards.size(); }
     };
+    
 
     class def {
         friend class util;
-        typedef ptr_vector<var>  vars;
         typedef vector<case_def> cases;
+
         op_kind             m_kind; //<! kind of function
         ast_manager &       m_manager;
         symbol              m_name; //<! name of function
@@ -116,7 +120,7 @@ namespace recfun {
 
         expr * get_macro_rhs() const {
             SASSERT(m_kind == OP_FUN_MACRO);
-            return get_cases()[0].rhs();
+            return get_cases()[0].get_rhs();
         }
     };
 

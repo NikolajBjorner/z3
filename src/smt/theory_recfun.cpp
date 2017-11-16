@@ -93,27 +93,34 @@ namespace smt {
         m_q_case_expand.clear();
 
         for (body_expansion & e : m_q_body_expand) {
-            assert_body_axioms(e);
+            assert_body_axiom(e);
         }
         m_q_body_expand.clear();
     }
+
+     // replace `vars` by `args` in `e`
+    expr* theory_recfun::apply_args(recfun::vars const & vars,
+                                    ptr_vector<expr> const & args,
+                                    expr * e) {
+        // check that var order is standard
+        SASSERT(vars.size() == 0 || vars[vars.size()-1].get_idx() == 0);
+        var_subst subst(m(), true);
+        expr_ref new_body(m());
+        subst(e, args.size(), args.c_ptr(), new_body);
+        return new_body.get();
+    }
     
     void theory_recfun::assert_macro_axiom(case_expansion & e) {
-        TRACE("recfun", tout << "assert_macro_axiom" << e;);
+        TRACE("recfun", tout << "assert_macro_axiom" << pp_case_expansion(e););
         SASSERT(e.m_def->is_fun_macro());
         expr * lhs = e.m_lhs;
         context & ctx = get_context();
         auto & vars = e.m_def->get_vars();
-        // check that var order is standard
-        SASSERT(vars.size() == 0 || vars[vars.size()-1].get_idx() == 0);
         // substitute `e.args` into the macro RHS
-        var_subst subst(m(), true);
-        expr_ref new_body(m());
-        subst(e.m_def->get_macro_rhs(), e.m_args.size(), e.m_args.c_ptr(), new_body);
-        expr * rhs = new_body.get();
+        expr * rhs = apply_args(vars, e.m_args, e.m_def->get_macro_rhs());
         TRACE("recfun", tout << "macro expansion yields" << mk_pp(rhs,m()););
-        // now build the axiom `lhs = new_body`
-        ctx.internalize(new_body.get(), false);
+        // now build the axiom `lhs = rhs`
+        ctx.internalize(rhs, false);
         TRACE("recfun", tout << "adding axiom:\n" << mk_pp(lhs, m()) << "\n=\n" << mk_pp(rhs, m()) << "\n";);
         if (m().proofs_enabled()) {
             // add unit clause `lhs=rhs`
@@ -124,24 +131,71 @@ namespace smt {
         }
         else {
             region r;
-            enode * _lhs = ctx.get_enode(lhs);
-            enode * _rhs = ctx.get_enode(rhs);
+            enode * e_lhs = ctx.get_enode(lhs);
+            enode * e_rhs = ctx.get_enode(rhs);
             // TODO: proper justification
             //justification * js = ctx.mk_justification(
-            ctx.assign_eq(_lhs, _rhs, eq_justification());
+            ctx.assign_eq(e_lhs, e_rhs, eq_justification());
         }   
     }
 
     void theory_recfun::assert_case_axioms(case_expansion & e) {
+        TRACE("recfun", tout << "assert_case_axioms" << pp_case_expansion(e););
         SASSERT(e.m_def->is_fun_defined());
         // TODO: add axioms for all cases paths
     }
 
-    void theory_recfun::assert_body_axioms(body_expansion & e) {
-        // TODO: add axioms for this case's body
+    void theory_recfun::assert_body_axiom(body_expansion & e) {
+        TRACE("recfun", tout << "assert_body_axioms" << pp_body_expansion(e););
+        context & ctx = get_context();
+        auto & vars = e.m_cdef->get_def()->get_vars();
+        auto & args = e.m_args;
+        // check that var order is standard
+        SASSERT(vars.size() == 0 || vars[vars.size()-1].get_idx() == 0);
+        expr * lhs = m().mk_app(get_family_id(), recfun::OP_FUN_DEFINED, args.size(), args.c_ptr());
+        // substitute `e.args` into the RHS of this particular case
+        expr * rhs = apply_args(vars, args, e.m_cdef->get_rhs());
+        // substitute `e.args` into the guard of this particular case, to make
+        // the `condition` part of the clause `conds => lhs=rhs`
+        ptr_vector<expr> guards;
+        guards.reserve(e.m_cdef->get_guards().size());
+        for (auto & g : e.m_cdef->get_guards()) {
+            expr * new_guard = apply_args(vars, args, g);
+            guards.push_back(new_guard);
+        }
+        // now build the axiom `conds => lhs = rhs`
+        TRACE("recfun", tout << "adding axiom:\n" << mk_pp(lhs, m())
+              << "\n=\n" << mk_pp(rhs, m()) << "\n<=\n";
+              for (auto& g : conds) tout << mk_pp(g,m()) << "\n";
+              tout << "\n";);
+        ctx.internalize(rhs, false);
+        for (auto* g : guards) ctx.internalize(g, false);
+        if (m().proofs_enabled()) {
+            // add unit clause `conds => lhs=rhs`
+            vector<literal> clause(guards.size() + 1);
+            for (auto* g : guards) {
+                ctx.internalize(g, false);
+                literal l = ~ ctx.get_literal(g);
+                ctx.mark_as_relevant(l);
+                clause.push_back(l);
+            }
+            literal l(mk_eq(lhs, rhs, true));
+            ctx.mark_as_relevant(l);
+            clause.push_back(l);
+            ctx.mk_th_axiom(get_id(), clause.size(), clause.c_ptr());
+        }
+        else {
+            region r;
+            enode * e_lhs = ctx.get_enode(lhs);
+            enode * e_rhs = ctx.get_enode(rhs);
+            // TODO: proper justification
+            //justification * js = ctx.mk_justification(
+            ctx.assign_eq(e_lhs, e_rhs, eq_justification());
+        }   
     }
 
     void theory_recfun::add_theory_assumptions(expr_ref_vector & assumptions) {
+        TRACE("recfun", tout << "add_theory_assumptions";);
         // TODO: add depth-limit assumptions?
     }
 

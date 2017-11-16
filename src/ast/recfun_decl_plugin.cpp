@@ -32,7 +32,7 @@ namespace recfun {
                        std::string & name,
                        sort_ref_vector const & arg_sorts,
                        expr* guards, unsigned num_guards, expr* rhs)
-    : m_pred(arg_sorts), m_def(d), m_guards(), m_rhs(expr_ref(rhs,m)), m_def(d) {
+    : m_pred(arg_sorts), m_guards(), m_rhs(expr_ref(rhs,m)), m_def(d) {
         m_pred.set_name(name);
         for (unsigned i=0; i<num_guards; ++i) {
             m_guards.push_back(expr_ref(&guards[i], m));

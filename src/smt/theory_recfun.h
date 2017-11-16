@@ -50,19 +50,22 @@ namespace smt {
                 m_args.reserve(n->get_num_args());
                 m_args.append(n->get_num_args(), n->get_args());
             }
+            case_expansion(case_expansion const & from)
+                : m_lhs(from.m_lhs),
+                  m_def(from.m_def),
+                  m_args(from.m_args) {}
             case_expansion(case_expansion && from)
                 : m_lhs(from.m_lhs),
                   m_def(from.m_def),
                   m_args(std::move(from.m_args)) {}
         };
 
-        struct case_expansion_ref
-        : public obj_ref<theory_recfun::case_expansion, ast_manager> {
-            case_expansion_ref(case_expansion & e, ast_manager & m) : obj_ref(&e, m) {}
-            
+        struct pp_case_expansion {
+            case_expansion & e;
+            ast_manager & m;
+            pp_case_expansion(case_expansion & e, ast_manager & m) : e(e), m(m) {}
             std::ostream& operator<<(std::ostream & out) const {
-                return out << "case_exp("
-                    << mk_bounded_pp(get()->m_lhs, get_manager()) << ")";
+                return out << "case_exp(" << mk_bounded_pp(e.m_lhs, m) << ")";
             }
         };
 
@@ -79,18 +82,19 @@ namespace smt {
                 m_args.reserve(n->get_num_args());
                 m_args.append(n->get_num_args(), n->get_args());
             }
-
-            body_expansion(body_expansion && from)
-                : m_cdef(from.m_cdef), m_args(std::move(from.m_args)) {}
+            body_expansion(body_expansion const & from): m_cdef(from.m_cdef), m_args(from.m_args) {}
+            body_expansion(body_expansion && from) : m_cdef(from.m_cdef), m_args(std::move(from.m_args)) {}
         };
 
-        struct body_expansion_ref : public obj_ref<body_expansion, ast_manager> {
-            body_expansion_ref(body_expansion & e, ast_manager & m) : obj_ref(&e, m) {}
+        struct pp_body_expansion {
+            body_expansion & e;
+            ast_manager & m;
+            pp_body_expansion(body_expansion & e, ast_manager & m) : e(e), m(m) {}
             
             std::ostream& operator<<(std::ostream & out) const {
-                out << "body_exp(" << get()->m_cdef->pred.get_name();
-                for (auto* e : get()->m_args) {
-                    out << " " << mk_bounded_pp(e,get_manager());
+                out << "body_exp(" << e.m_cdef->get_name();
+                for (auto* t : e.m_args) {
+                    out << " " << mk_bounded_pp(t,m);
                 }
                 return out << ")";
             }
@@ -114,9 +118,10 @@ namespace smt {
         bool is_case_pred(enode * e) const { return is_case_pred(e->get_owner()); }
 
         void reset_queues();
+        expr * apply_args(recfun::vars const & vars, ptr_vector<expr> const & args, expr * e);
         void assert_macro_axiom(case_expansion & e);
         void assert_case_axioms(case_expansion & e);
-        void assert_body_axioms(body_expansion & e);
+        void assert_body_axiom(body_expansion & e);
     protected:
         void push_case_expand(case_expansion&& e) { m_q_case_expand.push_back(e); }
         void push_body_expand(body_expansion&& e) { m_q_body_expand.push_back(e); }
