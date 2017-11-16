@@ -182,3 +182,8 @@ namespace recfun {
         def * add_fun(symbol const & s, sort * args, unsigned n_args, sort * range, var * vars, unsigned n_vars, expr * rhs);
     };
 }
+
+typedef recfun::def recfun_def;
+typedef recfun::case_def recfun_case_def;
+typedef recfun::decl::plugin recfun_decl_plugin;
+typedef recfun::util recfun_util;

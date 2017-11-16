@@ -846,6 +846,11 @@ namespace smt {
         m_context.register_plugin(alloc(theory_datatype, m_manager, m_params));
     }
 
+    void setup::setup_recfuns() {
+        TRACE("recfun", tout << "registering theory recfuns...\n";);
+        // FIXME: m_context.register_plugin(alloc(theory_recfun, m_manager, m_params));
+    }
+
     void setup::setup_dl() {
         m_context.register_plugin(mk_theory_dl(m_manager));
     }

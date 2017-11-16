@@ -27,6 +27,7 @@ Notes:
 #include "ast/bv_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/datatype_decl_plugin.h"
+#include "ast/recfun_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/pb_decl_plugin.h"
 #include "ast/fpa_decl_plugin.h"
@@ -683,6 +684,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         register_plugin(symbol("bv"),       alloc(bv_decl_plugin), logic_has_bv());
         register_plugin(symbol("array"),    alloc(array_decl_plugin), logic_has_array());
         register_plugin(symbol("datatype"), alloc(datatype_decl_plugin), logic_has_datatype());
+        register_plugin(symbol("recfun"),   alloc(recfun_decl_plugin), true);
         register_plugin(symbol("seq"),      alloc(seq_decl_plugin), logic_has_seq());
         register_plugin(symbol("pb"),       alloc(pb_decl_plugin), logic_has_pb());
         register_plugin(symbol("fpa"),      alloc(fpa_decl_plugin), logic_has_fpa());
@@ -698,6 +700,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         load_plugin(symbol("bv"),       logic_has_bv(), fids);
         load_plugin(symbol("array"),    logic_has_array(), fids);
         load_plugin(symbol("datatype"), logic_has_datatype(), fids);
+        load_plugin(symbol("recfun"),   true, fids);
         load_plugin(symbol("seq"),      logic_has_seq(), fids);
         load_plugin(symbol("fpa"),      logic_has_fpa(), fids);
         load_plugin(symbol("pb"),       logic_has_pb(), fids);
