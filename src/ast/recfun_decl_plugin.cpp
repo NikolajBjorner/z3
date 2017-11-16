@@ -28,10 +28,11 @@ namespace recfun {
     }
 
     case_def::case_def(ast_manager &m,
+                       def * d,
                        std::string & name,
                        sort_ref_vector const & arg_sorts,
                        expr* guards, unsigned num_guards, expr* rhs)
-    : m_pred(arg_sorts), m_guards(), m_rhs(expr_ref(rhs,m)) {
+    : m_pred(arg_sorts), m_def(d), m_guards(), m_rhs(expr_ref(rhs,m)), m_def(d) {
         m_pred.set_name(name);
         for (unsigned i=0; i<num_guards; ++i) {
             m_guards.push_back(expr_ref(&guards[i], m));
@@ -202,12 +203,18 @@ namespace recfun {
     }
 
     void def::add_case(std::string & name, expr * rhs) {
-        case_def c(m(), name, sort_args(), 0, 0, rhs);
+        case_def c(m(), this, name, sort_args(), 0, 0, rhs);
         m_cases.push_back(c);
     }
     
     // Compute a set of cases, given the RHS
     void def::compute_cases(th_rewriter & th_rw, var * vars, unsigned n_vars, expr* rhs0) {
+        if (m_cases.size() != 0) {
+            TRACE("recfun", tout << "bug: cases for " << m_name << " has cases already");
+            UNREACHABLE();
+        }
+        SASSERT(n_vars = m_arg_sorts.size());
+
         std::string name;
         name.append("case_");
         name.append(m_name.bare_str());
@@ -276,8 +283,9 @@ namespace recfun {
      * Main manager for defined functions
      */
 
-    util::util(ast_manager & m) : m_manager(m), m_family_id(), m_th_rw(m) {
-        // TODO: decl plugin, to obtain family_id
+    util::util(ast_manager & m)
+    : m_manager(m), m_family_id(), m_th_rw(m), m_plugin(0) {
+        m_plugin = dynamic_cast<decl::plugin*>(m.get_plugin(m_family_id));
     }
 
     def* util::decl_fun(symbol const& name, sort * params, unsigned n, sort * range) {
@@ -294,7 +302,7 @@ namespace recfun {
 
     namespace decl {
         plugin::plugin()
-            : decl_plugin(), m_defs(), m_def_block(), m_class_id(0)
+            : decl_plugin(), m_defs(), m_case_defs(), m_def_block(), m_class_id(0)
             {}
         plugin::~plugin() { finalize(); }
 
@@ -303,6 +311,8 @@ namespace recfun {
                 dealloc(kv.m_value);
             }
             m_defs.reset();
+            // m_case_defs does not own its data, no need to deallocate
+            m_case_defs.reset();
             m_util = 0; // force deletion
         }
 

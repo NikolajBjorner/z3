@@ -28,6 +28,7 @@ Revision History:
 #include "smt/theory_array_full.h"
 #include "smt/theory_bv.h"
 #include "smt/theory_datatype.h"
+#include "smt/theory_recfun.h"
 #include "smt/theory_dummy.h"
 #include "smt/theory_dl.h"
 #include "smt/theory_seq_empty.h"
@@ -218,6 +219,7 @@ namespace smt {
     void setup::setup_QF_DT() {
         setup_QF_UF();
         setup_datatypes();
+        setup_recfuns();
     }
 
     void setup::setup_QF_BVRE() {
@@ -847,8 +849,8 @@ namespace smt {
     }
 
     void setup::setup_recfuns() {
-        TRACE("recfun", tout << "registering theory recfuns...\n";);
-        // FIXME: m_context.register_plugin(alloc(theory_recfun, m_manager, m_params));
+        TRACE("recfun", tout << "registering theory recfun...\n";);
+        m_context.register_plugin(alloc(theory_recfun, m_manager));
     }
 
     void setup::setup_dl() {
@@ -904,6 +906,7 @@ namespace smt {
         setup_arrays();
         setup_bv();
         setup_datatypes();
+        setup_recfuns();
         setup_dl();
         setup_seq_str(st);
         setup_card();

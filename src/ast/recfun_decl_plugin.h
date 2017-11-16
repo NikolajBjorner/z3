@@ -24,6 +24,7 @@ namespace recfun {
     class case_def; //<! one possible control path of a function
     class case_pred; //<! a predicate guarding a given control flow path of a function
     class util; //<! util for other modules
+    class def; //!< definition of a (recursive) function
 
     enum op_kind {
         OP_FUN_MACRO, // unfold eagerly, only one case
@@ -56,8 +57,10 @@ namespace recfun {
         case_pred           m_pred; //<! predicate used for this case
         vector<expr_ref>    m_guards; //<! conjunction that is equivalent to this case
         expr_ref            m_rhs; //<! if guard is true, `f(t1…tn) = rhs` holds
+        def *               m_def; //<! definition this is a part of
 
         case_def(ast_manager & m,
+                 def * d,
                  std::string & name,
                  sort_ref_vector const & arg_sorts,
                  expr* guards,
@@ -66,6 +69,7 @@ namespace recfun {
 
         void add_guard(expr_ref && e) { m_guards.push_back(e); }
     public:
+        symbol const& name() const { return m_pred.name(); }
         case_pred const & pred() const { return m_pred; }
         vector<expr_ref> const & guards() const { return m_guards; }
         expr * guards_c_ptr() const { return *m_guards.c_ptr(); }
@@ -100,6 +104,7 @@ namespace recfun {
     public:
         vars const & get_vars() const { return m_vars; }
         cases const & get_cases() const { return m_cases; }
+        unsigned get_num_args() const { return m_vars.size(); }
         
         bool is_fun_macro() const {
             SASSERT(m_kind == OP_FUN_DEFINED || m_kind == OP_FUN_MACRO);
@@ -119,10 +124,14 @@ namespace recfun {
 
     namespace decl {
         class plugin : public decl_plugin {
+            typedef map<symbol, def*, symbol_hash_proc, symbol_eq_proc> def_map;
+            typedef map<symbol, case_def*, symbol_hash_proc, symbol_eq_proc> case_def_map;
+
             mutable scoped_ptr<util> m_util;
-            map<symbol, def*, symbol_hash_proc, symbol_eq_proc> m_defs; 
-            svector<symbol>          m_def_block;
-            unsigned                 m_class_id;
+            def_map                 m_defs; // function->def
+            case_def_map            m_case_defs; // case_pred->def
+            svector<symbol>         m_def_block;
+            unsigned                m_class_id;
             util & u() const; // build or return util
 
             ast_manager & m() { return *m_manager; }
@@ -149,8 +158,11 @@ namespace recfun {
 
             def* mk_def(symbol const& name, unsigned n, sort * params, sort * range, var * vars, unsigned n_vars, expr * rhs);
 
+            bool has_def(const symbol& s) const { return m_defs.contains(s); }
             def const& get_def(const symbol& s) const { return *(m_defs[s]); }
             def& get_def(symbol const& s) { return *(m_defs[s]); }
+            bool has_case_def(const symbol& s) const { return m_case_defs.contains(s); }
+            case_def& get_case_def(symbol const& s) { return *(m_case_defs[s]); }
             bool is_declared(symbol const& s) const { return m_defs.contains(s); }
         private:
             func_decl * mk_fun_pred_decl(unsigned num_parameters, parameter const * parameters, 
@@ -167,6 +179,7 @@ namespace recfun {
         ast_manager &           m_manager;
         family_id               m_family_id;
         th_rewriter             m_th_rw;
+        decl::plugin *          m_plugin;
 
         ast_manager & m() { return m_manager; }
     public:
@@ -174,12 +187,28 @@ namespace recfun {
 
         bool is_case_pred(app * e) const { return is_app_of(e, m_family_id, OP_FUN_CASE_PRED); }
         bool is_defined(app * e) const { return is_app_of(e, m_family_id, OP_FUN_DEFINED); }
+        bool is_macro(app * e) const { return is_app_of(e, m_family_id, OP_FUN_MACRO); }
+        
+        bool is_defined_or_macro(app * e) const {
+            return is_app_of(e, m_family_id, OP_FUN_DEFINED) ||
+                   is_app_of(e, m_family_id, OP_FUN_MACRO);
+        }
 
         //<! add a function declaration
         def * decl_fun(symbol const & s, sort * args, unsigned n_args, sort * range);
 
         //<! Add a function definition (TODO: allow mutual definitions)
         def * add_fun(symbol const & s, sort * args, unsigned n_args, sort * range, var * vars, unsigned n_vars, expr * rhs);
+
+        def& get_def(symbol const & s) {
+            SASSERT(m_plugin->has_def(s));
+            return m_plugin->get_def(s);
+        }
+
+        case_def& get_case_def(symbol const & s) {
+            SASSERT(m_plugin->has_case_def(s));
+            return m_plugin->get_case_def(s);
+        }
     };
 }
 
