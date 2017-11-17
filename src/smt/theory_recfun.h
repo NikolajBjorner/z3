@@ -118,7 +118,7 @@ namespace smt {
         bool is_case_pred(enode * e) const { return is_case_pred(e->get_owner()); }
 
         void reset_queues();
-        expr * apply_args(recfun::vars const & vars, ptr_vector<expr> const & args, expr * e);
+        expr_ref&& apply_args(recfun::vars const & vars, ptr_vector<expr> const & args, expr * e);
         void assert_macro_axiom(case_expansion & e);
         void assert_case_axioms(case_expansion & e);
         void assert_body_axiom(body_expansion & e);
@@ -130,6 +130,7 @@ namespace smt {
         bool internalize_term(app * term) override;
         void reset_eh();
         void relevant_eh(app * n) override;
+        void assign_eh(bool_var v, bool is_true) override;
         void push_scope_eh() override;
         void pop_scope_eh(unsigned num_scopes) override;
         void restart_eh() override;

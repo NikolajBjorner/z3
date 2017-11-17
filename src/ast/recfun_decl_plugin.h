@@ -61,6 +61,10 @@ namespace recfun {
         expr_ref            m_rhs; //<! if guard is true, `f(t1…tn) = rhs` holds
         def *               m_def; //<! definition this is a part of
 
+        /* TODO: a flag indicating whether `rhs` contains any defined fun,
+         * to know if this case should be body-expanded eagerly
+         */
+
         case_def(ast_manager & m,
                  def * d,
                  std::string & name,
@@ -212,6 +216,13 @@ namespace recfun {
         case_def& get_case_def(symbol const & s) {
             SASSERT(m_plugin->has_case_def(s));
             return m_plugin->get_case_def(s);
+        }
+
+        expr* mk_fun_defined(unsigned n_args, expr * const * args) {
+            return m().mk_app(m_family_id, OP_FUN_DEFINED, n_args, args);
+        }
+        expr* mk_fun_defined(ptr_vector<expr>& args) {
+            return mk_fun_defined(args.size(), args.c_ptr());
         }
     };
 }

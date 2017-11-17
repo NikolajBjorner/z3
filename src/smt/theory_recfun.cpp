@@ -98,8 +98,13 @@ namespace smt {
         m_q_body_expand.clear();
     }
 
+    // if `is_true` and `v = C_f_i(t1…tn)`, then body-expand i-th case of `f(t1…tn)`
+    void theory_recfun::assign_eh(bool_var v, bool is_true) {
+        // TODO: find if `v` is a case_pred
+    }
+
      // replace `vars` by `args` in `e`
-    expr* theory_recfun::apply_args(recfun::vars const & vars,
+    expr_ref&& theory_recfun::apply_args(recfun::vars const & vars,
                                     ptr_vector<expr> const & args,
                                     expr * e) {
         // check that var order is standard
@@ -107,7 +112,8 @@ namespace smt {
         var_subst subst(m(), true);
         expr_ref new_body(m());
         subst(e, args.size(), args.c_ptr(), new_body);
-        return new_body.get();
+        get_context().get_rewriter()(new_body); // simplify
+        return std::move(new_body);
     }
     
     void theory_recfun::assert_macro_axiom(case_expansion & e) {
@@ -143,6 +149,7 @@ namespace smt {
         TRACE("recfun", tout << "assert_case_axioms" << pp_case_expansion(e););
         SASSERT(e.m_def->is_fun_defined());
         // TODO: add axioms for all cases paths
+        // TODO: also body-expand paths that do not depend on any defined fun
     }
 
     void theory_recfun::assert_body_axiom(body_expansion & e) {
@@ -152,15 +159,14 @@ namespace smt {
         auto & args = e.m_args;
         // check that var order is standard
         SASSERT(vars.size() == 0 || vars[vars.size()-1].get_idx() == 0);
-        expr * lhs = m().mk_app(get_family_id(), recfun::OP_FUN_DEFINED, args.size(), args.c_ptr());
+        expr_ref lhs(u().mk_fun_defined(args), m());
         // substitute `e.args` into the RHS of this particular case
-        expr * rhs = apply_args(vars, args, e.m_cdef->get_rhs());
+        expr_ref rhs = apply_args(vars, args, e.m_cdef->get_rhs());
         // substitute `e.args` into the guard of this particular case, to make
         // the `condition` part of the clause `conds => lhs=rhs`
-        ptr_vector<expr> guards;
-        guards.reserve(e.m_cdef->get_guards().size());
+        ref_vector<expr, ast_manager> guards(m());
         for (auto & g : e.m_cdef->get_guards()) {
-            expr * new_guard = apply_args(vars, args, g);
+            expr_ref new_guard = apply_args(vars, args, g);
             guards.push_back(new_guard);
         }
         // now build the axiom `conds => lhs = rhs`
@@ -169,11 +175,11 @@ namespace smt {
               for (auto& g : conds) tout << mk_pp(g,m()) << "\n";
               tout << "\n";);
         ctx.internalize(rhs, false);
-        for (auto* g : guards) ctx.internalize(g, false);
+        for (auto& g : guards) ctx.internalize(g, false);
         if (m().proofs_enabled()) {
             // add unit clause `conds => lhs=rhs`
-            vector<literal> clause(guards.size() + 1);
-            for (auto* g : guards) {
+            svector<literal> clause(guards.size() + 1);
+            for (auto& g : guards) {
                 ctx.internalize(g, false);
                 literal l = ~ ctx.get_literal(g);
                 ctx.mark_as_relevant(l);
