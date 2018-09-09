@@ -129,6 +129,7 @@ class theory_lra::imp {
 
     struct scope {
         unsigned m_bounds_lim;
+        unsigned m_idiv_lim;
         unsigned m_asserted_qhead;            
         unsigned m_asserted_atoms_lim;
         unsigned m_underspecified_lim;
@@ -230,6 +231,7 @@ class theory_lra::imp {
     svector<delayed_atom>  m_asserted_atoms;        
     expr*                  m_not_handled;
     ptr_vector<app>        m_underspecified;
+    ptr_vector<expr>       m_idiv_terms;
     unsigned_vector        m_var_trail;
     vector<ptr_vector<lp_api::bound> > m_use_list;        // bounds where variables are used.
 
@@ -443,6 +445,7 @@ class theory_lra::imp {
                 }
                 else if (a.is_idiv(n, n1, n2)) {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_not_handled(n);
+                    m_idiv_terms.push_back(n);
                     app * mod = a.mk_mod(n1, n2);
                     ctx().internalize(mod, false);
                     if (ctx().relevancy()) ctx().add_relevancy_dependency(n, mod);
@@ -805,7 +808,7 @@ public:
         m_has_int(false),
         m_arith_eq_adapter(th, ap, a),            
         m_internalize_head(0),
-        m_not_handled(0),
+        m_not_handled(nullptr),
         m_asserted_qhead(0), 
         m_assume_eq_head(0),
         m_num_conflicts(0),
@@ -915,6 +918,7 @@ public:
         scope& s = m_scopes.back();
         s.m_bounds_lim = m_bounds_trail.size();
         s.m_asserted_qhead = m_asserted_qhead;
+        s.m_idiv_lim = m_idiv_terms.size();
         s.m_asserted_atoms_lim = m_asserted_atoms.size();
         s.m_not_handled = m_not_handled;
         s.m_underspecified_lim = m_underspecified.size();
@@ -940,6 +944,7 @@ public:
             }
             m_theory_var2var_index[m_var_trail[i]] = UINT_MAX;
         }
+        m_idiv_terms.shrink(m_scopes[old_size].m_idiv_lim);
         m_asserted_atoms.shrink(m_scopes[old_size].m_asserted_atoms_lim);
         m_asserted_qhead = m_scopes[old_size].m_asserted_qhead;
         m_underspecified.shrink(m_scopes[old_size].m_underspecified_lim);
@@ -1250,10 +1255,9 @@ public:
     }
 
     void init_variable_values() {
+        reset_variable_values();
         if (!m.canceled() && m_solver.get() && th.get_num_vars() > 0) {
-            reset_variable_values();
             m_solver->get_model(m_variable_values);
-            TRACE("arith", display(tout););
         }
     }
 
@@ -1371,7 +1375,7 @@ public:
             }
             if (assume_eqs()) {
                 return FC_CONTINUE;
-            }
+            }            
 
             switch (check_lia()) {
             case l_true:
@@ -1477,6 +1481,113 @@ public:
         return all_bounded;
     }
 
+    /**
+     * n = (div p q)
+     *
+     * (div p q) * q + (mod p q) = p, (mod p q) >= 0
+     *
+     * 0 < q => (p/q <= v(p)/v(q) => n <= floor(v(p)/v(q)))
+     * 0 < q => (v(p)/v(q) <= p/q => v(p)/v(q) - 1 < n) 
+     * 
+     */
+    bool check_idiv_bounds() {
+        if (m_idiv_terms.empty()) {
+            return true;
+        }
+        bool all_divs_valid = true;        
+        init_variable_values();
+        for (expr* n : m_idiv_terms) {
+            expr* p = nullptr, *q = nullptr;
+            VERIFY(a.is_idiv(n, p, q));
+            theory_var v  = mk_var(n);
+            theory_var v1 = mk_var(p);
+            theory_var v2 = mk_var(q);
+            rational r = get_value(v);
+            rational r1 = get_value(v1);
+            rational r2 = get_value(v2);
+            rational r3;
+            if (r2.is_zero()) {
+                continue;
+            }
+            if (r1.is_int() && r2.is_int() && r == div(r1, r2)) {
+                continue;
+            }
+            if (r2.is_neg()) {
+                // TBD
+                continue;
+            }
+
+            if (a.is_numeral(q, r3)) {
+            
+                SASSERT(r3 == r2 && r2.is_int());
+                // p <= r1 => n <= div(r1, r2)
+                // r1 <= p => div(r1, r2) <= n
+                literal p_le_r1  = mk_literal(a.mk_le(p, a.mk_numeral(ceil(r1), true)));
+                literal p_ge_r1  = mk_literal(a.mk_ge(p, a.mk_numeral(floor(r1), true)));
+                literal n_le_div = mk_literal(a.mk_le(n, a.mk_numeral(div(ceil(r1), r2), true)));
+                literal n_ge_div = mk_literal(a.mk_ge(n, a.mk_numeral(div(floor(r1), r2), true)));
+                mk_axiom(~p_le_r1, n_le_div); 
+                mk_axiom(~p_ge_r1, n_ge_div);
+
+                all_divs_valid = false;
+
+                TRACE("arith",
+                      literal_vector lits;
+                      lits.push_back(~p_le_r1);
+                      lits.push_back(n_le_div);
+                      ctx().display_literals_verbose(tout, lits) << "\n";
+                      lits[0] = ~p_ge_r1;
+                      lits[1] = n_ge_div;
+                      ctx().display_literals_verbose(tout, lits) << "\n";);                      
+                continue;
+            }
+
+            if (!r1.is_int() || !r2.is_int()) {
+                // std::cout << r1 << " " << r2 << " " << r << " " << expr_ref(n, m) << "\n";
+                // TBD
+                // r1 = 223/4, r2 = 2, r = 219/8 
+                // take ceil(r1), floor(r1), ceil(r2), floor(r2), for floor(r2) > 0
+                // then 
+                //      p/q <= ceil(r1)/floor(r2) => n <= div(ceil(r1), floor(r2))
+                //      p/q >= floor(r1)/ceil(r2) => n >= div(floor(r1), ceil(r2))
+                continue;
+            }
+
+
+            all_divs_valid = false;
+
+        
+            //  
+            //    p/q <= r1/r2 => n <= div(r1, r2)
+            // <=>
+            //    p*r2 <= q*r1 => n <= div(r1, r2)
+            //
+            //    p/q >= r1/r2 => n >= div(r1, r2)
+            // <=>
+            //    p*r2 >= r1*q => n >= div(r1, r2)
+            // 
+            expr_ref zero(a.mk_int(0), m);
+            expr_ref divc(a.mk_numeral(div(r1, r2), true), m);
+            expr_ref pqr(a.mk_sub(a.mk_mul(a.mk_numeral(r2, true), p), a.mk_mul(a.mk_numeral(r1, true), q)), m);            
+            literal pq_lhs   = ~mk_literal(a.mk_le(pqr, zero));
+            literal pq_rhs   = ~mk_literal(a.mk_ge(pqr, zero));
+            literal n_le_div = mk_literal(a.mk_le(n, divc));
+            literal n_ge_div = mk_literal(a.mk_ge(n, divc)); 
+            mk_axiom(pq_lhs, n_le_div); 
+            mk_axiom(pq_rhs, n_ge_div);
+            TRACE("arith",
+                  literal_vector lits;
+                  lits.push_back(pq_lhs);
+                  lits.push_back(n_le_div);
+                  ctx().display_literals_verbose(tout, lits) << "\n";
+                  lits[0] = pq_rhs;
+                  lits[1] = n_ge_div;
+                  ctx().display_literals_verbose(tout, lits) << "\n";);
+        }
+        
+        return all_divs_valid;
+    }
+
     lbool check_lia() {
         if (m.canceled()) {
             TRACE("arith", tout << "canceled\n";);
@@ -1484,6 +1595,10 @@ public:
         }
         if (!all_variables_have_bounds()) {
             TRACE("arith", tout << "not all variables have bounds\n";);
+            return l_false;
+        }
+        if (!check_idiv_bounds()) {
+            TRACE("arith", tout << "idiv bounds check\n";);
             return l_false;
         }
         lp::lar_term term;
