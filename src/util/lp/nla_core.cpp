@@ -47,8 +47,8 @@ bool core::compare_holds(const rational& ls, llc cmp, const rational& rs) const 
 
 rational core::value(const lp::lar_term& r) const {
     rational ret(0);
-    for (const auto & t : r.coeffs()) {
-        ret += t.second * val(t.first);
+    for (const auto & t : r) {
+        ret += t.coeff() * val(t.var());
     }
     return ret;
 }
@@ -112,9 +112,7 @@ void core::push() {
      
 void core::pop(unsigned n) {
     TRACE("nla_solver", tout << "n = " << n << "\n";);
-    TRACE("nla_solver", tout << "before pop mons = " << pp_emons(*this, m_emons) << "\n";);   
     m_emons.pop(n); 
-    TRACE("nla_solver", tout << "after pop mons = " << pp_emons(*this, m_emons) << "\n";);   
 }
 
 rational core::product_value(const unsigned_vector & m) const {
