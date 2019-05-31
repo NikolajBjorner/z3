@@ -42,7 +42,7 @@ namespace smt {
             expr_ref cube() {
                 switch (m_round) {
                 case 0:
-                    m_result = m_solver.m_context.next_decision();
+                    m_result = m_solver.m_context.next_cube();
                     break;
                 case 1:
                     m_result = m_solver.get_manager().mk_not(m_result);
@@ -185,7 +185,7 @@ namespace smt {
             m_context.pop(n);
         }
 
-        lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override {
+        lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) override {
             TRACE("solver_na2as", tout << "smt_solver::check_sat_core: " << num_assumptions << "\n";);
             return m_context.check(num_assumptions, assumptions);
         }
@@ -194,6 +194,19 @@ namespace smt {
         lbool check_sat_cc_core(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses) override {
             return m_context.check(cube, clauses);
         }
+
+        void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override {
+            m_context.get_levels(vars, depth);
+        }
+
+        expr_ref_vector get_trail() override {
+            return m_context.get_trail();
+        }
+
+        void set_predictor(void* state, neuro_predictor* p) override {
+            throw default_exception("cannot set predictors for smt solver");
+        }
+
 
         struct scoped_minimize_core {
             smt_solver& s;
@@ -236,7 +249,7 @@ namespace smt {
             m_context.get_model(m);
         }
 
-        proof * get_proof() override {
+        proof * get_proof() override {            
             return m_context.get_proof();
         }
 

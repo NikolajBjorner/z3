@@ -789,7 +789,14 @@ namespace smt {
             bound  = m_util.mk_eq(var2expr(v), m_util.mk_numeral(rational(0), true));
         TRACE("non_linear", tout << "new bound:\n" << mk_pp(bound, get_manager()) << "\n";);
         context & ctx = get_context();
+        ast_manager & m = get_manager();
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_or(bound, m.mk_not(bound));
+            log_axiom_instantiation(body);
+        }
         ctx.internalize(bound, true);
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         ctx.mark_as_relevant(bound);
         literal l     = ctx.get_literal(bound);
         SASSERT(!l.sign());
@@ -1924,7 +1931,7 @@ namespace smt {
         derived_bound  b(null_theory_var, inf_numeral(0), B_LOWER);
         dependency2new_bound(d, b);
         set_conflict(b, ante, "arith_nl");
-        TRACE("non_linear", for (literal lit : b.m_lits) tout << lit << " "; tout << "\n";); 
+        TRACE("non_linear", for (literal lit : b.m_lits) get_context().display_literal_verbose(tout, lit) << "\n"; tout << "\n";); 
     }
 
     /**

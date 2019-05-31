@@ -18,6 +18,7 @@ z3_add_component(smt
     smt_cg_table.cpp
     smt_checker.cpp
     smt_clause.cpp
+    smt_clause_proof.cpp
     smt_conflict_resolution.cpp
     smt_consequences.cpp
     smt_context.cpp
@@ -32,6 +33,7 @@ z3_add_component(smt
     smt_justification.cpp
     smt_kernel.cpp
     smt_literal.cpp
+    smt_lookahead.cpp
     smt_model_checker.cpp
     smt_model_finder.cpp
     smt_model_generator.cpp
@@ -46,6 +48,7 @@ z3_add_component(smt
     smt_value_sort.cpp
     smt2_extra_cmds.cpp
     theory_arith.cpp
+    theory_array_bapa.cpp
     theory_array_base.cpp
     theory_array.cpp
     theory_array_full.cpp
@@ -62,6 +65,7 @@ z3_add_component(smt
     theory_pb.cpp
     theory_recfun.cpp
     theory_seq.cpp
+    theory_special_relations.cpp
     theory_str.cpp
     theory_utvpi.cpp
     theory_wmaxsat.cpp

@@ -250,7 +250,7 @@ namespace smt {
             return theory_array::internalize_term(n);
         }
 
-        if (!is_const(n) && !is_default(n)  && !is_map(n) && !is_as_array(n)) {
+        if (!is_const(n) && !is_default(n)  && !is_map(n) && !is_as_array(n) && !is_set_has_size(n) && !is_set_card(n)) {
             if (!is_array_ext(n))
                 found_unsupported_op(n);
             return false;
@@ -273,6 +273,12 @@ namespace smt {
             if (!is_attached_to_var(arg0)) {
                 mk_var(arg0);
             }
+        }
+        else if (is_set_has_size(n) || is_set_card(n)) {
+            if (!m_bapa) {
+                m_bapa = alloc(theory_array_bapa, *this);
+            }
+            m_bapa->internalize_term(n);
         }
 
         enode* node = ctx.get_enode(n);
@@ -381,7 +387,7 @@ namespace smt {
     }
     
     void theory_array_full::relevant_eh(app* n) {
-    TRACE("array", tout << mk_pp(n, get_manager()) << "\n";);
+        TRACE("array", tout << mk_pp(n, get_manager()) << "\n";);
         theory_array::relevant_eh(n);
         if (!is_default(n) && !is_select(n) && !is_map(n) && !is_const(n) && !is_as_array(n)){
             return;
@@ -421,7 +427,13 @@ namespace smt {
         }
     }
 
-       
+    bool theory_array_full::should_research(expr_ref_vector & unsat_core) {
+        return m_bapa && m_bapa->should_research(unsat_core);
+    }
+
+    void theory_array_full::add_theory_assumptions(expr_ref_vector & assumptions) {
+        if (m_bapa) m_bapa->add_theory_assumptions(assumptions);
+    }
     //
     // Assert axiom: 
     // select(map[f](a, ... d), i) = f(select(a,i),...,select(d,i))
@@ -748,6 +760,10 @@ namespace smt {
             assert_axiom(eq);
             r = FC_CONTINUE;
         }
+        if (r == FC_DONE && m_bapa) {
+            r = m_bapa->final_check();
+        }
+
         if (r == FC_DONE && m_found_unsupported_op)
             r = FC_GIVEUP;
         return r;
@@ -781,8 +797,10 @@ namespace smt {
         else {
             m_eqs.insert(v1, v2, true);
             literal eq(mk_eq(v1, v2, true));
+            if (get_manager().has_trace_stream()) log_axiom_instantiation(get_context().bool_var2expr(eq.var()));
             get_context().mark_as_relevant(eq);            
             assert_axiom(eq);
+            if (get_manager().has_trace_stream()) get_manager().trace_stream() << "[end-of-instance]\n";
 
             // m_eqsv.push_back(eq);
             return true;

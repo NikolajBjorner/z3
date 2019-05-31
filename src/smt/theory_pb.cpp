@@ -943,7 +943,7 @@ namespace smt {
             if (proofs_enabled()) {
                 js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr());
             }
-            ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, nullptr);
+            ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_TH_LEMMA, nullptr);
         }
         SASSERT(ctx.inconsistent());
     }
@@ -1373,12 +1373,8 @@ namespace smt {
         for (unsigned i = 0; i < lemmas.size(); ++i) {
             clause* cl = lemmas[i];
             if (!cl->deleted()) {
-                unsigned sz = cl->get_num_literals();
-                for (unsigned j = 0; j < sz; ++j) {
-                    literal lit = cl->get_literal(j);
+                for (literal lit : *cl) {
                     if (m_occs.contains(lit.var())) {
-                        //std::cout << "deleting clause " << lit << " " << sz << "\n";
-                        //ctx.mark_as_deleted(cl);
                         break;
                     }
                 }
@@ -1537,7 +1533,7 @@ namespace smt {
         if (proofs_enabled()) {                                         
             js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr());
         }
-        ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, nullptr);
+        ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_TH_LEMMA, nullptr);
     }
 
 
@@ -1924,6 +1920,7 @@ namespace smt {
                 process_antecedent(~js.get_literal(), offset);
                 break;
             case b_justification::AXIOM:
+                bound = 0;
                 break;
             case b_justification::JUSTIFICATION: {
                 justification* j = js.get_justification(); 
@@ -1934,6 +1931,7 @@ namespace smt {
                 }
                 if (pbj == nullptr) {
                     TRACE("pb", tout << "skip justification for " << conseq << "\n";);
+                    bound = 0;
                     // this is possible when conseq is an assumption.
                     // The justification of conseq is itself, 
                     // don't increment the cofficient here because it assumes

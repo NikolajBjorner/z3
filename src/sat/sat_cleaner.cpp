@@ -78,7 +78,6 @@ namespace sat {
     }
 
     void cleaner::cleanup_clauses(clause_vector & cs) {
-        tmp_clause tmp;
         clause_vector::iterator it  = cs.begin();
         clause_vector::iterator it2 = it;
         clause_vector::iterator end = cs.end();
@@ -120,11 +119,11 @@ namespace sat {
                        s.display_watches(tout););
                 switch (new_sz) {
                 case 0:
-                    s.set_conflict(justification());
+                    s.set_conflict();
                     s.del_clause(c);
                     break;
                 case 1:
-                    s.assign(c[0], justification());
+                    s.assign_unit(c[0]);
                     s.del_clause(c);
                     break;
                 case 2:
@@ -134,22 +133,13 @@ namespace sat {
                     s.del_clause(c);
                     break;
                 default:
-                    SASSERT(s.value(c[0]) == l_undef && s.value(c[1]) == l_undef);
-                    if (s.m_config.m_drat && new_sz < sz) {
-                        tmp.set(c.size(), c.begin(), c.is_learned());
-                    }
-                    c.shrink(new_sz);
+                    s.shrink(c, sz, new_sz);
                     *it2 = *it;
                     it2++;
                     if (!c.frozen()) {                            
                         s.attach_clause(c);
                     }
-                    if (s.m_config.m_drat && new_sz < sz) {
-                        // for optimization, could also report deletion 
-                        // of previous version of clause.
-                        s.m_drat.add(c, true);
-                        s.m_drat.del(*tmp.get());
-                    }
+                    break;
                 }
             }
         }
@@ -169,14 +159,33 @@ namespace sat {
         }
         ~report() {
             m_watch.stop();
-            IF_VERBOSE(SAT_VB_LVL, 
-                       verbose_stream() << " (sat-cleaner :elim-literals " << (m_cleaner.m_elim_literals - m_elim_literals)
-                       << " :elim-clauses " << (m_cleaner.m_elim_clauses - m_elim_clauses)
-                       << " :cost " << m_cleaner.m_cleanup_counter
-                       << mk_stat(m_cleaner.s)
-                       << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
+            IF_VERBOSE(2,
+                       verbose_stream() << " (sat-cleaner";
+                       verbose_stream() << " :elim-literals " << (m_cleaner.m_elim_literals - m_elim_literals);
+                       verbose_stream() << " :elim-clauses " << (m_cleaner.m_elim_clauses - m_elim_clauses);
+                       verbose_stream() << " :cost " << m_cleaner.m_cleanup_counter << m_watch << ")\n";);
         }
     };
+
+    bool cleaner::is_clean() const {
+        for (clause* cp : s.m_clauses) {
+            for (literal lit : *cp) {
+                if (s.value(lit) != l_undef && s.lvl(lit) == 0) return false;
+            }
+        }
+        for (clause* cp : s.m_learned) {
+            for (literal lit : *cp) {
+                if (s.value(lit) != l_undef && s.lvl(lit) == 0) return false;
+            }
+        }
+        unsigned idx = 0;
+        for (auto& wlist : s.m_watches) {
+            literal lit = to_literal(idx);
+            if (s.value(lit) != l_undef && s.lvl(lit) == 0 && !wlist.empty()) return false;
+            ++idx;
+        }
+        return true;
+    }
 
     /**
        \brief Return true if cleaner executed.
@@ -184,6 +193,7 @@ namespace sat {
     bool cleaner::operator()(bool force) {
         CASSERT("cleaner_bug", s.check_invariant());
         unsigned trail_sz = s.m_trail.size();
+
         s.propagate(false); // make sure that everything was propagated.
         TRACE("sat_cleaner_bug", s.display(tout); s.display_watches(tout););
         if (s.m_inconsistent)

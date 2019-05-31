@@ -217,7 +217,9 @@ namespace smt {
         }
         literal lit(ctx.get_literal(e));
         ctx.mark_as_relevant(lit);
+        if (m.has_trace_stream()) log_axiom_instantiation(e);
         ctx.mk_th_axiom(get_id(), 1, &lit);
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
 
         // crash/error avoidance: add all axioms to the trail
         m_trail.push_back(e);
@@ -1084,7 +1086,9 @@ namespace smt {
 
             literal lit(mk_eq(len_str, len, false));
             ctx.mark_as_relevant(lit);
+            if (m.has_trace_stream()) log_axiom_instantiation(ctx.bool_var2expr(lit.var()));
             ctx.mk_th_axiom(get_id(), 1, &lit);
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         } else {
             // build axiom 1: Length(a_str) >= 0
             {
@@ -1126,7 +1130,9 @@ namespace smt {
                 TRACE("str", tout << "string axiom 2: " << mk_ismt2_pp(lhs, m) << " <=> " << mk_ismt2_pp(rhs, m) << std::endl;);
                 literal l(mk_eq(lhs, rhs, true));
                 ctx.mark_as_relevant(l);
+                if (m.has_trace_stream()) log_axiom_instantiation(ctx.bool_var2expr(l.var()));
                 ctx.mk_th_axiom(get_id(), 1, &l);
+                if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
             }
 
         }
@@ -1421,7 +1427,7 @@ namespace smt {
         // 0 < i < len(H) -->
         //     H = hd ++ tl
         //     len(hd) = i
-        //     str.indexof(tl, N, 0)
+        //     i + str.indexof(tl, N, 0)
 
         expr * H = nullptr; // "haystack"
         expr * N = nullptr; // "needle"
@@ -1457,12 +1463,19 @@ namespace smt {
             expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
             assert_implication(premise, conclusion);
         }
-        // case 4: 0 < i < len(H)
+        // case 3.5: H doesn't contain N
+        {
+            expr_ref premise(m.mk_not(u.str.mk_contains(H, N)), m);
+            expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
+            assert_implication(premise, conclusion);
+        }
+        // case 4: 0 < i < len(H) and H contains N
         {
             expr_ref premise1(m_autil.mk_gt(i, zero), m);
             //expr_ref premise2(m_autil.mk_lt(i, mk_strlen(H)), m);
             expr_ref premise2(m.mk_not(m_autil.mk_ge(m_autil.mk_add(i, m_autil.mk_mul(minus_one, mk_strlen(H))), zero)), m);
-            expr_ref _premise(m.mk_and(premise1, premise2), m);
+            expr_ref premise3(u.str.mk_contains(H, N), m);
+            expr_ref _premise(m.mk_and(premise1, premise2, premise3), m);
             expr_ref premise(_premise);
             th_rewriter rw(m);
             rw(premise);
@@ -1473,7 +1486,8 @@ namespace smt {
             expr_ref_vector conclusion_terms(m);
             conclusion_terms.push_back(ctx.mk_eq_atom(H, mk_concat(hd, tl)));
             conclusion_terms.push_back(ctx.mk_eq_atom(mk_strlen(hd), i));
-            conclusion_terms.push_back(ctx.mk_eq_atom(e, mk_indexof(tl, N)));
+            conclusion_terms.push_back(u.str.mk_contains(tl, N));
+            conclusion_terms.push_back(ctx.mk_eq_atom(e, m_autil.mk_add(i, mk_indexof(tl, N))));
 
             expr_ref conclusion(mk_and(conclusion_terms), m);
             assert_implication(premise, conclusion);

@@ -5,11 +5,13 @@ z3_add_component(sat
     sat_asymm_branch.cpp
     sat_bdd.cpp
     sat_big.cpp
+    sat_binspr.cpp
     sat_clause.cpp
     sat_clause_set.cpp
     sat_clause_use_list.cpp
     sat_cleaner.cpp
     sat_config.cpp
+    sat_ddfw.cpp
     sat_drat.cpp
     sat_elim_eqs.cpp
     sat_elim_vars.cpp
@@ -20,6 +22,7 @@ z3_add_component(sat
     sat_model_converter.cpp
     sat_mus.cpp
     sat_parallel.cpp
+    sat_prob.cpp
     sat_probing.cpp
     sat_scc.cpp
     sat_simplifier.cpp

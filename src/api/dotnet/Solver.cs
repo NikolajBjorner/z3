@@ -21,9 +21,12 @@ using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 namespace Microsoft.Z3
 {
+
+
     /// <summary>
     /// Solvers.
     /// </summary>
@@ -461,6 +464,79 @@ namespace Microsoft.Z3
 	     Native.Z3_solver_import_model_converter(Context.nCtx, src.NativeObject, NativeObject);
 	}
 
+
+	/// <summary>
+	/// Managed incarnation of neuro state for C# consumption
+	/// </summary>
+	public class NeuroState 
+	{
+            #pragma warning disable 1591
+	    public uint n_vars;
+            public uint n_clauses;
+            public uint n_cells;
+            public float v_itau;
+            public float c_itau;
+            public int[] C_idxs;
+            public int[] L_idxs;
+            public Single[] pi_march_ps;
+            public Single[] pi_core_var_ps;
+            public Single[] pi_core_clause_ps;
+            public Single[] pi_model_ps;
+	}
+
+        /// <summary>
+        /// Interface specification for predictor.
+        /// </summary>
+        public interface IPredictor 
+        {
+             /// <summary>
+             /// Callback for prediction.
+             /// </summary>
+             bool Predict(NeuroState n);
+        }
+
+        /// <summary>
+        /// Wrapper for predictor callback
+        /// </summary>
+
+        static bool Predictor(System.IntPtr state, [MarshalAs(UnmanagedType.Struct)] ref Native.NeuroPredict p) {
+             GCHandle gch = GCHandle.FromIntPtr(state);
+             IPredictor pred = (IPredictor)gch.Target;
+             NeuroState n = new NeuroState();
+             n.n_vars = p.n_vars;
+             n.n_clauses = p.n_clauses;
+             n.n_cells = p.n_cells;
+             n.v_itau = p.v_itau;
+             n.c_itau = p.c_itau;
+             n.C_idxs = new int[n.n_cells];
+             n.L_idxs = new int[n.n_cells];             
+             Marshal.Copy(p.C_idxs, n.C_idxs, 0, (int)n.n_cells);
+             Marshal.Copy(p.L_idxs, n.L_idxs, 0, (int)n.n_cells);
+             n.pi_march_ps = new Single[n.n_vars];
+             n.pi_core_var_ps = new Single[n.n_vars];
+             n.pi_core_clause_ps = new Single[n.n_clauses];
+             n.pi_model_ps = new Single[n.n_vars];
+	     if (!pred.Predict(n)) return false;
+             Marshal.Copy(n.pi_march_ps, 0, p.pi_march_ps, (int)n.n_vars);
+             Marshal.Copy(n.pi_core_var_ps, 0, p.pi_core_var_ps, (int)n.n_vars);
+             Marshal.Copy(n.pi_core_clause_ps, 0, p.pi_core_clause_ps, (int)n.n_clauses);
+             Marshal.Copy(n.pi_model_ps, 0, p.pi_model_ps, (int)n.n_vars);
+             return true; 
+        }
+
+        GCHandle predictorGch;
+        GCHandle predictorFn;
+
+        /// <summary>
+        /// Register predictor callback.1
+        /// </summary>         
+        public void SetPredictor(IPredictor predict) {
+             predictorGch = GCHandle.Alloc(predict);
+             var cb = new Native.Z3_solver_predictor(Predictor);
+             predictorFn = GCHandle.Alloc(cb);
+             Native.LIB.Z3_solver_set_predictor(Context.nCtx, NativeObject, GCHandle.ToIntPtr(predictorGch), cb);
+        }
+
         /// <summary>
         /// Solver statistics.
         /// </summary>
@@ -468,7 +544,6 @@ namespace Microsoft.Z3
         {
             get
             {
-
                 return new Statistics(Context, Native.Z3_solver_get_statistics(Context.nCtx, NativeObject));
             }
         }

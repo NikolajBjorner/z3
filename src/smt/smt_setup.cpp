@@ -33,6 +33,7 @@ Revision History:
 #include "smt/theory_dl.h"
 #include "smt/theory_seq_empty.h"
 #include "smt/theory_seq.h"
+#include "smt/theory_special_relations.h"
 #include "smt/theory_pb.h"
 #include "smt/theory_fpa.h"
 #include "smt/theory_str.h"
@@ -734,6 +735,13 @@ namespace smt {
         else if (m_params.m_string_solver == "auto") {
             setup_unknown();
         }
+ 
+        else if (m_params.m_string_solver == "empty") {
+            m_context.register_plugin(alloc(smt::theory_seq_empty, m_manager));
+        }
+        else if (m_params.m_string_solver == "none") {
+            // don't register any solver.
+        }
         else {
             throw default_exception("invalid parameter for smt.string_solver, valid options are 'z3str3', 'seq', 'auto'");
         }
@@ -753,6 +761,7 @@ namespace smt {
     }
 
     void setup::setup_lra_arith() {
+        // m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
         m_context.register_plugin(alloc(smt::theory_lra, m_manager, m_params));
     }
 
@@ -836,7 +845,7 @@ namespace smt {
                 m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
             break;
         case AS_NEW_ARITH:
-            if (st.m_num_non_linear != 0) 
+            if (st.m_num_non_linear != 0 && st.m_has_int) 
                 m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
             else 
                 setup_lra_arith();
@@ -898,6 +907,12 @@ namespace smt {
         else if (m_params.m_string_solver == "seq") {
             setup_seq();
         } 
+        else if (m_params.m_string_solver == "empty") {
+            m_context.register_plugin(alloc(smt::theory_seq_empty, m_manager));
+        }
+        else if (m_params.m_string_solver == "none") {
+            // don't register any solver.
+        }
         else if (m_params.m_string_solver == "auto") {
             if (st.m_has_seq_non_str) {
                 setup_seq();
@@ -934,6 +949,10 @@ namespace smt {
         m_context.register_plugin(alloc(smt::theory_jobscheduler, m_manager));
     }
 
+    void setup::setup_special_relations() {
+        m_context.register_plugin(alloc(smt::theory_special_relations, m_manager));
+    }
+
     void setup::setup_unknown() {
         static_features st(m_manager);
         ptr_vector<expr> fmls;
@@ -949,6 +968,7 @@ namespace smt {
         setup_seq_str(st);
         setup_card();
         setup_fpa();
+        if (st.m_has_sr) setup_special_relations();
     }
 
     void setup::setup_unknown(static_features & st) {
@@ -965,6 +985,7 @@ namespace smt {
             setup_card();
             setup_fpa();
             setup_recfuns();
+            if (st.m_has_sr) setup_special_relations();
             return;
         }
 

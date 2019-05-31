@@ -55,10 +55,12 @@ namespace smt {
         m_lemma_id(0),
         m_progress_callback(nullptr),
         m_next_progress_sample(0),
+        m_clause_proof(*this),
         m_fingerprints(m, m_region),
         m_b_internalized_stack(m),
         m_e_internalized_stack(m),
         m_final_check_idx(0),
+        m_is_auxiliary(false),
         m_cg_table(m),
         m_dyn_ack_manager(*this, p),
         m_is_diseq_tmp(nullptr),
@@ -129,6 +131,10 @@ namespace smt {
         }
         return literal(v, lit.sign());
     }
+
+    /**
+       \brief retrieve flag for when cancelation is possible.
+    */
 
     bool context::get_cancel_flag() {
         return !m_manager.limit().inc();
@@ -238,6 +244,7 @@ namespace smt {
 
     context * context::mk_fresh(symbol const * l, smt_params * p, params_ref const& pa) {
         context * new_ctx = alloc(context, m_manager, p ? *p : m_fparams, pa);
+        new_ctx->m_is_auxiliary = true;
         new_ctx->set_logic(l == nullptr ? m_setup.get_logic() : *l);
         copy_plugins(*this, *new_ctx);
         return new_ctx;
@@ -546,14 +553,10 @@ namespace smt {
                 mark_as_relevant(r1);
             }
 
-            TRACE("add_eq", tout << "to trail\n";);
-
             push_trail(add_eq_trail(r1, n1, r2->get_num_parents()));
 
-            TRACE("add_eq", tout << "qmanager add_eq\n";);
             m_qmanager->add_eq_eh(r1, r2);
 
-            TRACE("add_eq", tout << "merge theory_vars\n";);
             merge_theory_vars(n2, n1, js);
 
             // 'Proof' tree
@@ -569,25 +572,6 @@ namespace smt {
             // r1 -> ..  -> n1 -> n2 -> ... -> r2
 
 
-#if 0
-            {
-                static unsigned counter      = 0;
-                static unsigned num_adds     = 0;
-                static unsigned num_bad_adds = 0;
-                num_adds++;
-                if (r1->get_class_size() <= r2->get_class_size() &&
-                    r1->m_parents.size() > r2->m_parents.size()) {
-                    num_bad_adds++;
-                }
-                if (num_adds % 100000 == 0) {
-                    verbose_stream() << "[add-eq]: " << num_bad_adds << " " << num_adds << " "
-                                     << static_cast<double>(num_bad_adds)/static_cast<double>(num_adds) << "\n";
-                }
-            }
-#endif
-
-
-            TRACE("add_eq", tout << "remove_parents_from_cg_table\n";);
             remove_parents_from_cg_table(r1);
 
             enode * curr = r1;
@@ -598,11 +582,8 @@ namespace smt {
             while(curr != r1);
 
             SASSERT(r1->get_root() == r2);
-
-            TRACE("add_eq", tout << "reinsert_parents_into_cg_table\n";);
             reinsert_parents_into_cg_table(r1, r2, n1, n2, js);
 
-            TRACE("add_eq", tout << "propagate_bool_enode_assignment\n";);
             if (n2->is_bool())
                 propagate_bool_enode_assignment(r1, r2, n1, n2);
 
@@ -630,25 +611,21 @@ namespace smt {
     void context::remove_parents_from_cg_table(enode * r1) {
         // Remove parents from the congruence table
         for (enode * parent : enode::parents(r1)) {
-#if 0
-            {
-                static unsigned num_eqs = 0;
-                static unsigned num_parents = 0;
-                static unsigned counter = 0;
-                if (parent->is_eq())
-                    num_eqs++;
-                num_parents++;
-                if (num_parents % 100000 == 0) {
-                    verbose_stream() << "[remove-cg] " << num_eqs << " " << num_parents << " "
-                              << static_cast<double>(num_eqs)/static_cast<double>(num_parents) << "\n";
-                }
-            }
-#endif
-            SASSERT(parent->is_marked() || !parent->is_cgc_enabled() ||
-                    (!parent->is_true_eq() && parent->is_cgr() == m_cg_table.contains_ptr(parent)) ||
-                    (parent->is_true_eq() && !m_cg_table.contains_ptr(parent)));
+            CTRACE("add_eq", !parent->is_marked() && parent->is_cgc_enabled() && parent->is_true_eq() && m_cg_table.contains_ptr(parent), tout << parent->get_owner_id() << "\n";);
+            CTRACE("add_eq", !parent->is_marked() && parent->is_cgc_enabled() && !parent->is_true_eq() &&  parent->is_cgr() && !m_cg_table.contains_ptr(parent), 
+                   tout << "cgr !contains " << parent->get_owner_id() << " " << mk_pp(parent->get_decl(), m_manager) << "\n";
+                   for (enode* n : enode::args(parent))  tout << n->get_root()->get_owner_id() << " " << n->get_root()->hash() << " ";
+                   tout << "\n";
+                   tout << "contains: " << m_cg_table.contains(parent) << "\n";
+                   if (m_cg_table.contains(parent)) {
+                       tout << "owner: " << m_cg_table.find(parent)->get_owner_id() << "\n";
+                   }
+                   m_cg_table.display(tout);
+                   );
+            CTRACE("add_eq", !parent->is_marked() && parent->is_cgc_enabled() && !parent->is_true_eq() && !parent->is_cgr() &&  m_cg_table.contains_ptr(parent), tout << "!cgr contains " << parent->get_owner_id() << "\n";);
+            SASSERT(parent->is_marked() || !parent->is_cgc_enabled() ||  parent->is_true_eq() || parent->is_cgr() == m_cg_table.contains_ptr(parent));
+            SASSERT(parent->is_marked() || !parent->is_cgc_enabled() || !parent->is_true_eq() || !m_cg_table.contains_ptr(parent));
             if (!parent->is_marked() && parent->is_cgr() && !parent->is_true_eq()) {
-                TRACE("add_eq_parents", tout << "add_eq removing: #" << parent->get_owner_id() << "\n";);
                 SASSERT(!parent->is_cgc_enabled() || m_cg_table.contains_ptr(parent));
                 parent->set_mark();
                 if (parent->is_cgc_enabled()) {
@@ -702,7 +679,6 @@ namespace smt {
                 enode_bool_pair pair = m_cg_table.insert(parent);
                 enode * parent_prime = pair.first;
                 if (parent_prime == parent) {
-                    TRACE("add_eq_parents", tout << "add_eq reinserting: #" << parent->get_owner_id() << "\n";);
                     SASSERT(parent);
                     SASSERT(parent->is_cgr());
                     SASSERT(m_cg_table.contains_ptr(parent));
@@ -981,7 +957,6 @@ namespace smt {
         for (; it != end; ++it) {
             enode * parent = *it;
             if (parent->is_cgc_enabled()) {
-                TRACE("add_eq_parents", tout << "removing: #" << parent->get_owner_id() << "\n";);
                 CTRACE("add_eq", !parent->is_cgr() || !m_cg_table.contains_ptr(parent),
                        tout << "old num_parents: " << r2_num_parents << ", num_parents: " << r2->m_parents.size() << ", parent: #" <<
                        parent->get_owner_id() << ", parents: \n";
@@ -1009,14 +984,13 @@ namespace smt {
         for (enode * parent : enode::parents(r1)) {
             TRACE("add_eq_parents", tout << "visiting: #" << parent->get_owner_id() << "\n";);
             if (parent->is_cgc_enabled()) {
-                enode * cg     = parent->m_cg;
+                enode * cg = parent->m_cg;
                 if (!parent->is_true_eq() &&
-                    (parent == cg || // parent was root of the congruence class before and after the merge
-                     !congruent(parent, cg) // parent was root of the congruence class before but not after the merge
+                    (parent == cg ||           // parent was root of the congruence class before and after the merge
+                     !congruent(parent, cg)    // parent was root of the congruence class before but not after the merge
                      )) {
-                    TRACE("add_eq_parents", tout << "trying to reinsert\n";);
-                    m_cg_table.insert(parent);
-                    parent->m_cg         = parent;
+                    enode_bool_pair p = m_cg_table.insert(parent);
+                    parent->m_cg = p.first;
                 }
             }
         }
@@ -1351,12 +1325,14 @@ namespace smt {
        \remark The method assign_eq adds a new entry on this queue.
     */
     bool context::propagate_eqs() {
-        TRACE("add_eq", tout << m_eq_propagation_queue.size() << "\n";);
-        for (unsigned i = 0; i < m_eq_propagation_queue.size() && !get_cancel_flag(); i++) {
+        unsigned i = 0;
+        for (; i < m_eq_propagation_queue.size() && !get_cancel_flag(); i++) {
             new_eq & entry = m_eq_propagation_queue[i];
             add_eq(entry.m_lhs, entry.m_rhs, entry.m_justification);
-            if (inconsistent())
+            if (inconsistent()) {
+                m_eq_propagation_queue.reset();
                 return false;
+            }
         }
         m_eq_propagation_queue.reset();
         return true;
@@ -1725,7 +1701,13 @@ namespace smt {
             !m_th_diseq_propagation_queue.empty();
     }
 
+    /**
+       \brief unit propagation.
+       Cancelation is not safe during propagation at base level because
+       congruences cannot be retracted to a consistent state.
+     */
     bool context::propagate() {
+        scoped_suspend_rlimit _suspend_cancel(m_manager.limit(), at_base_level());
         TRACE("propagate", tout << "propagating... " << m_qhead << ":" << m_assigned_literals.size() << "\n";);
         while (true) {
             if (inconsistent())
@@ -1774,7 +1756,7 @@ namespace smt {
 
     void context::set_conflict(const b_justification & js, literal not_l) {
         if (!inconsistent()) {
-            TRACE("set_conflict", display_literal_verbose(tout, not_l); display(tout << " ", js); );
+            TRACE("set_conflict", display_literal_verbose(tout << m_scope_lvl << " ", not_l); display(tout << " ", js); );
             m_conflict = js;
             m_not_l    = not_l;
         }
@@ -1801,15 +1783,6 @@ namespace smt {
         for (; it != end; ++it)
             *it *= INV_ACTIVITY_LIMIT;
         m_bvar_inc *= INV_ACTIVITY_LIMIT;
-    }
-
-    expr* context::next_decision() {
-        bool_var var;
-        lbool phase;
-        m_case_split_queue->next_case_split(var, phase);
-        if (var == null_bool_var) return m_manager.mk_true();
-        m_case_split_queue->unassign_var_eh(var);
-        return bool_var2expr(var);
     }
 
     /**
@@ -1906,7 +1879,7 @@ namespace smt {
             }
         }
 
-        TRACE("decide", tout << "case split pos: " << is_pos << " p" << var << "\n"
+        TRACE("decide", tout << "case split " << (is_pos?"pos":"neg") << " p" << var << "\n"
               << "activity: " << get_activity(var) << "\n";);
 
         assign(literal(var, !is_pos), b_justification::mk_axiom(), true);
@@ -1941,7 +1914,7 @@ namespace smt {
     */
     void context::push_scope() {
 
-        if (m_manager.has_trace_stream())
+        if (m_manager.has_trace_stream() && !m_is_auxiliary)
             m_manager.trace_stream() << "[push] " << m_scope_lvl << "\n";
 
         m_scope_lvl++;
@@ -2015,8 +1988,10 @@ namespace smt {
 
        \pre Clause is not in the reinit stack.
     */
-    void context::del_clause(clause * cls) {
+    void context::del_clause(bool log, clause * cls) {
         SASSERT(m_flushing || !cls->in_reinit_stack());
+        if (log) 
+            m_clause_proof.del(*cls);
         if (!cls->deleted())
             remove_cls_occs(cls);
         cls->deallocate(m_manager);
@@ -2033,18 +2008,11 @@ namespace smt {
         clause_vector::iterator it    = v.end();
         while (it != begin) {
             --it;
-            del_clause(*it);
+            del_clause(false, *it);
         }
         v.shrink(old_size);
     }
 
-#if 0
-    void context::mark_as_deleted(clause * cls) {
-        SASSERT(!cls->deleted());
-        remove_cls_occs(cls);
-        cls->mark_as_deleted(m_manager);
-    }
-#endif
 
     /**
        \brief Undo variable assignments.
@@ -2249,7 +2217,6 @@ namespace smt {
                     cls->m_reinternalize_atoms = false;
                     continue;
                 }
-
                 SASSERT(cls->in_reinit_stack());
                 bool keep = false;
                 if (cls->reinternalize_atoms()) {
@@ -2392,7 +2359,7 @@ namespace smt {
     unsigned context::pop_scope_core(unsigned num_scopes) {
 
         try {
-            if (m_manager.has_trace_stream())
+            if (m_manager.has_trace_stream() && !m_is_auxiliary)
                 m_manager.trace_stream() << "[pop] " << num_scopes << " " << m_scope_lvl << "\n";
 
             TRACE("context", tout << "backtracking: " << num_scopes << " from " << m_scope_lvl << "\n";);
@@ -2501,11 +2468,11 @@ namespace smt {
        \remark This method should only be invoked if we are at the
        base level.
     */
-    bool context::simplify_clause(clause * cls) {
+    bool context::simplify_clause(clause& cls) {
         SASSERT(m_scope_lvl == m_base_lvl);
-        unsigned s = cls->get_num_literals();
-        if (get_assignment(cls->get_literal(0)) == l_true ||
-            get_assignment(cls->get_literal(1)) == l_true) {
+        unsigned s = cls.get_num_literals();
+        if (get_assignment(cls[0]) == l_true ||
+            get_assignment(cls[1]) == l_true) {
             // clause is already satisfied.
             return true;
         }
@@ -2515,16 +2482,18 @@ namespace smt {
         unsigned i = 2;
         unsigned j = i;
         for(; i < s; i++) {
-            literal l = cls->get_literal(i);
+            literal l = cls[i];
             switch(get_assignment(l)) {
             case l_false:
                 if (m_manager.proofs_enabled())
                     simp_lits.push_back(~l);
                 if (lit_occs_enabled())
-                    m_lit_occs[l.index()].erase(cls);
+                    m_lit_occs[l.index()].erase(&cls);
                 break;
             case l_undef:
-                cls->set_literal(j, l);
+                if (i != j) {
+                    cls.swap_lits(i, j);
+                }
                 j++;
                 break;
             case l_true:
@@ -2533,13 +2502,14 @@ namespace smt {
         }
 
         if (j < s) {
-            cls->set_num_literals(j);
+            m_clause_proof.shrink(cls, j);
+            cls.set_num_literals(j);
             SASSERT(j >= 2);
         }
 
         if (m_manager.proofs_enabled() && !simp_lits.empty()) {
             SASSERT(m_scope_lvl == m_base_lvl);
-            justification * js = cls->get_justification();
+            justification * js = cls.get_justification();
             justification * new_js = nullptr;
             if (js->in_region())
                 new_js = mk_justification(unit_resolution_justification(m_region,
@@ -2548,7 +2518,7 @@ namespace smt {
                                                                         simp_lits.c_ptr()));
             else
                 new_js = alloc(unit_resolution_justification, js, simp_lits.size(), simp_lits.c_ptr());
-            cls->set_justification(new_js);
+            cls.set_justification(new_js);
         }
         return false;
     }
@@ -2567,13 +2537,14 @@ namespace smt {
             clause * cls = *it;
             SASSERT(!cls->in_reinit_stack());
             TRACE("simplify_clauses_bug", display_clause(tout, cls); tout << "\n";);
+            
             if (cls->deleted()) {
-                del_clause(cls);
+                del_clause(true, cls);
                 num_del_clauses++;
             }
-            else if (simplify_clause(cls)) {
+            else if (simplify_clause(*cls)) {
                 for (unsigned idx = 0; idx < 2; idx++) {
-                    literal     l0        = cls->get_literal(idx);
+                    literal     l0        = (*cls)[idx];
                     b_justification l0_js = get_justification(l0.var());
                     if (l0_js != null_b_justification &&
                         l0_js.get_kind() == b_justification::CLAUSE &&
@@ -2588,7 +2559,7 @@ namespace smt {
                             unsigned num_lits = cls->get_num_literals();
                             for(unsigned i = 0; i < num_lits; i++) {
                                 if (i != idx) {
-                                    literal l = cls->get_literal(i);
+                                    literal l = (*cls)[i];
                                     SASSERT(l != l0);
                                     simp_lits.push_back(~l);
                                 }
@@ -2615,7 +2586,7 @@ namespace smt {
                             m_bdata[v0].set_axiom();
                     }
                 }
-                del_clause(cls);
+                del_clause(true, cls);
                 num_del_clauses++;
             }
             else {
@@ -2735,7 +2706,7 @@ namespace smt {
             if (can_delete(cls)) {
                 TRACE("del_inactive_lemmas", tout << "deleting: "; display_clause(tout, cls); tout << ", activity: " <<
                       cls->get_activity() << "\n";);
-                del_clause(cls);
+                del_clause(true, cls);
                 num_del_cls++;
             }
             else {
@@ -2747,12 +2718,11 @@ namespace smt {
         for (; i < sz; i++) {
             clause * cls = m_lemmas[i];
             if (cls->deleted() && can_delete(cls)) {
-                del_clause(cls);
+                del_clause(true, cls);
                 num_del_cls++;
             }
             else {
-                m_lemmas[j] = cls;
-                j++;
+                m_lemmas[j++] = cls;
             }
         }
         m_lemmas.shrink(j);
@@ -2790,7 +2760,7 @@ namespace smt {
             if (can_delete(cls)) {
                 if (cls->deleted()) {
                     // clause is already marked for deletion
-                    del_clause(cls);
+                    del_clause(true, cls);
                     num_del_cls++;
                     continue;
                 }
@@ -2801,7 +2771,7 @@ namespace smt {
                 if (cls->get_activity() < act_threshold) {
                     unsigned rel_threshold = (i >= new_first_idx ? m_fparams.m_new_clause_relevancy : m_fparams.m_old_clause_relevancy);
                     if (more_than_k_unassigned_literals(cls, rel_threshold)) {
-                        del_clause(cls);
+                        del_clause(true, cls);
                         num_del_cls++;
                         continue;
                     }
@@ -2821,9 +2791,7 @@ namespace smt {
     */
     bool context::more_than_k_unassigned_literals(clause * cls, unsigned k) {
         SASSERT(k > 0);
-        unsigned num_lits = cls->get_num_literals();
-        for(unsigned i = 0; i < num_lits; i++) {
-            literal l = cls->get_literal(i);
+        for (literal l : *cls) {
             if (get_assignment(l) == l_undef) {
                 k--;
                 if (k == 0) {
@@ -3178,7 +3146,7 @@ namespace smt {
 
     void context::reset_tmp_clauses() {
         for (auto& p : m_tmp_clauses) {
-            if (p.first) del_clause(p.first);
+            if (p.first) del_clause(false, p.first);
         }
         m_tmp_clauses.reset();
     }
@@ -3244,8 +3212,13 @@ namespace smt {
                 proof * pr = m_manager.mk_asserted(curr_assumption);
                 internalize_assertion(curr_assumption, pr, 0);
                 literal l = get_literal(curr_assumption);
+                if (l == true_literal)
+                    continue;
+                if (l == false_literal) {
+                    set_conflict(b_justification::mk_axiom());
+                    break;
+                }
                 m_literal2assumption.insert(l.index(), orig_assumption);
-                // mark_as_relevant(l); <<< not needed
                 // internalize_assertion marked l as relevant.
                 SASSERT(is_relevant(l));
                 TRACE("assumptions", tout << l << ":" << curr_assumption << " " << mk_pp(orig_assumption, m_manager) << "\n";);
@@ -3326,7 +3299,7 @@ namespace smt {
        Return true if succeeded.
     */
     bool context::check_preamble(bool reset_cancel) {
-        if (m_manager.has_trace_stream())
+        if (m_manager.has_trace_stream() && !m_is_auxiliary)
             m_manager.trace_stream() << "[begin-check] " << m_scope_lvl << "\n";
 
         if (memory::above_high_watermark()) {
@@ -3365,18 +3338,18 @@ namespace smt {
         SASSERT(!m_setup.already_configured());
         setup_context(m_fparams.m_auto_config);
 
+
+        internalize_assertions();
         expr_ref_vector theory_assumptions(m_manager);
         add_theory_assumptions(theory_assumptions);
         if (!theory_assumptions.empty()) {
             TRACE("search", tout << "Adding theory assumptions to context" << std::endl;);
             return check(0, nullptr, reset_cancel);
         }
-
-        internalize_assertions();
-        TRACE("before_search", display(tout););
-        lbool r = search();
-        r = check_finalize(r);
-        return r;
+        else {
+            TRACE("before_search", display(tout););
+            return check_finalize(search());
+        }
     }
 
     config_mode context::get_config_mode(bool use_static_features) const {
@@ -3431,10 +3404,9 @@ namespace smt {
         do {
             pop_to_base_lvl();
             expr_ref_vector asms(m_manager, num_assumptions, assumptions);
-            add_theory_assumptions(asms);                
-            // introducing proxies: if (!validate_assumptions(asms)) return l_undef;
-            TRACE("unsat_core_bug", tout << asms << "\n";);        
             internalize_assertions();
+            add_theory_assumptions(asms);                
+            TRACE("unsat_core_bug", tout << asms << "\n";);        
             init_assumptions(asms);
             TRACE("before_search", display(tout););
             r = search();
@@ -3453,10 +3425,10 @@ namespace smt {
         do {
             pop_to_base_lvl();
             expr_ref_vector asms(cube);
+            internalize_assertions();
             add_theory_assumptions(asms);
             // introducing proxies: if (!validate_assumptions(asms)) return l_undef;
             for (auto const& clause : clauses) if (!validate_assumptions(clause)) return l_undef;
-            internalize_assertions();
             init_assumptions(asms);
             for (auto const& clause : clauses) init_clause(clause);
             r = search();   
@@ -3491,7 +3463,6 @@ namespace smt {
         m_case_split_queue             ->init_search_eh();
         m_next_progress_sample         = 0;
         TRACE("literal_occ", display_literal_num_occs(tout););
-        m_timer.start();
     }
 
     void context::end_search() {
@@ -3743,7 +3714,6 @@ namespace smt {
             }
 
             if (resource_limits_exceeded() && !inconsistent()) {
-                m_last_search_failure = RESOURCE_LIMIT;
                 return l_undef;
             }
         }
@@ -3756,8 +3726,8 @@ namespace smt {
             if (m_last_search_failure != OK)
                 return true;
 
-            if (m_timer.ms_timeout(m_fparams.m_timeout)) {
-                m_last_search_failure = TIMEOUT;
+            if (get_cancel_flag()) {
+                m_last_search_failure = CANCELED;
                 return true;
             }
 
@@ -3918,6 +3888,7 @@ namespace smt {
                 conflict_lvl > m_search_lvl + 1 &&
                 !m_manager.proofs_enabled() &&
                 m_units_to_reassert.size() < m_fparams.m_delay_units_threshold;
+
             if (delay_forced_restart) {
                 new_lvl = conflict_lvl - 1;
             }
@@ -3941,7 +3912,7 @@ namespace smt {
                            << mk_pp(bool_var2expr(l.var()), m_manager) << "\n";
                   });
 
-            if (m_manager.has_trace_stream()) {
+            if (m_manager.has_trace_stream() && !m_is_auxiliary) {
                 m_manager.trace_stream() << "[conflict] ";
                 display_literals(m_manager.trace_stream(), num_lits, lits);
                 m_manager.trace_stream() << "\n";
@@ -4080,6 +4051,9 @@ namespace smt {
             decay_bvar_activity();
             update_phase_cache_counter();
             return true;
+        }
+        else if (m_fparams.m_clause_proof) {
+            m_unsat_proof = m_clause_proof.get_proof();
         }
         else if (m_manager.proofs_enabled()) {
             m_unsat_proof = m_conflict_resolution->get_lemma_proof();
@@ -4386,7 +4360,7 @@ namespace smt {
               m_fingerprints.display(tout);
               );
         failure fl = get_last_search_failure();
-        if (fl == MEMOUT || fl == CANCELED || fl == TIMEOUT || fl == NUM_CONFLICTS || fl == RESOURCE_LIMIT) {
+        if (fl == MEMOUT || fl == CANCELED || fl == NUM_CONFLICTS || fl == RESOURCE_LIMIT) {
             TRACE("get_model", tout << "last search failure: " << fl << "\n";);
         }
         else if (m_fparams.m_model || m_fparams.m_model_on_final_check || m_qmanager->model_based()) {
@@ -4405,8 +4379,11 @@ namespace smt {
     }
 
     proof * context::get_proof() {
-        if (!m_manager.proofs_enabled())
-            return nullptr;
+        
+        if (!m_unsat_proof) {
+            m_unsat_proof = m_clause_proof.get_proof();
+        }
+        TRACE("context", tout << m_unsat_proof << "\n";);
         return m_unsat_proof;
     }
 
@@ -4415,6 +4392,22 @@ namespace smt {
             m = nullptr;
         else
             m = const_cast<model*>(m_model.get());
+    }
+
+    void context::get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) {
+        unsigned sz = vars.size(); 
+        depth.resize(sz);
+        for (unsigned i = 0; i < sz; ++i) {
+            expr* v = vars[i];
+            bool_var bv = m_expr2bool_var.get(v->get_id(), null_bool_var);
+            depth[i] = bv == null_bool_var ? UINT_MAX : get_assign_level(bv);            
+        }
+    }
+
+    expr_ref_vector context::get_trail() {        
+        expr_ref_vector result(get_manager());
+        get_assignments(result);
+        return result;
     }
 
     void context::get_proto_model(proto_model_ref & m) const {
@@ -4427,7 +4420,7 @@ namespace smt {
 
     void context::add_rec_funs_to_model() {
         ast_manager& m = m_manager;
-        SASSERT(m_model);
+        if (!m_model) return;
         for (unsigned i = 0; !get_cancel_flag() && i < m_asserted_formulas.get_num_formulas(); ++i) {
             expr* e = m_asserted_formulas.get_formula(i);
             if (is_quantifier(e)) {
@@ -4477,6 +4470,7 @@ namespace smt {
             fi->set_else(bodyr);
             m_model->register_decl(f, fi);
         }
+        TRACE("model", tout << *m_model << "\n";);
     }
 
 };

@@ -18,6 +18,7 @@ Revision History:
 #include<iostream>
 #include "util/cancel_eh.h"
 #include "util/scoped_timer.h"
+#include "util/scoped_ctrl_c.h"
 #include "util/file_path.h"
 #include "parsers/smt2/smt2parser.h"
 #include "opt/opt_context.h"
@@ -76,6 +77,16 @@ extern "C" {
         RESET_ERROR_CODE();
         CHECK_FORMULA(a,);        
         to_optimize_ptr(o)->add_hard_constraint(to_expr(a));
+        Z3_CATCH;
+    }
+
+    void Z3_API Z3_optimize_assert_and_track(Z3_context c, Z3_optimize o, Z3_ast a, Z3_ast t) {
+        Z3_TRY;
+        LOG_Z3_optimize_assert_and_track(c, o, a, t);
+        RESET_ERROR_CODE();
+        CHECK_FORMULA(a,);        
+        CHECK_FORMULA(t,);        
+        to_optimize_ptr(o)->add_hard_constraint(to_expr(a), to_expr(t));
         Z3_CATCH;
     }
 
@@ -138,8 +149,10 @@ extern "C" {
         cancel_eh<reslimit> eh(mk_c(c)->m().limit());
         unsigned timeout = to_optimize_ptr(o)->get_params().get_uint("timeout", mk_c(c)->get_timeout());
         unsigned rlimit = to_optimize_ptr(o)->get_params().get_uint("rlimit", mk_c(c)->get_rlimit());
+        bool     use_ctrl_c  = to_optimize_ptr(o)->get_params().get_bool("ctrl_c", true);
         api::context::set_interruptable si(*(mk_c(c)), eh);        
         {
+            scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
             scoped_timer timer(timeout, &eh);
             scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
             try {

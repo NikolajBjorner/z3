@@ -20,9 +20,9 @@ Notes:
 #ifndef _SAT_LOOKAHEAD_H_
 #define _SAT_LOOKAHEAD_H_
 
-// #define OLD_NARY 0
 
-#include "sat_elim_eqs.h"
+#include "util/small_object_allocator.h"
+#include "sat/sat_elim_eqs.h"
 
 namespace sat {
 
@@ -181,6 +181,7 @@ namespace sat {
             double         m_psat_threshold;
             unsigned       m_conflicts;
             unsigned       m_cutoffs;
+            unsigned       m_backtracks;
             cube_state() { reset(); }
             void reset() { 
                 m_first = true;
@@ -190,7 +191,7 @@ namespace sat {
                 m_psat_threshold = dbl_max;
                 reset_stats();
             }
-            void reset_stats() { m_conflicts = 0; m_cutoffs = 0; }
+            void reset_stats() { m_conflicts = 0; m_cutoffs = 0; m_backtracks = 0;}
             void inc_conflict() { ++m_conflicts; }
             void inc_cutoff() { ++m_cutoffs; }
         };
@@ -200,7 +201,6 @@ namespace sat {
         double                 m_delta_decrease;
         double                 m_delta_fraction;
 
-        drat                   m_drat;
         literal_vector         m_assumptions;
 
         literal_vector         m_trail;         // trail of units
@@ -247,6 +247,7 @@ namespace sat {
         stats                  m_stats;
         model                  m_model; 
         cube_state             m_cube_state;
+        unsigned               m_max_ops;       // cap number of operations used to compute lookahead reward.
         //scoped_ptr<extension>  m_ext;
  
         // ---------------------------------------
@@ -510,6 +511,9 @@ namespace sat {
         void propagate_binary(literal l);
         void propagate();
         literal choose();
+        literal choose_base();
+        bool should_neuro_choose();
+        literal neuro_choose();
         void compute_lookahead_reward();
         literal select_literal();
         void update_binary_clause_reward(literal l1, literal l2);
@@ -565,7 +569,6 @@ namespace sat {
         lookahead(solver& s) : 
             m_s(s),
             m_num_vars(s.num_vars()),
-            m_drat(s),
             m_num_tc1(0),
             m_level(2),
             m_last_prefix_length(0),
@@ -606,12 +609,25 @@ namespace sat {
 
         std::ostream& display(std::ostream& out) const;
         std::ostream& display_summary(std::ostream& out) const;
+
+        /**
+           \brief display lookahead scores as a sequence of:
+           <variable_id:uint> <true_branch_score:double> <false_branch_score:double>\n
+        */
+        void display_lookahead_scores(std::ostream& out);
+
         model const& get_model();
 
         void collect_statistics(statistics& st) const;
 
         double literal_occs(literal l);
         double literal_big_occs(literal l);
+
+        /**
+           \brief retrieve clauses as one vector of literals.
+           clauses are separated by null-literal
+        */
+        void get_clauses(literal_vector& clauses, unsigned max_clause_size);
 
         sat::config const& get_config() const { return m_s.get_config(); }
               

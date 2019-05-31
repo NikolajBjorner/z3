@@ -1166,6 +1166,14 @@ static void parse_example() {
     // expr b = c.parse_string("(benchmark tst :extrafuns ((x Int) (y Int)) :formula (> x y) :formula (> x 0))");
 }
 
+static void parse_string() {
+    std::cout << "parse string\n";
+    z3::context c;
+    z3::solver s(c);
+    s.from_string("(declare-const x Int)(assert (> x 10))");
+    std::cout << s.check() << "\n";
+}
+
 void mk_model_example() {
     context c;
 
@@ -1203,6 +1211,45 @@ void recfun_example() {
     args.push_back(x); args.push_back(b);
     c.recdef(f, args, ite(b, x, f(x + 1, !b)));
     prove(f(x,c.bool_val(false)) > x);
+}
+
+static void string_values() {
+    context c;
+    expr s = c.string_val("abc\n\n\0\0", 7);
+    std::cout << s << "\n";
+    std::string s1 = s.get_string();
+    std::cout << s1 << "\n";
+}
+
+expr MakeStringConstant(context* context, std::string value) {
+    return context->string_val(value.c_str());
+}
+
+expr MakeStringFunction(context* c, std::string s) {
+    sort sort = c->string_sort();
+    symbol name = c->str_symbol(s.c_str());
+    return c->constant(name, sort);
+}
+
+static void string_issue_2298() {
+    context c;
+    solver s(c);
+    s.push();
+    expr func1 = MakeStringFunction(&c, "func1");
+    expr func2 = MakeStringFunction(&c, "func2");
+    
+    expr abc = MakeStringConstant(&c, "abc");
+    expr cde = MakeStringConstant(&c, "cde");
+    
+    expr length = func1.length();
+    expr five = c.int_val(5);
+    
+    s.add(func2 == abc || func1 == cde);
+    s.add(func2 == abc || func2 == cde);
+    s.add(length <= five);
+    
+    s.check();
+    s.pop();
 }
 
 int main() {
@@ -1252,8 +1299,11 @@ int main() {
         sudoku_example(); std::cout << "\n";
         consequence_example(); std::cout << "\n";
         parse_example(); std::cout << "\n";
+        parse_string(); std::cout << "\n";
         mk_model_example(); std::cout << "\n";
         recfun_example(); std::cout << "\n";
+        string_values(); std::cout << "\n";
+        string_issue_2298(); std::cout << "\n";
         std::cout << "done\n";
     }
     catch (exception & ex) {

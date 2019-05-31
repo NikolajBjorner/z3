@@ -31,8 +31,6 @@ namespace smt {
             return out << "OK";
         case UNKNOWN:
             return out << "UNKNOWN";
-        case TIMEOUT:
-            return out << "TIMEOUT";
         case MEMOUT:
             return out << "MEMOUT";
         case CANCELED:
@@ -64,7 +62,6 @@ namespace smt {
         std::string r;
         switch(m_last_search_failure) {
         case OK: r = m_unknown; break;
-        case TIMEOUT: r = "timeout"; break;
         case MEMOUT: r = "memout"; break;
         case CANCELED: r = "canceled"; break;
         case NUM_CONFLICTS: r = "max-conflicts-reached"; break;
@@ -149,9 +146,7 @@ namespace smt {
 
     void context::display_clause_detail(std::ostream & out, clause const * cls) const {
         out << "lemma: " << cls->is_lemma() << "\n";
-        unsigned num_lits = cls->get_num_literals();
-        for (unsigned i = 0; i < num_lits; i++) {
-            literal l = cls->get_literal(i);
+        for (literal l : *cls) {
             display_literal(out, l);
             out << ", val: " << get_assignment(l) << ", lvl: " << get_assign_level(l)
                 << ", ilvl: " << get_intern_level(l.var()) << ", var: " << l.var() << "\n"
@@ -160,7 +155,7 @@ namespace smt {
     }
 
     void context::display_clause(std::ostream & out, clause const * cls) const {
-        cls->display_compact(out, m_manager, m_bool_var2expr.c_ptr());
+        cls->display_smt2(out, m_manager, m_bool_var2expr.c_ptr());
     }
 
     void context::display_clauses(std::ostream & out, ptr_vector<clause> const & v) const {
@@ -185,11 +180,18 @@ namespace smt {
                         out << "binary clauses:\n";
                         first = false;
                     }
+                    expr_ref t1(m_manager), t2(m_manager);
+                    literal2expr(neg_l1, t1);
+                    literal2expr(l2, t2);
+                    expr_ref disj(m_manager.mk_or(t1, t2), m_manager);
+                    out << disj << "\n";
+#if 0
                     out << "(clause ";
                     display_literal(out, neg_l1);
                     out << " ";
                     display_literal(out, l2);
                     out << ")\n";
+#endif
                 }
             }
         }
@@ -256,7 +258,7 @@ namespace smt {
             for (unsigned i = 0; i < sz; i++) {
                 expr *  n  = m_b_internalized_stack.get(i);
                 bool_var v = get_bool_var_of_id(n->get_id());
-                out << "(#" << n->get_id() << " -> p!" << v << ") ";
+                out << "(#" << n->get_id() << " -> " << literal(v, false) << ") ";
             }
             out << "\n";
         }
@@ -349,9 +351,9 @@ namespace smt {
     }
 
     void context::display_unsat_core(std::ostream & out) const {
-        unsigned sz = m_unsat_core.size();
-        for (unsigned i = 0; i < sz; i++)
-            out << mk_pp(m_unsat_core.get(i), m_manager) << "\n";
+        for (expr* c : m_unsat_core) {
+            out << mk_pp(c, m_manager) << "\n";
+        }
     }
 
     void context::collect_statistics(::statistics & st) const {
@@ -556,13 +558,14 @@ namespace smt {
             }
             out << "\n";
             if (is_app(n)) {
-                for (unsigned i = 0; i < to_app(n)->get_num_args(); i++)
-                    todo.push_back(to_app(n)->get_arg(i));
+                for (expr* arg : *to_app(n)) {
+                    todo.push_back(arg);
+                }
             }
         }
     }
 
-    void context::display(std::ostream& out, b_justification j) const {
+    std::ostream& context::display(std::ostream& out, b_justification j) const {
         switch (j.get_kind()) {
         case b_justification::AXIOM:
             out << "axiom";
@@ -586,7 +589,7 @@ namespace smt {
             UNREACHABLE();
             break;
         }
-        out << "\n";
+        return out << "\n";
     }
 
     void context::trace_assign(literal l, b_justification j, bool decision) const {

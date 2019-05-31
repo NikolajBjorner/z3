@@ -62,7 +62,7 @@ public:
 
     void push_core() override;
     void pop_core(unsigned n) override;
-    lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override;
+    lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) override;
 
     void collect_statistics(statistics & st) const override;
     void get_unsat_core(expr_ref_vector & r) override;
@@ -84,6 +84,19 @@ public:
     }
 
     model_converter_ref get_model_converter() const override { return m_mc; }
+
+    void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override {
+        throw default_exception("cannot retrieve depth from solvers created using tactics");
+    }
+
+    expr_ref_vector get_trail() override {
+        throw default_exception("cannot retrieve trail from solvers created using tactcis");
+    }
+
+    void set_predictor(void* state, neuro_predictor p) override {
+        throw default_exception("cannot set predictors for solvers created using tactics");
+    }
+
 
 };
 
@@ -136,7 +149,7 @@ void tactic2solver::pop_core(unsigned n) {
     m_result = nullptr;
 }
 
-lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
+lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * assumptions) {
     if (m_tactic.get() == nullptr)
         return l_false;
     ast_manager & m = m_assertions.m();
@@ -160,6 +173,7 @@ lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * ass
     expr_dependency_ref core(m);
     std::string         reason_unknown = "unknown";
     labels_vec labels;
+
     try {
         switch (::check_sat(*m_tactic, g, md, labels, pr, core, reason_unknown)) {
         case l_true: 
@@ -179,16 +193,18 @@ lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * ass
             break;
         }
         m_mc = g->mc();
-        TRACE("tactic", if (m_mc) m_mc->display(tout););
+        TRACE("tactic", tout << pr << "\n"; if (m_mc) m_mc->display(tout););
     }
     catch (z3_error & ex) {
         TRACE("tactic2solver", tout << "exception: " << ex.msg() << "\n";);
+        m_result->m_proof = pr;
         throw ex;
     }
     catch (z3_exception & ex) {
         TRACE("tactic2solver", tout << "exception: " << ex.msg() << "\n";);
         m_result->set_status(l_undef);
         m_result->m_unknown = ex.msg();
+        m_result->m_proof = pr;
     }
     m_tactic->collect_statistics(m_result->m_stats);
     m_tactic->collect_statistics(m_stats);

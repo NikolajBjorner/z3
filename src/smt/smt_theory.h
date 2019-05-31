@@ -20,6 +20,7 @@ Revision History:
 #define SMT_THEORY_H_
 
 #include "smt/smt_enode.h"
+#include "smt/smt_quantifier.h"
 #include "util/obj_hashtable.h"
 #include "util/statistics.h"
 #include<typeinfo>
@@ -65,6 +66,13 @@ namespace smt {
             m_var2enode.push_back(n);
             return v;
         }
+
+        theory_var get_th_var(expr* e) const;
+
+        theory_var get_th_var(enode* n) const {
+            return n->get_th_var(get_id());
+        }
+
         
     public:
         /**
@@ -316,6 +324,10 @@ namespace smt {
             return m_var2enode[v];
         }
 
+        app * get_expr(theory_var v) const {
+            return get_enode(v)->get_owner();
+        }
+
         /**
            \brief Return the equivalence class representative 
            of the given theory variable.
@@ -358,6 +370,26 @@ namespace smt {
         
         std::ostream& display_var_flat_def(std::ostream & out, theory_var v) const { return display_flat_app(out, get_enode(v)->get_owner());  }
 
+    protected:
+        void log_axiom_instantiation(app * r, unsigned axiom_id = UINT_MAX, unsigned num_bindings = 0, 
+                                     app * const * bindings = nullptr, unsigned pattern_id = UINT_MAX, 
+                                     const vector<std::tuple<enode *, enode *>> & used_enodes = vector<std::tuple<enode *, enode*>>());
+
+        void log_axiom_instantiation(expr * r, unsigned axiom_id = UINT_MAX, unsigned num_bindings = 0, 
+                                     app * const * bindings = nullptr, unsigned pattern_id = UINT_MAX, 
+                                     const vector<std::tuple<enode *, enode *>> & used_enodes = vector<std::tuple<enode *, enode*>>()) { 
+            log_axiom_instantiation(to_app(r), axiom_id, num_bindings, bindings, pattern_id, used_enodes); 
+        }
+
+        void log_axiom_instantiation(app * r, unsigned num_blamed_enodes, enode ** blamed_enodes) {
+            vector<std::tuple<enode *, enode *>> used_enodes;
+            for (unsigned i = 0; i < num_blamed_enodes; ++i) {
+                used_enodes.push_back(std::make_tuple(nullptr, blamed_enodes[i]));
+            }
+            log_axiom_instantiation(r, UINT_MAX, 0, nullptr, UINT_MAX, used_enodes);
+        }
+
+    public:
         /**
            \brief Assume eqs between variable that are equal with respect to the given table.
            Table is a hashtable indexed by the variable value.

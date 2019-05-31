@@ -338,26 +338,33 @@ def Z3_set_error_handler(ctx, hndlr, _elems=Elementaries(_lib.Z3_set_error_handl
 """)
 
     for sig in _API2PY:
-        name   = sig[0]
-        result = sig[1]
-        params = sig[2]
-        num    = len(params)
-        core_py.write("def %s(" % name)
-        display_args(num)
-        comma = ", " if num != 0 else ""
-        core_py.write("%s_elems=Elementaries(_lib.%s)):\n" % (comma, name))
-        lval = "r = " if result != VOID else ""
-        core_py.write("  %s_elems.f(" % lval)
-        display_args_to_z3(params)
-        core_py.write(")\n")
-        if len(params) > 0 and param_type(params[0]) == CONTEXT and not name in Unwrapped:
-            core_py.write("  _elems.Check(a0)\n")
-        if result == STRING:
-            core_py.write("  return _to_pystr(r)\n")
-        elif result != VOID:
-            core_py.write("  return r\n")
-        core_py.write("\n")
-    core_py
+        mk_py_wrapper_single(sig)
+        if sig[1] == STRING:
+            mk_py_wrapper_single(sig, decode_string=False)
+
+def mk_py_wrapper_single(sig, decode_string=True):
+    name    = sig[0]
+    result  = sig[1]
+    params  = sig[2]
+    num     = len(params)
+    def_name = name
+    if not decode_string:
+        def_name += '_bytes'
+    core_py.write("def %s(" % def_name)
+    display_args(num)
+    comma = ", " if num != 0 else ""
+    core_py.write("%s_elems=Elementaries(_lib.%s)):\n" % (comma, name))
+    lval = "r = " if result != VOID else ""
+    core_py.write("  %s_elems.f(" % lval)
+    display_args_to_z3(params)
+    core_py.write(")\n")
+    if len(params) > 0 and param_type(params[0]) == CONTEXT and not name in Unwrapped:
+        core_py.write("  _elems.Check(a0)\n")
+    if result == STRING and decode_string:
+        core_py.write("  return _to_pystr(r)\n")
+    elif result != VOID:
+        core_py.write("  return r\n")
+    core_py.write("\n")
 
 
 ## .NET API native interface
@@ -385,12 +392,23 @@ def mk_dotnet(dotnet):
     dotnet.write('    {\n\n')
     dotnet.write('        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]\n')
     dotnet.write('        public delegate void Z3_error_handler(Z3_context c, Z3_error_code e);\n\n')
+    dotnet.write('        #pragma warning disable 1591\n')
+    dotnet.write('        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 0)]\n')
+    dotnet.write('        public struct NeuroPredict {\n')
+    dotnet.write('          public uint n_vars, n_clauses, n_cells;\n')
+    dotnet.write('          public Single v_itau, c_itau;\n')
+    dotnet.write('          public IntPtr C_idxs, L_idxs, pi_march_ps, pi_core_var_ps, pi_core_clause_ps, pi_model_ps;\n')
+    dotnet.write('        }\n')
+    dotnet.write('        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]\n')
+    dotnet.write('        public delegate bool Z3_solver_predictor(System.IntPtr state, [MarshalAs(UnmanagedType.Struct)] ref NeuroPredict p);\n\n')
     dotnet.write('        public class LIB\n')
     dotnet.write('        {\n')
     dotnet.write('            const string Z3_DLL_NAME = \"libz3\";\n'
                  '            \n')
     dotnet.write('            [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]\n')
     dotnet.write('            public extern static void Z3_set_error_handler(Z3_context a0, Z3_error_handler a1);\n\n')
+    dotnet.write('            [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]\n')
+    dotnet.write('            public extern static void Z3_solver_set_predictor(Z3_context a0, Z3_solver a1, System.IntPtr a2, Z3_solver_predictor a3);\n\n')
     for name, result, params in _dotnet_decls:
         dotnet.write('            [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]\n')
         dotnet.write('            ')

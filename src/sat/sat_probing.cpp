@@ -52,6 +52,9 @@ namespace sat {
         unsigned tr_sz = s.m_trail.size();
         for (unsigned i = old_tr_sz; i < tr_sz; i++) {
             entry.m_lits.push_back(s.m_trail[i]);
+            if (s.m_config.m_drat) {
+                s.m_drat.add(~l, s.m_trail[i], true);
+            }
         }
     }
 
@@ -69,7 +72,7 @@ namespace sat {
                         s.m_drat.add(l, lit, true);
                         s.m_drat.add(~l, lit, true);
                     }
-                    s.assign(lit, justification());
+                    s.assign_scoped(lit);
                     m_num_assigned++;
                 }
             }
@@ -77,14 +80,14 @@ namespace sat {
         else {
             m_to_assert.reset();
             s.push();
-            s.assign(l, justification());
+            s.assign_scoped(l);
             m_counter--;
             unsigned old_tr_sz = s.m_trail.size();
             s.propagate(false);
             if (s.inconsistent()) {
                 // ~l must be true
                 s.pop(1);
-                s.assign(~l, justification());
+                s.assign_scoped(~l);
                 s.propagate(false);
                 return false;
             }
@@ -104,7 +107,7 @@ namespace sat {
                     s.m_drat.add(l, lit, true);
                     s.m_drat.add(~l, lit, true);
                 }
-                s.assign(lit, justification());
+                s.assign_scoped(lit);
                 m_num_assigned++;
             }
         }
@@ -119,13 +122,13 @@ namespace sat {
         m_counter--;
         s.push();
         literal l(v, false);
-        s.assign(l, justification());
+        s.assign_scoped(l);
         unsigned old_tr_sz = s.m_trail.size();
         s.propagate(false);
         if (s.inconsistent()) {
             // ~l must be true
             s.pop(1);
-            s.assign(~l, justification());
+            s.assign_scoped(~l);
             s.propagate(false);
             m_num_assigned++;
             return;
@@ -176,7 +179,7 @@ namespace sat {
     struct probing::report {
         probing    & m_probing;
         stopwatch    m_watch;
-        unsigned     m_num_assigned;
+        unsigned     m_num_assigned;        
         report(probing & p):
             m_probing(p),
             m_num_assigned(p.m_num_assigned) {
@@ -185,12 +188,13 @@ namespace sat {
 
         ~report() {
             m_watch.stop();
-            IF_VERBOSE(SAT_VB_LVL,
-                       verbose_stream() << " (sat-probing :probing-assigned "
-                       << (m_probing.m_num_assigned - m_num_assigned)
-                       << " :cost " << m_probing.m_counter;
+            unsigned units = (m_probing.m_num_assigned - m_num_assigned);
+            IF_VERBOSE(2,
+                       verbose_stream() << " (sat-probing";
+                       if (units > 0) verbose_stream() << " :probing-assigned " << units;
+                       verbose_stream() << " :cost " << m_probing.m_counter;
                        if (m_probing.m_stopped_at != 0) verbose_stream() << " :stopped-at " << m_probing.m_stopped_at;
-                       verbose_stream() << mem_stat() << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
+                       verbose_stream() << mem_stat() << m_watch << ")\n";);
         }
     };
 

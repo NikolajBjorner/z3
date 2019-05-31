@@ -20,6 +20,7 @@ Revision History:
 #include "ast/ast_smt2_pp.h"
 #include "ast/for_each_expr.h"
 #include "ast/well_sorted.h"
+#include "ast/display_dimacs.h"
 #include "tactic/goal.h"
 
 goal::precision goal::mk_union(precision p1, precision p2) {
@@ -127,16 +128,14 @@ void goal::push_back(expr * f, proof * pr, expr_dependency * d) {
         m().del(m_dependencies);
         m_inconsistent = true;
         m().push_back(m_forms, m().mk_false());
-        if (proofs_enabled())
-            m().push_back(m_proofs, saved_pr);
+        m().push_back(m_proofs, saved_pr);
         if (unsat_core_enabled())
             m().push_back(m_dependencies, saved_d);
     }
     else {
         SASSERT(!m_inconsistent);
         m().push_back(m_forms, f);
-        if (proofs_enabled())
-            m().push_back(m_proofs, pr);
+        m().push_back(m_proofs, pr);
         if (unsat_core_enabled())
             m().push_back(m_dependencies, d);
     }
@@ -247,11 +246,12 @@ void goal::assert_expr(expr * f, proof * pr, expr_dependency * d) {
     expr_ref _f(f, m());
     proof_ref _pr(pr, m());
     expr_dependency_ref _d(d, m());
-    SASSERT(proofs_enabled() == (pr != 0 && !m().is_undef_proof(pr)));
-    if (m_inconsistent)
+    if (m_inconsistent) {
         return;
-    if (proofs_enabled())
+    }
+    if (pr) {
         slow_process(f, pr, d);
+    }
     else {
         expr_ref fr(f, m());
         quick_process(false, fr, d);
@@ -262,14 +262,14 @@ void goal::assert_expr(expr * f, expr_dependency * d) {
     assert_expr(f, proofs_enabled() ? m().mk_asserted(f) : nullptr, d);
 }
 
-void goal::get_formulas(ptr_vector<expr> & result) {
+void goal::get_formulas(ptr_vector<expr> & result) const {
     unsigned sz = size();
     for (unsigned i = 0; i < sz; i++) {
         result.push_back(form(i));
     }
 }
 
-void goal::get_formulas(expr_ref_vector & result) {
+void goal::get_formulas(expr_ref_vector & result) const {
     unsigned sz = size();
     for (unsigned i = 0; i < sz; i++) {
         result.push_back(form(i));
@@ -277,11 +277,9 @@ void goal::get_formulas(expr_ref_vector & result) {
 }
 
 void goal::update(unsigned i, expr * f, proof * pr, expr_dependency * d) {
-    // KLM: don't know why this assertion is no longer true
-    // SASSERT(proofs_enabled() == (pr != 0 && !m().is_undef_proof(pr)));
     if (m_inconsistent)
         return;
-    if (proofs_enabled()) {
+    if (pr) {
         expr_ref out_f(m());
         proof_ref out_pr(m());
         slow_process(true, f, pr, d, out_f, out_pr);
@@ -434,63 +432,9 @@ void goal::display_ll(std::ostream & out) const {
    \brief Assumes that the formula is already in CNF.
 */
 void goal::display_dimacs(std::ostream & out) const {
-    unsigned_vector expr2var;
-    ptr_vector<expr> exprs;
-    unsigned num_vars = 0;
-    unsigned num_cls  = size();
-    for (unsigned i = 0; i < num_cls; i++) {
-        expr * f = form(i);
-        unsigned num_lits;
-        expr * const * lits;
-        if (m().is_or(f)) {
-            num_lits = to_app(f)->get_num_args();
-            lits     = to_app(f)->get_args();
-        }
-        else {
-            num_lits = 1;
-            lits     = &f;
-        }
-        for (unsigned j = 0; j < num_lits; j++) {
-            expr * l = lits[j];
-            if (m().is_not(l))
-                l = to_app(l)->get_arg(0);
-            if (expr2var.get(l->get_id(), UINT_MAX) == UINT_MAX) {
-                num_vars++;
-                expr2var.setx(l->get_id(), num_vars, UINT_MAX);
-                exprs.setx(l->get_id(), l, nullptr);
-            }
-        }
-    }
-    out << "p cnf " << num_vars << " " << num_cls << "\n";
-    for (unsigned i = 0; i < num_cls; i++) {
-        expr * f = form(i);
-        unsigned num_lits;
-        expr * const * lits;
-        if (m().is_or(f)) {
-            num_lits = to_app(f)->get_num_args();
-            lits     = to_app(f)->get_args();
-        }
-        else {
-            num_lits = 1;
-            lits     = &f;
-        }
-        for (unsigned j = 0; j < num_lits; j++) {
-            expr * l = lits[j];
-            if (m().is_not(l)) {
-                out << "-";
-                l = to_app(l)->get_arg(0);
-            }
-            SASSERT(exprs[l->get_id()]);
-            out << expr2var[l->get_id()] << " ";
-        }
-        out << "0\n";
-    }
-    for (expr* e : exprs) {
-        if (e && is_app(e)) {
-            symbol const& n = to_app(e)->get_decl()->get_name();
-            out << "c " << expr2var[e->get_id()] << " " << n << "\n";            
-        }
-    }
+    expr_ref_vector fmls(m());
+    get_formulas(fmls);
+    ::display_dimacs(out, fmls);
 }
 
 unsigned goal::num_exprs() const {
@@ -508,9 +452,8 @@ void goal::shrink(unsigned j) {
     unsigned sz = size();
     for (unsigned i = j; i < sz; i++)
         m().pop_back(m_forms);
-    if (proofs_enabled()) 
-        for (unsigned i = j; i < sz; i++)
-            m().pop_back(m_proofs);
+    for (unsigned i = j; i < sz; i++)
+        m().pop_back(m_proofs);
     if (unsat_core_enabled()) 
         for (unsigned i = j; i < sz; i++)
             m().pop_back(m_dependencies);
@@ -531,8 +474,7 @@ void goal::elim_true() {
             continue;
         }
         m().set(m_forms, j, f);
-        if (proofs_enabled())
-            m().set(m_proofs, j, m().get(m_proofs, i));
+        m().set(m_proofs, j, m().get(m_proofs, i));
         if (unsat_core_enabled())
             m().set(m_dependencies, j, m().get(m_dependencies, i));
         j++;
@@ -618,8 +560,7 @@ void goal::elim_redundancies() {
             continue;
         }
         m().set(m_forms, j, f);
-        if (proofs_enabled())
-            m().set(m_proofs, j, pr(i));
+        m().set(m_proofs, j, pr(i));
         if (unsat_core_enabled())
             m().set(m_dependencies, j, dep(i));
         j++;
@@ -649,8 +590,7 @@ goal * goal::translate(ast_translation & translator) const {
     unsigned sz = m().size(m_forms);
     for (unsigned i = 0; i < sz; i++) {
         res->m().push_back(res->m_forms, translator(m().get(m_forms, i)));
-        if (res->proofs_enabled())
-            res->m().push_back(res->m_proofs, translator(m().get(m_proofs, i)));
+        res->m().push_back(res->m_proofs, translator(m().get(m_proofs, i)));
         if (res->unsat_core_enabled())
             res->m().push_back(res->m_dependencies, dep_translator(m().get(m_dependencies, i)));
     }

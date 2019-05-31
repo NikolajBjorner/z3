@@ -36,7 +36,7 @@ namespace sat {
         bool                   m_learned;
         bool                   m_include_cardinality;
 
-        svector<std::pair<literal, literal>> m_del_bin;
+        vector<svector<literal> > m_del_bin;
         
 
         void init_dfs_num();
@@ -82,6 +82,7 @@ namespace sat {
         int get_right(literal l) const { return m_right[l.index()]; }
         literal get_parent(literal l) const { return m_parent[l.index()]; }
         literal get_root(literal l);
+        bool is_root(literal l) { return get_root(l) == l; }
         bool reaches(literal u, literal v) const { return m_left[u.index()] < m_left[v.index()] && m_right[v.index()] < m_right[u.index()]; }        
         bool connected(literal u, literal v) const { return reaches(u, v) || reaches(~v, ~u); }
         void display(std::ostream& out) const;

@@ -18,6 +18,7 @@ Revision History:
 --*/
 #include "smt/smt_kernel.h"
 #include "smt/smt_context.h"
+#include "smt/smt_lookahead.h"
 #include "ast/ast_smt2_pp.h"
 #include "smt/params/smt_params_helper.hpp"
 
@@ -146,6 +147,14 @@ namespace smt {
         expr * get_unsat_core_expr(unsigned idx) const {
             return m_kernel.get_unsat_core_expr(idx);
         }
+
+        void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) {
+            m_kernel.get_levels(vars, depth);
+        }
+
+        expr_ref_vector get_trail() {
+            return m_kernel.get_trail();
+        }
         
         failure last_failure() const {
             return m_kernel.get_last_search_failure();
@@ -179,8 +188,9 @@ namespace smt {
             m_kernel.get_guessed_literals(result);
         }
 
-        expr* next_decision() {
-            return m_kernel.next_decision();
+        expr_ref next_cube() {
+            lookahead lh(m_kernel);
+            return lh.choose();
         }
                 
         void collect_statistics(::statistics & st) const {
@@ -356,12 +366,13 @@ namespace smt {
         m_imp->get_guessed_literals(result);
     }
 
-    expr* kernel::next_decision() {
-        return m_imp->next_decision();
+    expr_ref kernel::next_cube() {
+        return m_imp->next_cube();
     }        
 
-    void kernel::display(std::ostream & out) const {
+    std::ostream& kernel::display(std::ostream & out) const {
         m_imp->display(out);
+        return out;
     }
 
     void kernel::collect_statistics(::statistics & st) const {
@@ -395,5 +406,14 @@ namespace smt {
     context & kernel::get_context() {
         return m_imp->m_kernel;
     }
+
+    void kernel::get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) {
+        m_imp->get_levels(vars, depth);
+    }
+
+    expr_ref_vector kernel::get_trail() {
+        return m_imp->get_trail();
+    }
+
 
 };

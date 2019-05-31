@@ -31,6 +31,7 @@ Notes:
 #include "ast/pb_decl_plugin.h"
 #include "ast/fpa_decl_plugin.h"
 #include "ast/csp_decl_plugin.h"
+#include "ast/special_relations_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/pp.h"
@@ -560,25 +561,12 @@ void cmd_context::set_produce_proofs(bool f) {
     m_params.m_proof = f;
 }
 
-void cmd_context::set_produce_interpolants(bool f) {
-    // can only be set before initialization
-    // FIXME currently synonym for produce_proofs
-    // also sets the default solver to be simple smt
-    SASSERT(!has_manager());
-    m_params.m_proof = f;
-    // set_solver_factory(mk_smt_solver_factory());
-}
 
 bool cmd_context::produce_models() const {
     return m_params.m_model;
 }
 
 bool cmd_context::produce_proofs() const {
-    return m_params.m_proof;
-}
-
-bool cmd_context::produce_interpolants() const {
-    // FIXME currently synonym for produce_proofs
     return m_params.m_proof;
 }
 
@@ -700,6 +688,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         register_plugin(symbol("fpa"),      alloc(fpa_decl_plugin), logic_has_fpa());
         register_plugin(symbol("datalog_relation"), alloc(datalog::dl_decl_plugin), !has_logic());
         register_plugin(symbol("csp"),      alloc(csp_decl_plugin), smt_logics::logic_is_csp(m_logic));
+        register_plugin(symbol("special_relations"), alloc(special_relations_decl_plugin), !has_logic());
     }
     else {
         // the manager was created by an external module
@@ -716,6 +705,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         load_plugin(symbol("fpa"),      logic_has_fpa(), fids);
         load_plugin(symbol("pb"),       logic_has_pb(), fids);
         load_plugin(symbol("csp"),      smt_logics::logic_is_csp(m_logic), fids);
+
         for (family_id fid : fids) {
             decl_plugin * p = m_manager->get_plugin(fid);
             if (p) {
@@ -810,7 +800,7 @@ void cmd_context::insert(symbol const & s, func_decl * f) {
         msg += " '";
         msg += s.str();
         msg += "' (with the given signature) already declared";
-        throw cmd_exception(msg.c_str());
+        throw cmd_exception(std::move(msg));
     }
     if (s != f->get_name()) {
         TRACE("func_decl_alias", tout << "adding alias for: " << f->get_name() << ", alias: " << s << "\n";);
@@ -1155,7 +1145,7 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
             for (unsigned i = 0; i < fs.get_num_entries(); ++i) {
                 buffer << "\ndeclared: " << mk_pp(fs.get_entry(i), m()) << " ";
             }
-            throw cmd_exception(buffer.str().c_str());
+            throw cmd_exception(buffer.str());
         }
         if (well_sorted_check_enabled())
             m().check_sort(f, num_args, args);
@@ -1892,28 +1882,17 @@ void cmd_context::validate_model() {
         if (invalid_model) {
             throw cmd_exception("an invalid model was generated");
         }
+        IF_VERBOSE(1, verbose_stream() << "model validated\n");
     }
 }
-
-// FIXME: really interpolants_enabled ought to be a parameter to the solver factory,
-// but this is a global change, so for now, we use an alternate solver factory
-// for interpolation
 
 void cmd_context::mk_solver() {
     bool proofs_enabled, models_enabled, unsat_core_enabled;
     params_ref p;
     m_params.get_solver_params(m(), p, proofs_enabled, models_enabled, unsat_core_enabled);
-    if (produce_interpolants() && m_interpolating_solver_factory) {
-        m_solver = (*m_interpolating_solver_factory)(m(), p, true /* must have proofs */, models_enabled, unsat_core_enabled, m_logic);
-    }
-    else
-        m_solver = (*m_solver_factory)(m(), p, proofs_enabled, models_enabled, unsat_core_enabled, m_logic);
+    m_solver = (*m_solver_factory)(m(), p, proofs_enabled, models_enabled, unsat_core_enabled, m_logic);
 }
 
-void cmd_context::set_interpolating_solver_factory(solver_factory * f) {
-  SASSERT(!has_manager());
-  m_interpolating_solver_factory   = f;
-}
 
 void cmd_context::set_solver_factory(solver_factory * f) {
     m_solver_factory   = f;
@@ -2054,10 +2033,8 @@ void cmd_context::display_smt2_benchmark(std::ostream & out, unsigned num, expr 
 
     // TODO: display uninterpreted sort decls, and datatype decls.
 
-    unsigned num_decls = decls.get_num_decls();
-    func_decl * const * fs = decls.get_func_decls();
-    for (unsigned i = 0; i < num_decls; i++) {
-        display(out, fs[i]);
+    for (func_decl* f : decls.get_func_decls()) {
+        display(out, f);
         out << std::endl;
     }
 

@@ -272,9 +272,7 @@ namespace smt {
         }
 
         // traverse all enodes that are associated with fresh values...
-        unsigned sz = roots.size();
-        for (unsigned i = 0; i < sz; i++) {
-            enode * r     = roots[i];
+        for (enode* r : roots) {
             model_value_proc * proc = root2proc[r];
             SASSERT(proc);
             if (!proc->is_fresh())
@@ -282,9 +280,7 @@ namespace smt {
             process_source(source(r), roots, root2proc, colors, already_traversed, todo, sorted_sources);
         }
 
-        sz = roots.size();
-        for (unsigned i = 0; i < sz; i++) {
-            enode * r     = roots[i];
+        for (enode * r : roots) {
             process_source(source(r), roots, root2proc, colors, already_traversed, todo, sorted_sources);
         }
     }
@@ -380,11 +376,9 @@ namespace smt {
     */
     bool model_generator::include_func_interp(func_decl * f) const {
         family_id fid = f->get_family_id();
-        TRACE("model", tout << f->get_name() << " " << fid << "\n";);
         if (fid == null_family_id) return !m_hidden_ufs.contains(f); 
         if (fid == m_manager.get_basic_family_id()) return false;
         theory * th = m_context->get_theory(fid);
-        TRACE("model", tout << th << "\n";);
         if (!th) return true;
         return th->include_func_interp(f);
     }
@@ -429,14 +423,8 @@ namespace smt {
                       }
                       tout << "\n";
                       tout << "value: #" << n->get_owner_id() << "\n" << mk_ismt2_pp(result, m_manager) << "\n";);
-                if (m_context->get_last_search_failure() == smt::THEORY) {
-                    // if the theory solvers are incomplete, then we cannot assume the e-graph is close under congruence
-                    if (fi->get_entry(args.c_ptr()) == nullptr)
-                        fi->insert_new_entry(args.c_ptr(), result);
-                }
-                else {
+                if (fi->get_entry(args.c_ptr()) == nullptr)
                     fi->insert_new_entry(args.c_ptr(), result);
-                }
             }
         }
     }

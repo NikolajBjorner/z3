@@ -121,13 +121,13 @@ public:
     unsigned num_exprs() const;
   
     expr * form(unsigned i) const { return m().get(m_forms, i); }
-    proof * pr(unsigned i) const { return proofs_enabled() ? static_cast<proof*>(m().get(m_proofs, i)) : nullptr; }
+    proof * pr(unsigned i) const { return m().size(m_proofs) > i ? static_cast<proof*>(m().get(m_proofs, i)) : nullptr; }
     expr_dependency * dep(unsigned i) const { return unsat_core_enabled() ? m().get(m_dependencies, i) : nullptr; }
 
     void update(unsigned i, expr * f, proof * pr = nullptr, expr_dependency * dep = nullptr);
 
-    void get_formulas(ptr_vector<expr> & result);
-    void get_formulas(expr_ref_vector & result);
+    void get_formulas(ptr_vector<expr> & result) const;
+    void get_formulas(expr_ref_vector & result) const;
     
     void elim_true();
     void elim_redundancies();

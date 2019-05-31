@@ -27,7 +27,9 @@ namespace sat {
     enum phase_selection {
         PS_ALWAYS_TRUE,
         PS_ALWAYS_FALSE,
-        PS_CACHING,
+        PS_BASIC_CACHING,
+        PS_SAT_CACHING,
+        PS_NEURO_CACHING,
         PS_RANDOM
     };
 
@@ -43,21 +45,14 @@ namespace sat {
         GC_PSM,
         GC_GLUE,
         GC_GLUE_PSM,
-        GC_PSM_GLUE
+        GC_PSM_GLUE,
+        GC_NEURO
     };
 
     enum branching_heuristic {
         BH_VSIDS,
         BH_CHB,
         BH_LRB
-    };
-
-    enum pb_solver {
-        PB_SOLVER,
-        PB_CIRCUIT,
-        PB_SORTING,
-        PB_TOTALIZER,
-        PB_SEGMENTED
     };
 
     enum pb_resolve {
@@ -94,9 +89,20 @@ namespace sat {
     struct config {
         unsigned long long m_max_memory;
         phase_selection    m_phase;
-        unsigned           m_phase_caching_on;
-        unsigned           m_phase_caching_off;
+        unsigned           m_search_sat_conflicts;
+        unsigned           m_search_unsat_conflicts;
         bool               m_phase_sticky;
+        bool               m_neuro_activity;        // enable neuro activity recalibration
+        double             m_neuro_activity_scale;  // scale factor
+        double             m_neuro_var_itau;   // temperature to align weights
+        double             m_neuro_clause_itau;   // temperature to align weights
+        bool               m_neuro_choose;         // use neuro-core for literal choice in lookahead solver
+        unsigned           m_neuro_activity_base; 
+        unsigned           m_neuro_max_size;
+        double             m_neuro_learned_size_overhead;
+        unsigned           m_neuro_max_learned_clause_size;
+        unsigned           m_rephase_base;
+        bool               m_rephase_neuro;
         bool               m_propagate_prefetch;
         restart_strategy   m_restart;
         bool               m_restart_fast;
@@ -112,12 +118,16 @@ namespace sat {
         unsigned           m_burst_search;
         unsigned           m_max_conflicts;
         unsigned           m_num_threads;
+        bool               m_ddfw_search;
+        unsigned           m_ddfw_threads;
+        bool               m_prob_search;
         unsigned           m_local_search_threads;
         bool               m_local_search;
         local_search_mode  m_local_search_mode;
         bool               m_local_search_dbg_flips;
         unsigned           m_unit_walk_threads;
         bool               m_unit_walk;
+        bool               m_binspr;
         bool               m_lookahead_simplify;
         bool               m_lookahead_simplify_bca;
         cutoff_t           m_lookahead_cube_cutoff;
@@ -128,6 +138,7 @@ namespace sat {
         double             m_lookahead_cube_psat_clause_base;
         double             m_lookahead_cube_psat_trigger;
         reward_t           m_lookahead_reward;
+        bool               m_lookahead_double;
         bool               m_lookahead_global_autarky;
         double             m_lookahead_delta_fraction;
         bool               m_lookahead_use_learned;
@@ -150,18 +161,24 @@ namespace sat {
 
         bool               m_force_cleanup;
 
+        // backtracking
+        unsigned           m_backtrack_scopes;
+        unsigned           m_backtrack_init_conflicts;
 
         bool               m_minimize_lemmas;
         bool               m_dyn_sub_res;
         bool               m_core_minimize;
         bool               m_core_minimize_partial;
+
+        // drat proofs
         bool               m_drat;
+        bool               m_drat_binary;
         symbol             m_drat_file;
         bool               m_drat_check_unsat;
         bool               m_drat_check_sat;
         
-        pb_solver          m_pb_solver;
         bool               m_card_solver;
+        bool               m_xor_solver;
         pb_resolve         m_pb_resolve;
         pb_lemma_format    m_pb_lemma_format;
         
@@ -180,6 +197,7 @@ namespace sat {
         config(params_ref const & p);
         void updt_params(params_ref const & p);
         static void collect_param_descrs(param_descrs & d);
+
     };
 };
 

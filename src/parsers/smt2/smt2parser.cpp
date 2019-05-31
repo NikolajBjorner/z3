@@ -482,7 +482,7 @@ namespace smt2 {
             if (context[0]) msg += ": ";
             msg += "unknown sort '";
             msg += id.str() + "'";
-            throw parser_exception(msg.c_str());
+            throw parser_exception(std::move(msg));
         }
 
         void consume_sexpr() {
@@ -1371,11 +1371,11 @@ namespace smt2 {
             else {
                 while (!curr_is_rparen()) {
                     m_env.begin_scope();
+                    check_lparen_next("invalid pattern binding, '(' expected");                    
                     unsigned num_bindings = m_num_bindings;
                     parse_match_pattern(srt);  
                     patterns.push_back(expr_stack().back());
                     expr_stack().pop_back();
-                    check_lparen_next("invalid pattern binding, '(' expected");                    
                     parse_expr();
                     cases.push_back(expr_stack().back());
                     expr_stack().pop_back();
@@ -1474,22 +1474,29 @@ namespace smt2 {
          * _
          * x
          */
-
-        bool parse_constructor_pattern(sort * srt) {
-            if (!curr_is_lparen()) {
-                return false;
-            }
-            next();
+        
+        void parse_match_pattern(sort * srt) {
+            symbol C;
             svector<symbol> vars;
             expr_ref_vector args(m());
-            symbol C(check_identifier_next("constructor symbol expected"));
-            while (!curr_is_rparen()) {
-                symbol v(check_identifier_next("variable symbol expected"));
-                if (v != m_underscore && vars.contains(v)) {
-                    throw parser_exception("unexpected repeated variable in pattern expression");
-                } 
-                vars.push_back(v);
-            }                
+            
+            if (curr_is_identifier()) {
+                C = curr_id();
+            }
+            else if (curr_is_lparen()) {
+                next();
+                C = check_identifier_next("constructor symbol expected");
+                while (!curr_is_rparen()) {
+                    symbol v(check_identifier_next("variable symbol expected"));
+                    if (v != m_underscore && vars.contains(v)) {
+                        throw parser_exception("unexpected repeated variable in pattern expression");
+                    } 
+                    vars.push_back(v);
+                }                
+            }
+            else {
+                throw parser_exception("expecting a constructor, _, variable or constructor application");
+            }
             next();
             
             // now have C, vars
@@ -1498,9 +1505,27 @@ namespace smt2 {
             // store expression in expr_stack().
             // ensure that bound variables are adjusted to vars
             
-            func_decl* f = m_ctx.find_func_decl(C, 0, nullptr, vars.size(), nullptr, srt);
-            if (!f) {
+            func_decl* f = nullptr;
+            try {
+                f = m_ctx.find_func_decl(C, 0, nullptr, vars.size(), nullptr, srt);
+            }
+            catch (cmd_exception &) {
+                if (!args.empty()) {
+                    throw;
+                }
+            }
+            
+            if (!f && !args.empty()) {
                 throw parser_exception("expecting a constructor that has been declared");
+            }
+            if (!f) {
+                m_num_bindings++;
+                var * v  = m().mk_var(0, srt);
+                if (C != m_underscore) {
+                    m_env.insert(C, local(v, m_num_bindings));
+                }
+                expr_stack().push_back(v);
+                return;
             }
             if (!dtutil().is_constructor(f)) {
                 throw parser_exception("expecting a constructor");
@@ -1517,40 +1542,6 @@ namespace smt2 {
                 }
             }
             expr_stack().push_back(m().mk_app(f, args.size(), args.c_ptr()));
-            return true;
-        }
-
-        void parse_match_pattern(sort* srt) {
-            if (parse_constructor_pattern(srt)) {
-                // done
-            }
-            else if (curr_id() == m_underscore) {
-                // we have a wild-card.                
-                // store dummy variable in expr_stack()
-                next();
-                var* v = m().mk_var(0, srt);
-                expr_stack().push_back(v);
-            }
-            else {
-                symbol xC(check_identifier_next("constructor symbol or variable expected"));            
-                // check if xC is a constructor, otherwise make it a variable
-                // of sort srt.
-                try {
-                    func_decl* f = m_ctx.find_func_decl(xC, 0, nullptr, 0, nullptr, srt);
-                    if (!dtutil().is_constructor(f)) {
-                        throw parser_exception("expecting a constructor, got a previously declared function");
-                    }
-                    if (f->get_arity() > 0) {
-                        throw parser_exception("constructor expects arguments, but no arguments were supplied in pattern");
-                    }
-                    expr_stack().push_back(m().mk_const(f));
-                }
-                catch (cmd_exception &) {
-                    var* v = m().mk_var(0, srt);
-                    expr_stack().push_back(v);
-                    m_env.insert(xC, local(v, m_num_bindings++));            
-                }
-            }
         }
 
         symbol parse_indexed_identifier_core() {
@@ -1600,7 +1591,7 @@ namespace smt2 {
         // parse:
         //    'as' <identifier> <sort> ')'
         //    '_'  <identifier> <num>+ ')'
-        //    'as' <identifier '(' '_' <identifier> (<num>|<func-decl-ref>)+ ')' <sort> ')'
+        //    'as' <identifier> '(' '_' <identifier> (<num>|<func-decl-ref>)+ ')' <sort> ')'
         symbol parse_qualified_identifier_core(bool & has_as) {
             SASSERT(curr_is_identifier());
             SASSERT(curr_id_is_underscore() || curr_id_is_as());
@@ -1642,7 +1633,7 @@ namespace smt2 {
         void unknown_var_const_name(symbol id) {
             std::string msg = "unknown constant/variable '";
             msg += id.str() + "'";
-            throw parser_exception(msg.c_str());
+            throw parser_exception(std::move(msg));
         }
 
         rational m_last_bv_numeral; // for bv, bvbin, bvhex
@@ -2440,7 +2431,7 @@ namespace smt2 {
                 buffer << "invalid function definition, sort mismatch. Expcected "
                        << mk_pp(f->get_range(), m()) << " but function body has sort "
                        << mk_pp(m().get_sort(body), m());
-                throw parser_exception(buffer.str().c_str());
+                throw parser_exception(buffer.str());
             }
             m_ctx.insert_rec_fun(f, bindings, ids, body);
         }
@@ -2686,6 +2677,7 @@ namespace smt2 {
             m_ctx.regular_stream() << "(";
             expr ** expr_it  = expr_stack().c_ptr() + spos;
             expr ** expr_end = expr_it + m_cached_strings.size();
+            // md->compress();
             for (unsigned i = 0; expr_it < expr_end; expr_it++, i++) {
                 model::scoped_model_completion _scm(md, true);
                 expr_ref v = (*md)(*expr_it);

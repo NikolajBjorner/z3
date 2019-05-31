@@ -54,15 +54,21 @@ namespace sat {
             m_phase = PS_ALWAYS_FALSE;
         else if (s == symbol("always_true"))
             m_phase = PS_ALWAYS_TRUE;
+        else if (s == symbol("basic_caching"))
+            m_phase = PS_BASIC_CACHING;
         else if (s == symbol("caching"))
-            m_phase = PS_CACHING;
+            m_phase = PS_SAT_CACHING;
+        else if (s == symbol("neuro"))
+            m_phase = PS_NEURO_CACHING;
         else if (s == symbol("random"))
             m_phase = PS_RANDOM;
         else
             throw sat_param_exception("invalid phase selection strategy");
 
-        m_phase_caching_on  = p.phase_caching_on();
-        m_phase_caching_off = p.phase_caching_off();
+        m_rephase_base      = p.rephase_base();
+        m_rephase_neuro     = p.rephase_neuro();
+        m_search_sat_conflicts = p.search_sat_conflicts();
+        m_search_unsat_conflicts = p.search_unsat_conflicts();
         m_phase_sticky      = p.phase_sticky();
 
         m_restart_initial = p.restart_initial();
@@ -73,13 +79,27 @@ namespace sat {
 
         m_random_freq     = p.random_freq();
         m_random_seed     = p.random_seed();
-        if (m_random_seed == 0) 
+        if (m_random_seed == 0) {
             m_random_seed = _p.get_uint("random_seed", 0);
+        }
+
+        m_neuro_activity_base   = p.neuro_activity_base();
+        m_neuro_activity        = p.neuro_activity();
+        m_neuro_var_itau        = p.neuro_var_itau();
+        m_neuro_clause_itau     = p.neuro_clause_itau();
+        m_neuro_activity_scale  = p.neuro_activity_scale();
+        m_neuro_choose          = p.neuro_choose();
+        m_neuro_max_size        = p.neuro_max_size();
+        m_neuro_learned_size_overhead = p.neuro_learned_size_overhead();
+        m_neuro_max_learned_clause_size = p.neuro_max_learned_clause_size();
         
         m_burst_search    = p.burst_search();
         
         m_max_conflicts   = p.max_conflicts();
         m_num_threads     = p.threads();
+        m_ddfw_search     = p.ddfw_search();
+        m_ddfw_threads    = p.ddfw_threads();
+        m_prob_search     = p.prob_search();
         m_local_search    = p.local_search();
         m_local_search_threads = p.local_search_threads();
         if (p.local_search_mode() == symbol("gsat"))
@@ -89,7 +109,9 @@ namespace sat {
         m_local_search_dbg_flips = p.local_search_dbg_flips();
         m_unit_walk       = p.unit_walk();
         m_unit_walk_threads = p.unit_walk_threads();
+        m_binspr            = p.binspr();
         m_lookahead_simplify = p.lookahead_simplify();
+        m_lookahead_double = p.lookahead_double();
         m_lookahead_simplify_bca = p.lookahead_simplify_bca();
         if (p.lookahead_reward() == symbol("heule_schur")) 
             m_lookahead_reward = heule_schur_reward;
@@ -130,9 +152,9 @@ namespace sat {
         }
 
         // These parameters are not exposed
-        m_next_simplify1  = _p.get_uint("next_simplify", 30000);
+        m_next_simplify1  = _p.get_uint("next_simplify", 90000);
         m_simplify_mult2  = _p.get_double("simplify_mult2", 1.5);
-        m_simplify_max    = _p.get_uint("simplify_max", 500000);
+        m_simplify_max    = _p.get_uint("simplify_max", 1000000);
         // --------------------------------
         m_simplify_delay  = p.simplify_delay();
 
@@ -147,6 +169,8 @@ namespace sat {
             m_gc_strategy = GC_PSM;
         else if (s == symbol("psm_glue"))
             m_gc_strategy = GC_PSM_GLUE;
+        else if (s == symbol("neuro"))
+            m_gc_strategy = GC_NEURO;
         else 
             throw sat_param_exception("invalid gc strategy");
         m_gc_initial      = p.gc_initial();
@@ -158,6 +182,9 @@ namespace sat {
 
         m_force_cleanup   = p.force_cleanup();
 
+        m_backtrack_scopes = p.backtrack_scopes();
+        m_backtrack_init_conflicts = p.backtrack_conflicts();
+
         m_minimize_lemmas = p.minimize_lemmas();
         m_core_minimize   = p.core_minimize();
         m_core_minimize_partial   = p.core_minimize_partial();
@@ -165,6 +192,7 @@ namespace sat {
         m_drat_check_sat  = p.drat_check_sat();
         m_drat_file       = p.drat_file();
         m_drat            = (m_drat_check_unsat || m_drat_file != symbol("") || m_drat_check_sat) && p.threads() == 1;
+        m_drat_binary     = p.drat_binary();
         m_dyn_sub_res     = p.dyn_sub_res();
 
         // Parameters used in Liang, Ganesh, Poupart, Czarnecki AAAI 2016.
@@ -189,18 +217,14 @@ namespace sat {
 
         // PB parameters
         s = p.pb_solver();
-        if (s == symbol("circuit")) 
-            m_pb_solver = PB_CIRCUIT;
-        else if (s == symbol("sorting")) 
-            m_pb_solver = PB_SORTING;
-        else if (s == symbol("totalizer")) 
-            m_pb_solver = PB_TOTALIZER;
-        else if (s == symbol("solver")) 
-            m_pb_solver = PB_SOLVER;
-        else if (s == symbol("segmented")) 
-            m_pb_solver = PB_SEGMENTED;
-        else 
-            throw sat_param_exception("invalid PB solver: solver, totalizer, circuit, sorting, segmented");
+        if (s != symbol("circuit") &&
+            s != symbol("sorting") && 
+            s != symbol("totalizer") && 
+            s != symbol("solver") &&
+            s != symbol("segmented") &&
+            s != symbol("binary_merge")) {
+            throw sat_param_exception("invalid PB solver: solver, totalizer, circuit, sorting, segmented, binary_merge");
+        }
 
         s = p.pb_resolve();
         if (s == "cardinality") 
@@ -219,6 +243,7 @@ namespace sat {
             throw sat_param_exception("invalid PB lemma format: 'cardinality' or 'pb' expected");
         
         m_card_solver = p.cardinality_solver();
+        m_xor_solver = p.xor_solver();
 
         sat_simplifier_params sp(_p);
         m_elim_vars = sp.elim_vars();

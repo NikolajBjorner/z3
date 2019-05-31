@@ -31,6 +31,7 @@ Notes:
 #include <typeinfo>
 #include "opt/optsmt.h"
 #include "opt/opt_solver.h"
+#include "opt/opt_context.h"
 #include "ast/arith_decl_plugin.h"
 #include "smt/theory_arith.h"
 #include "ast/ast_pp.h"
@@ -190,7 +191,10 @@ namespace opt {
             SASSERT(delta_per_step.is_int());
             SASSERT(delta_per_step.is_pos());
             is_sat = m_s->check_sat(0, nullptr);
-            TRACE("opt", tout << "check " << is_sat << "\n";);
+            TRACE("opt", tout << "check " << is_sat << "\n";
+                  tout << "lower: " << m_lower[obj_index] << "\n";
+                  tout << "upper: " << m_upper[obj_index] << "\n";
+                  );
             if (is_sat == l_true) {                
                 m_s->maximize_objective(obj_index, bound);
                 m_s->get_model(m_model);
@@ -214,7 +218,7 @@ namespace opt {
                     ++num_scopes;
                     bound = m_s->mk_ge(obj_index, obj + inf_eps(delta_per_step));
                 }
-                TRACE("opt", tout << delta_per_step << " " << bound << "\n";);
+                TRACE("opt", tout << "delta: " << delta_per_step << " " << bound << "\n";);
                 m_s->assert_expr(bound);
             }
             else if (is_sat == l_false && delta_per_step > rational::one()) {
@@ -230,6 +234,8 @@ namespace opt {
             }
         }
         m_s->pop(num_scopes);        
+
+        TRACE("opt", tout << is_sat << " " << num_scopes << "\n";);
 
         if (is_sat == l_false && !m_model) {
             return l_false;
@@ -362,12 +368,14 @@ namespace opt {
                            verbose_stream() << "(optsmt lower bound: " << v << ")\n";
                        else
                            verbose_stream() << "(optsmt upper bound: " << (-v) << ")\n";
-                       );
+                       );            
             expr_ref tmp(m);
             for (unsigned i = idx+1; i < m_vars.size(); ++i) {
                 m_s->maximize_objective(i, tmp);
                 m_lower[i] = m_s->saved_objective_value(i);
             }
+
+            m_context.set_model(m_model);
         }
     }
 

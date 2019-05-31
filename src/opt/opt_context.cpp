@@ -48,6 +48,7 @@ Notes:
 namespace opt {
 
     void context::scoped_state::push() {
+        m_asms_lim.push_back(m_asms.size());
         m_hard_lim.push_back(m_hard.size());
         m_objectives_lim.push_back(m_objectives.size());        
         m_objectives_term_trail_lim.push_back(m_objectives_term_trail.size());
@@ -55,6 +56,7 @@ namespace opt {
 
     void context::scoped_state::pop() {
         m_hard.resize(m_hard_lim.back());
+        m_asms.resize(m_asms_lim.back());
         unsigned k = m_objectives_term_trail_lim.back();
         while (m_objectives_term_trail.size() > k) {
             unsigned idx = m_objectives_term_trail.back();
@@ -73,6 +75,7 @@ namespace opt {
         }
         m_objectives_lim.pop_back();            
         m_hard_lim.pop_back();   
+        m_asms_lim.pop_back();
     }
     
     void context::scoped_state::add(expr* hard) {
@@ -125,7 +128,7 @@ namespace opt {
         m_solver(nullptr),
         m_pareto1(false),
         m_box_index(UINT_MAX),
-        m_optsmt(m),
+        m_optsmt(m, *this),
         m_scoped_state(m),
         m_fm(alloc(generic_model_converter, m, "opt")),
         m_model_fixed(),
@@ -185,6 +188,12 @@ namespace opt {
 
     void context::add_hard_constraint(expr* f) { 
         m_scoped_state.add(f);
+        clear_state();
+    }
+
+    void context::add_hard_constraint(expr* f, expr* t) {
+        m_scoped_state.m_asms.push_back(t);
+        m_scoped_state.add(m.mk_implies(t, f));
         clear_state();
     }
 
@@ -253,7 +262,7 @@ namespace opt {
         m_hard_constraints.append(s.m_hard);
     }
 
-    lbool context::optimize(expr_ref_vector const& asms) {
+    lbool context::optimize(expr_ref_vector const& _asms) {
         if (m_pareto) {
             return execute_pareto();
         }
@@ -263,6 +272,8 @@ namespace opt {
         clear_state();
         init_solver(); 
         import_scoped_state(); 
+        expr_ref_vector asms(_asms);
+        asms.append(m_scoped_state.m_asms);
         normalize(asms);
         if (m_hard_constraints.size() == 1 && m.is_false(m_hard_constraints.get(0))) {
             return l_false;
@@ -350,12 +361,24 @@ namespace opt {
 
     void context::fix_model(model_ref& mdl) {
         if (mdl && !m_model_fixed.contains(mdl.get())) {
-            TRACE("opt", tout << "fix-model\n";);
+            TRACE("opt", m_fm->display(tout << "fix-model\n");
+                  if (m_model_converter) m_model_converter->display(tout););
             (*m_fm)(mdl);
             apply(m_model_converter, mdl);
             m_model_fixed.push_back(mdl.get());
         }
     }
+
+    void context::set_model(model_ref& m) { 
+        m_model = m; 
+        opt_params optp(m_params);
+        if (optp.dump_models()) {
+            model_ref md = m->copy();
+            fix_model(md);
+            std::cout << *md << "\n";
+        }
+    }
+
 
     void context::get_model_core(model_ref& mdl) {
         mdl = m_model;
@@ -919,7 +942,7 @@ namespace opt {
             return true;
         }
         if (is_max && get_pb_sum(term, terms, weights, offset)) {
-            TRACE("opt", tout << "try to convert maximization" << mk_pp(term, m) << "\n";);
+            TRACE("opt", tout << "try to convert maximization " << mk_pp(term, m) << "\n";);
             // maximize 2*x + 3*y - z 
             // <=>
             // (assert-soft x 2)
@@ -1062,6 +1085,9 @@ namespace opt {
 
 
     void context::model_updated(model* md) {
+        model_ref mdl = md;
+        set_model(mdl);
+#if 0
         opt_params optp(m_params);
         symbol prefix = optp.solution_prefix();
         if (prefix == symbol::null || prefix == symbol("")) return;        
@@ -1074,6 +1100,7 @@ namespace opt {
             out << *mdl;
             out.close();
         }
+#endif
     }
 
 
@@ -1090,7 +1117,9 @@ namespace opt {
         val = (*mdl)(term);
         unsigned bvsz;
         if (!m_arith.is_numeral(val, r) && !m_bv.is_numeral(val, r, bvsz)) {
-            TRACE("opt", tout << "model does not evaluate objective to a value\n";);
+            TRACE("opt", tout << "model does not evaluate objective to a value but instead " << val << "\n";
+                  tout << *mdl << "\n";
+                  );
             return false;
         }
         if (r != v) {
@@ -1140,7 +1169,13 @@ namespace opt {
        out << mk_pp(term, m);
        app* q = m.mk_fresh_const(out.str().c_str(), m.get_sort(term));
        if (!fm) fm = alloc(generic_model_converter, m, "opt");
-       m_hard_constraints.push_back(m.mk_eq(q, term));
+       if (m_arith.is_int_real(term)) {
+           m_hard_constraints.push_back(m_arith.mk_ge(q, term));
+           m_hard_constraints.push_back(m_arith.mk_le(q, term));
+       }
+       else {
+           m_hard_constraints.push_back(m.mk_eq(q, term));
+       }
        fm->hide(q);
        return q;
     }
@@ -1455,6 +1490,8 @@ namespace opt {
 
     void context::collect_param_descrs(param_descrs & r) {
         opt_params::collect_param_descrs(r);
+        insert_timeout(r);
+        insert_ctrl_c(r);
     }
     
     void context::updt_params(params_ref const& p) {
@@ -1599,7 +1636,7 @@ namespace opt {
                 value = obj.m_adjust_value(value);
                 rational value0 = ms.get_lower();
                 TRACE("opt", tout << "value " << value << " " << value0 << "\n";);
-                SASSERT(value == value0);
+                // TBD is this correct? SASSERT(value == value0);
             }
         }
     }
@@ -1636,7 +1673,10 @@ namespace opt {
                     }
                     // TBD: check that optimal was not changed.
                 }
-                TRACE("opt", tout << "value " << value << "\n";);
+                maxsmt& ms = *m_maxsmts.find(obj.m_id);
+                rational value0 = ms.get_lower();
+                TRACE("opt", tout << "value " << value << " other " << value0 << "\n";);
+                // TBD SASSERT(value0 == value);
                 break;
             }
             }       
