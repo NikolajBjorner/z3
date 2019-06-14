@@ -6,7 +6,6 @@ z3_add_component(ast
     ast.cpp
     ast_ll_pp.cpp
     ast_lt.cpp
-    ast_network.cpp
     ast_pp_util.cpp
     ast_printer.cpp
     ast_smt2_pp.cpp
@@ -25,6 +24,7 @@ z3_add_component(ast
     expr_abstract.cpp
     expr_functors.cpp
     expr_map.cpp
+    expr_network.cpp
     expr_stat.cpp
     expr_substitution.cpp
     for_each_ast.cpp
