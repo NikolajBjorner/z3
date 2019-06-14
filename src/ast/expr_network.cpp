@@ -139,13 +139,13 @@ unsigned_vector expr_network::top_sort() {
     return result;
 }
 
-vector<svector<expr_network::cut>> expr_network::get_cuts(unsigned k) {
+vector<expr_network::cut_set> expr_network::get_cuts(unsigned k) {
     unsigned_vector sorted = top_sort();
-    vector<svector<cut>> cuts;
+    vector<cut_set> cuts;
     cuts.resize(m_nodes.size());
     svector<cut> cut_set, new_cutset;
     for (unsigned id : sorted) {
-        svector<cut>& cut_set = cuts[id];
+        auto& cut_set = cuts[id];
         SASSERT(cut_set.empty());
         node const& n = m_nodes[id];
         if (n.m_children.size() < k) {
@@ -161,15 +161,13 @@ vector<svector<expr_network::cut>> expr_network::get_cuts(unsigned k) {
                     for (auto const& b : cuts[child]) {
                         cut c;
                         if (c.merge(a, b)) {
-                            new_cutset.push_back(c);
+                            new_cutset.insert(c);
                         }
                     }
                 }
                 
                 // effect on value in cuts[id]?
                 cut_set.swap(new_cutset); 
-
-                // TBD: pruning
             }
         }
         cut_set.push_back(cut(id));
@@ -177,3 +175,29 @@ vector<svector<expr_network::cut>> expr_network::get_cuts(unsigned k) {
     return cuts;
 }
 
+/**
+   \brief
+   if c is subsumed by a member in cut_set, then c is not inserted.
+   otherwise, remove members that c subsumes.
+   Note that the cut_set maintains invariant that elements don't subsume each-other.
+ */
+
+void expr_network::cut_set::insert(cut const& c) {
+    unsigned i = 0, j = 0;
+    for (; i < size(); ++i) {
+        cut const& a = (*this)[i];
+        if (a.subset_of(c)) {
+            return;
+        }
+        if (c.subset_of(a)) {
+            continue;
+        }
+        else if (j < i) {
+            (*this)[j] = a;
+        }
+        ++j;
+    }
+    if (j < i) {
+        shrink(j);
+    }
+}

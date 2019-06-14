@@ -55,6 +55,9 @@ public:
 
         cut(unsigned id): m_size(1) { m_elems[0] = id; }
 
+        unsigned const* begin() const { return m_elems; }
+        unsigned const* end() const  { return m_elems + m_size; }
+
         bool add(unsigned i) {
             if (m_size >= max_size) {
                 return false;
@@ -91,6 +94,23 @@ public:
             }
             return true;
         }
+
+        bool subset_of(cut const& other) const {
+            unsigned i = 0;
+            unsigned other_id = other.get(i);
+            for (unsigned id : *this) {
+                while (id > other_id) {
+                    other_id = other.get(++i);
+                }
+                if (id != other_id) return false;
+                other_id = other.get(++i);
+            }
+            return true;
+        }
+    };
+
+    struct cut_set : public svector<cut> {
+        void insert(cut const& c);
     };
 
 private:
@@ -106,7 +126,7 @@ public:
     vector<node> const& nodes() { return m_nodes; }
     unsigned_vector top_sort();
     void substitute(unsigned src, unsigned dst);
-    vector<svector<cut>> get_cuts(unsigned k);
+    vector<cut_set> get_cuts(unsigned k);
 };
 
 
