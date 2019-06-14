@@ -6,6 +6,7 @@ z3_add_component(ast
     ast.cpp
     ast_ll_pp.cpp
     ast_lt.cpp
+    ast_network.cpp
     ast_pp_util.cpp
     ast_printer.cpp
     ast_smt2_pp.cpp
