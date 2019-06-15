@@ -121,6 +121,11 @@ private:
     expr_ref_vector m_roots;
     vector<node>    m_nodes;
 
+    bool is_not(node const&) const;
+    bool is_ac_bool_op(node const&) const;
+    bool is_ite(node const&) const;
+    decl_kind get_decl_kind(node const&) const;
+
     bool is_bool_op(expr* e) const { NOT_IMPLEMENTED_YET(); return false; }
 
 public:
