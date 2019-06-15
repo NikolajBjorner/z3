@@ -148,27 +148,91 @@ vector<expr_network::cut_set> expr_network::get_cuts(unsigned k) {
         auto& cut_set = cuts[id];
         SASSERT(cut_set.empty());
         node const& n = m_nodes[id];
-        if (n.m_children.size() < k) {
-            bool first = true;
-            for (unsigned child : n.m_children) {
-                if (first) {
-                    cut_set.append(cuts[child]);
-                    first = false;
+        if (n.m_children.size() < k && is_bool_op(n.e())) {
+            for (unsigned i = 0, sz = n.m_children.size(); i < sz; ++i) {
+                unsigned child = n.m_children[i];
+                if (i == 0) {
+                    unsigned j = 0;
+                    for (auto const& a : cuts[child]) {
+                        cut_set.push_back(a);
+                        cut_set.back().m_table = j++;
+                    }
                     continue;
                 }
                 new_cutset.reset();
                 for (auto const& a : cut_set) {
-                    for (auto const& b : cuts[child]) {
+                    for (unsigned j = 0, csz = cuts[child].size(); j < csz; ++j) {
+                        auto const& b = cuts[child][j];
                         cut c;
                         if (c.merge(a, b)) {
+                            // remember index of child
+                            c.m_table = a.m_table;
+                            c.m_table |= j << (i << 3);
                             new_cutset.insert(c);
                         }
                     }
                 }
-                
                 // effect on value in cuts[id]?
                 cut_set.swap(new_cutset); 
             }
+
+            // TBD: compute truth tables:
+            uint64_t rs[3];
+            switch (to_app(n.e())->get_decl_kind()) {
+            case OP_AND:
+                for (cut& c : cut_set) {
+                    uint64_t r = ~((uint64_t)(0));
+                    for (unsigned i = 0, sz = n.m_children.size(); i < sz; ++i) {
+                        r &= cuts[n.m_children[i]][(c.m_table >> (i << 3)) & 0xFF].shift_table(c);
+                    }
+                    c.m_table = r;
+                }
+                break;
+            case OP_OR:
+                for (cut& c : cut_set) {
+                    uint64_t r = ~((uint64_t)(0));
+                    for (unsigned i = 0, sz = n.m_children.size(); i < sz; ++i) {
+                        r |= cuts[n.m_children[i]][(c.m_table >> (i << 3)) & 0xFF].shift_table(c);
+                    }
+                    c.m_table = r;
+                }
+                break;
+            case OP_NOT:
+                for (cut& c : cut_set) {
+                    c.m_table = ~(cuts[n.m_children[0]][c.m_table].shift_table(c));
+                }
+                break;
+            case OP_EQ:
+                for (cut& c : cut_set) {
+                    uint64_t r = ~((uint64_t)(0));
+                    for (unsigned i = 0, sz = n.m_children.size(); i < sz; ++i) {
+                        r = ~ (r ^ cuts[n.m_children[i]][(c.m_table >> (i << 3)) & 0xFF].shift_table(c));
+                    }
+                    c.m_table = r;
+                }
+                break;
+            case OP_TRUE:
+                for (cut& c : cut_set) {
+                    c.m_table = ~((uint64_t)(0));
+                }
+                break;
+            case OP_FALSE:
+                for (cut& c : cut_set) {
+                    c.m_table = 0;
+                }
+                break;
+            case OP_ITE:
+                for (cut& c : cut_set) {
+                    for (unsigned i = 0; i < 3; ++i) {
+                        rs[i] = cuts[n.m_children[i]][(c.m_table >> (i << 3)) & 0xFF].shift_table(c);
+                    }
+                    c.m_table = (rs[0] & rs[1]) | (~rs[0] & rs[2]);
+                }
+                break;
+            default:
+                UNREACHABLE();
+            }
+
         }
         cut_set.push_back(cut(id));
     }
@@ -200,4 +264,8 @@ void expr_network::cut_set::insert(cut const& c) {
     if (j < i) {
         shrink(j);
     }
+}
+
+uint64_t expr_network::cut::shift_table(cut const& c) const {
+    return 0;
 }

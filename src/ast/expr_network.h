@@ -51,9 +51,10 @@ public:
     struct cut {
         unsigned m_size;
         unsigned m_elems[max_size];
-        cut(): m_size(0) {}
+        uint64_t m_table;
+        cut(): m_size(0), m_table(0) {}
 
-        cut(unsigned id): m_size(1) { m_elems[0] = id; }
+        cut(unsigned id): m_size(1), m_table(2) { m_elems[0] = id; }
 
         unsigned const* begin() const { return m_elems; }
         unsigned const* end() const  { return m_elems + m_size; }
@@ -72,12 +73,14 @@ public:
             return (idx >= m_size) ? UINT_MAX : m_elems[idx];
         }
 
+        uint64_t shift_table(cut const& other) const;
+
         bool merge(cut const& a, cut const& b) {
             SASSERT(a.m_size > 0 && b.m_size > 0);
             unsigned i = 0, j = 0;
-            unsigned x = a.m_elems[i];
-            unsigned y = b.m_elems[j];
-            while (x != UINT_MAX && y != UINT_MAX) {
+            unsigned x = a.get(i);
+            unsigned y = b.get(j);
+            while (x != UINT_MAX || y != UINT_MAX) {
                 if (x < y) {
                     if (!add(x)) return false;
                     x = a.get(++i);
@@ -117,6 +120,8 @@ private:
     ast_manager& m;
     expr_ref_vector m_roots;
     vector<node>    m_nodes;
+
+    bool is_bool_op(expr* e) const { NOT_IMPLEMENTED_YET(); return false; }
 
 public:
     expr_network(ast_manager& m): m(m), m_roots(m) {}
