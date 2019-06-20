@@ -15,8 +15,103 @@
 
   Notes:
 
-  Alternative loop is to prune candidate pairings to p 
-  with respect to failed literals.
+
+  L = { lit1, lit2 }
+  G := { touched_L(C) |  C in F and C intersects with L, and not F|L |-_unit untouch_L(C) }
+  G is satisfiable
+  ------------
+  Learn ~lit1 or ~lit2
+
+
+Marijn's version:
+
+  L = { lit1, lit2 }
+  alpha = L + units in F|L
+  G := { touched_alpha(C) |  C in F and C intersects with L, and not F|L |-_unit untouch_alpha(C) }
+  G is satisfiable
+  ---------------------
+  Learn ~lit1 or ~lit2
+
+  Alternative:
+
+  for p in literals:
+      push(1)
+      propagate(p)
+      candidates = literals \ units
+      for (C or p) in use(p) and candidates != empty:
+          push(1)
+          propagate(~C)
+          if inconsistent():
+             learn C (subsumes C or p)
+          else:
+             candidates' := C union ~(consequencs of propagate(~C))
+             candidates  := candidates' intersect candidates
+          pop(1)
+      for q in candidates:
+          add (~q or ~p)
+      pop(1) 
+
+  The idea is that all clauses using p must satisfy 
+      q in C or F|pq |-1 untouched(C)
+  The clauses that contain q are not restricted: We directly create G := (~p or ~q) & q, which is satisfiable
+  Let pqM |= F, we claim then that ~pqM |= F 
+  
+  - every clause (C or q) that contains q is satisfied by ~pqM
+  - every clause (C or p) that does not contain q positively, but contains p satisfies F|pq |-1 untouched(C)
+    Therefore pqM |= untouched(C) and therefore already M |= untouched(C)
+  - all other clauses are satisfied by pqM, but contain neither p, nor q, 
+    so it is already the case that M satisfies the clause.
+
+  Alternative:
+
+  for p in literals:
+      push(1)
+      propagate(p)
+      candidates = {}
+      for (C or p) in use(p):
+          push(1)
+          propagate(~C)
+          if inconsistent():
+             learn C (subsumes C or p)
+          else:
+             candidates := candicates union C union ~(consequencs of propagate(~C))
+          pop(1)
+      for q in candidates:
+          push(1)
+          propagate(q)
+          incons := true
+          for (C or p) in use(p) and incons:
+              push(1)
+              propagate(~C)
+              incons := inconsistent()
+              pop(1)
+          pop(1)
+          if incons:
+             add (~p or ~q)
+      pop(1) 
+
+  The idea is similar to the previous alternative, but it allows a candidate to
+  not be directly unit derivable in all clauses C or p, but could be a failed literal
+  under the assumption ~C. 
+  The motivation for this variant is that it is unlikely that we need failed literals to
+  close both (C_1 or p),..., (C_n or p) for all clauses containing p.
+
+  Alternative:
+
+  for p in literals:
+      push(1)
+      alpha := propagate(p)
+      for r in alpha u { p }
+          for (C or r) in use(r):
+              push(1)
+              propagate(~C)
+              .... TBD
+          pop(1)
+      ... TBD
+      pop(1) 
+
+
+  Alternative:
   
   Candidates = literals
   for p in literals: 
@@ -76,11 +171,13 @@ namespace sat {
         m_use_list.reset();
         m_use_list.reserve(num*2);
         for (clause* c : s.m_clauses) {
-            if (!c->frozen()) 
+            if (!c->frozen()) { 
                 for (literal lit : *c) {
                     m_use_list[lit.index()].push_back(c);
                 }
+            }
         }
+        TRACE("sat", s.display(tout););
         
         m_bin_clauses = 0;
         unsigned offset = m_stopped_at;
@@ -90,16 +187,22 @@ namespace sat {
             m_stopped_at = v;
             if (s.value(v) == l_undef && !s.was_eliminated(v)) {
                 literal lit1(v, false);
-                check_spr(big, lit1);            
-                check_spr(big, ~lit1);            
+                if (is_used(lit1)) check_spr(big, lit1);            
+                if (!s.inconsistent() && s.value(v) == l_undef && is_used(~lit1)) check_spr(big, ~lit1);            
                 ++count;
             }
         }        
         m_limit1 *= 2;
         m_limit2 *= 2;
     }
+
+    bool binspr::is_used(literal lit) const {
+        return !m_use_list[lit.index()].empty() || !s.get_wlist(~lit).empty();
+    }
     
     void binspr::check_spr(big & big, literal lit1) {
+//        s.propagate(false);
+//        if (s.inconsistent()) return;
         // if (!big.is_root(lit1)) return;
         TRACE("sat", tout << lit1 << "\n";);
         s.push();
@@ -114,18 +217,18 @@ namespace sat {
             if (s.value(v) == l_undef && !s.was_eliminated(v)) {
                 literal lit2(v, false);
                 check_spr(big, lit1, lit2);            
-                check_spr(big, lit1, ~lit2);            
+                if (!s.inconsistent() && s.value(lit2) == l_undef) check_spr(big, lit1, ~lit2);            
                 ++count;
             }
         }
         if (s.inconsistent()) {
             s.pop(1);
             s.assign_unit(~lit1);
-            s.propagate(false);
         }
         else {
             s.pop(1);
         }
+        s.propagate(false);
     }
 
     void binspr::check_spr(big& big, literal lit1, literal lit2) {
@@ -153,6 +256,8 @@ namespace sat {
     }
 
     void binspr::block_binary(literal lit1, literal lit2, bool learned) {
+        IF_VERBOSE(1, verbose_stream() << "SPR: " << learned << " " << ~lit1 << " " << ~lit2 << "\n");
+        TRACE("sat", tout << "SPR: " << learned << " " << ~lit1 << " " << ~lit2 << "\n";);
         s.mk_clause(~lit1, ~lit2, learned);
         ++m_bin_clauses;
     }
@@ -162,7 +267,7 @@ namespace sat {
         for (watched const& w : s.get_wlist(~lit1)) {
             if (!w.is_binary_non_learned_clause()) {
                 continue;
-            }
+            }            
             literal lit3 = w.get_literal();
             SASSERT(lit3 != lit1);
             bool is_implied = true;
@@ -180,6 +285,7 @@ namespace sat {
                 s.assign_scoped(~lit3);
                 s.propagate(false);
                 is_implied = s.inconsistent() || add_g(lit1);
+                TRACE("sat", tout << "check-prop " << is_implied << ": " << ~lit1 << " " << ~lit2 << ": " << lit1 << " " << lit3 << "\n";);
                 s.pop(1);
             }
             if (!is_implied) {
@@ -239,20 +345,25 @@ namespace sat {
             if (lit2 == lit1) return true;
             if (lit2 == ~lit1) return false;
         }
+        // crappy propagation 
         m_units.push_back(lit1);
-        bool r = true;
-        for (auto const& p : m_bins) {
+        unsigned j = 0, i = 0, sz = m_bins.size();
+        for (; i < sz; ++i) {
+            auto const& p = m_bins[i];
             if (p.first == ~lit1) {
-                r = add_g(p.second);
-                break;
+                if (m_units.contains(~(p.second))) return false;           
+                m_units.push_back(p.second);
             }
-            if (p.second == ~lit1) {
-                r = add_g(p.first);
-                break;
+            else if (p.second == ~lit1) {
+                if (m_units.contains(~(p.first))) return false;
+                if (!m_units.contains(p.first)) m_units.push_back(p.first);
+            }
+            else {
+                m_bins[j++] = p;
             }
         }
-        m_bins.reset();
-        return r;
+        m_bins.shrink(j);
+        return true;
     }
 
     bool binspr::clauses_are_unit_implied(literal lit1, literal lit2) {        
@@ -290,7 +401,10 @@ namespace sat {
                 s.assign_scoped(~lit);
             }
         }
-        SASSERT(found);
+        if (!found && !is_implied) {
+            std::cout << lit1 << " " << lit2 << " " << c << "\n";
+        }
+        SASSERT(found || is_implied);
         if (!is_implied) {
             s.propagate(false);
             is_implied = s.inconsistent();
@@ -300,6 +414,7 @@ namespace sat {
             is_implied = add_g(lit1, lit2_);
         }
         s.pop(1);
+        TRACE("sat", tout << "is implied " << is_implied << " " << lit1 << " " << lit2 << " " << c << "\n";);
         return is_implied;
     }
 

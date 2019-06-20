@@ -90,6 +90,7 @@ namespace sat {
         void add(literal l, bool learned);
         void add(literal l1, literal l2, bool learned);
         void add(clause& c, bool learned);
+        void spr(unsigned sz1, literal const* alpha, unsigned sz, literal const* omega);
         void add(literal_vector const& c, svector<premise> const& premises);
         void add(literal_vector const& c); // add learned clause
 

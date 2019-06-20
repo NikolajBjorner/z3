@@ -49,6 +49,7 @@ namespace sat {
         bool binary_are_unit_implied(literal lit1, literal lit2);
         bool clauses_are_unit_implied(literal lit1, literal lit2);
         bool clause_is_unit_implied(literal lit1, literal lit2, clause& c);
+        bool is_used(literal lit) const;
         
     public:
 

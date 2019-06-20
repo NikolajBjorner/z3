@@ -707,6 +707,18 @@ namespace sat {
         }
     }
 
+    void drat::spr(unsigned sz1, literal const* alpha, unsigned sz2, literal const* omega) {
+        if (m_out) {
+            for (unsigned i = 0; i < sz1; ++i) {
+                (*m_out) << alpha[i] << " ";
+            }
+            for (unsigned i = 0; i < sz2; ++i) {
+                (*m_out) << omega[i] << " ";
+            }
+            (*m_out) << "\n";
+        }
+    }
+
     void drat::del(literal l) {
         if (m_out) dump(1, &l, status::deleted);
         if (m_bout) bdump(1, &l, status::deleted);

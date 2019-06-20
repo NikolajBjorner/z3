@@ -28,7 +28,8 @@ void expr_network::add_root(expr* e) {
         expr* p = todo[i].second;
         unsigned id = e->get_id();
         while (id >= m_nodes.size()) {
-            m_nodes.push_back(node(expr_ref(m)));
+            expr_ref tmp(m);
+            m_nodes.push_back(node(tmp));
         }
         node& n = m_nodes[id];
         if (p) {
@@ -255,6 +256,30 @@ void expr_network::cut_set::insert(cut const& c) {
     }
 }
 
+// x0.shift_table(x0.x1.x2):    10   -> 1010 1010
+// x1.shift_table(x0.x1.x2):    10   -> 1100 1100
+// x0.x1.shift_table(x0.x1.x2): 1011 -> 1011 1011
+// x1.x2.shift_table(x0.x1.x2): 1011 -> 1100 1111
+// x2.shift_table(x0.x1.x2):    10   -> 1111 0000
+// x0.x2.shift_table(x0.x1.x2): 1011 -> 1010 1111
+// x0.shift_table(x0.x1):       10    -> 1010
+
 uint64_t expr_network::cut::shift_table(cut const& c) const {
-    return 0;
+    SASSERT(subset_of(c));
+    unsigned offset = 0;
+    unsigned len = 2;
+    uint64_t r = 0x3 & m_table;
+    unsigned i = 0;
+#if 0
+    for (unsigned e : c) {
+        if (i < m_size && m_elems[i] == c) {
+            ++i;
+            *= len;
+        }
+        else {
+            
+        }
+    }
+#endif
+    return r;
 }
