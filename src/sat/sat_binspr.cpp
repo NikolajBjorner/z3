@@ -32,7 +32,8 @@ Marijn's version:
   ---------------------
   Learn ~lit1 or ~lit2
 
-  Alternative:
+  Alternative: 
+  
 
   for p in literals:
       push(1)
@@ -163,11 +164,9 @@ namespace sat {
 
     void binspr::operator()() {
         unsigned num = s.num_vars();
+        m_bin_clauses = 0;
 
         report _rep(*this);
-
-        big big(s.rand());
-        big.init(s, true);
         m_use_list.reset();
         m_use_list.reserve(num*2);
         for (clause* c : s.m_clauses) {
@@ -178,8 +177,106 @@ namespace sat {
             }
         }
         TRACE("sat", s.display(tout););
+        single_lookahead();
+    }
+
+    void binspr::single_lookahead() {
+        unsigned num = s.num_vars();
+        m_mark.reserve(s.num_vars() * 2, false);
+        IF_VERBOSE(0, verbose_stream() << "single lookahead\n");
+        for (bool_var v = 0; v < num && !s.inconsistent(); ++v) {
+            s.checkpoint();
+            literal lit(v, false);
+            if (!is_used(lit)) continue;
+            check_spr_single_lookahead(lit);
+            if (s.inconsistent()) break;
+            check_spr_single_lookahead(~lit);
+        }        
+    }
+
+    void binspr::check_spr_single_lookahead(literal lit) {
+        s.push();
+        s.assign_scoped(lit);
+        s.propagate(false);
         
-        m_bin_clauses = 0;
+        if (s.inconsistent()) {
+            s.pop(1);
+            s.assign_unit(~lit);
+            s.propagate(false);
+            return;
+        }
+        
+        IF_VERBOSE(0, verbose_stream() << "initialize candidates " << lit << "\n");
+        m_may_candidates.reset();        
+        m_must_candidates.reset();        
+        for (watched const& w : s.get_wlist(~lit)) {
+            if (s.inconsistent()) break;
+            if (w.is_binary_non_learned_clause()) {
+                literal lits[2] = { w.get_literal(), null_literal };
+                collect_candidates(lit, lits, lits + 1);
+            }
+        }
+        for (clause* cp : m_use_list[lit.index()]) {
+            if (s.inconsistent()) break;
+            collect_candidates(lit, cp->begin(), cp->end());
+        }
+        for (literal lit2 : m_must_candidates) {
+            block_binary(lit, lit2, false);
+            m_mark[lit2.index()] = false;
+        } 
+        IF_VERBOSE(0, 
+                   verbose_stream() << m_may_candidates.size()  << ": " << m_may_candidates  << "\n";
+                   verbose_stream() << m_must_candidates.size() << ": " << m_must_candidates << "\n";);
+
+        s.propagate(false);        
+        for (literal lit2 : m_may_candidates) {
+            if (!m_mark[lit2.index()]) continue;                
+            m_mark[lit2.index()] = false;
+            if (!s.inconsistent()) check_spr(lit, lit2);
+        }
+
+        s.pop(1);
+        s.propagate(false);
+        
+    }
+
+    void binspr::collect_candidates(literal lit, literal const* begin, literal const* end) {
+        unsigned sz = s.m_trail.size();
+        s.push();
+        for (; begin != end; ++begin) {
+            literal lit2 = *begin;
+            if (lit2 != lit && s.value(lit2) != l_false) {
+                s.assign_scoped(~lit2);
+            }
+        }
+        s.propagate(false);
+
+        if (s.inconsistent()) {
+            IF_VERBOSE(0, verbose_stream() << "TBD: can strengthen clause\n");
+        }
+        else {
+            bool first = m_may_candidates.empty();
+            for (unsigned i = sz; i < s.m_trail.size(); ++i) {
+                literal lit2 = ~s.m_trail[i];
+                if (!m_mark[lit2.index()]) {
+                    m_may_candidates.push_back(lit2);
+                    m_mark[lit2.index()] = true;
+                    if (first) m_must_candidates.push_back(lit2);
+                }
+            }
+            if (!first) {
+                unsigned j = 0;
+                for (literal l : m_must_candidates) {
+                    if (m_mark[l.index()]) m_must_candidates[j++] = l;
+                }
+                m_must_candidates.shrink(j);
+            }
+        }
+        s.pop(1);
+    }
+
+    void binspr::double_lookahead() {
+        unsigned num = s.num_vars();
         unsigned offset = m_stopped_at;
         for (unsigned i = 0, count = 0; i < num && count <= m_limit1 && !s.inconsistent(); ++i) {
             s.checkpoint();
@@ -187,8 +284,8 @@ namespace sat {
             m_stopped_at = v;
             if (s.value(v) == l_undef && !s.was_eliminated(v)) {
                 literal lit1(v, false);
-                if (is_used(lit1)) check_spr(big, lit1);            
-                if (!s.inconsistent() && s.value(v) == l_undef && is_used(~lit1)) check_spr(big, ~lit1);            
+                if (is_used(lit1)) check_spr(lit1);            
+                if (!s.inconsistent() && s.value(v) == l_undef && is_used(~lit1)) check_spr(~lit1);            
                 ++count;
             }
         }        
@@ -200,10 +297,7 @@ namespace sat {
         return !m_use_list[lit.index()].empty() || !s.get_wlist(~lit).empty();
     }
     
-    void binspr::check_spr(big & big, literal lit1) {
-//        s.propagate(false);
-//        if (s.inconsistent()) return;
-        // if (!big.is_root(lit1)) return;
+    void binspr::check_spr(literal lit1) {
         TRACE("sat", tout << lit1 << "\n";);
         s.push();
         s.assign_scoped(lit1);
@@ -216,8 +310,8 @@ namespace sat {
             s.checkpoint();
             if (s.value(v) == l_undef && !s.was_eliminated(v)) {
                 literal lit2(v, false);
-                check_spr(big, lit1, lit2);            
-                if (!s.inconsistent() && s.value(lit2) == l_undef) check_spr(big, lit1, ~lit2);            
+                check_spr(lit1, lit2);            
+                if (!s.inconsistent() && s.value(lit2) == l_undef) check_spr(lit1, ~lit2);            
                 ++count;
             }
         }
@@ -231,8 +325,7 @@ namespace sat {
         s.propagate(false);
     }
 
-    void binspr::check_spr(big& big, literal lit1, literal lit2) {
-        // if (!big.is_root(lit2)) return;
+    void binspr::check_spr(literal lit1, literal lit2) {
         s.push();
         reset_g(lit1, lit2);
         s.assign_scoped(lit2);

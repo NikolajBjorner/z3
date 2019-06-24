@@ -27,7 +27,6 @@
 
 namespace sat {
     class solver;
-    class big;
 
     class binspr {
         solver& s;
@@ -37,6 +36,8 @@ namespace sat {
         unsigned                             m_limit1, m_limit2;
         literal_vector                       m_units;
         svector<std::pair<literal, literal>> m_bins;
+        svector<bool>                        m_mark;
+        literal_vector                       m_must_candidates, m_may_candidates;
 
         struct report;
 
@@ -44,13 +45,17 @@ namespace sat {
         bool add_g(literal lit1);
         bool add_g(literal lit1, literal lit2);
         void block_binary(literal lit1, literal lit2, bool learned);
-        void check_spr(big& big, literal lit1);
-        void check_spr(big& big, literal lit1, literal lit2);
+        void double_lookahead();
+        void single_lookahead();
+        void check_spr_single_lookahead(literal lit);
+        void check_spr(literal lit1);
+        void check_spr(literal lit1, literal lit2);
         bool binary_are_unit_implied(literal lit1, literal lit2);
         bool clauses_are_unit_implied(literal lit1, literal lit2);
         bool clause_is_unit_implied(literal lit1, literal lit2, clause& c);
         bool is_used(literal lit) const;
-        
+        void update_candidates(bool& first, unsigned sz1);
+        void collect_candidates(literal lit, literal const* begin, literal const* end);
     public:
 
         binspr(solver& s, params_ref const& p): s(s), m_stopped_at(0), m_limit1(1000), m_limit2(300) {}
