@@ -18,7 +18,7 @@
 
   L = { lit1, lit2 }
   G := { touched_L(C) |  C in F and C intersects with L, and not F|L |-_unit untouch_L(C) }
-  G is satisfiable
+  G & ~L is satisfiable
   ------------
   Learn ~lit1 or ~lit2
 
@@ -28,12 +28,14 @@ Marijn's version:
   L = { lit1, lit2 }
   alpha = L + units in F|L
   G := { touched_alpha(C) |  C in F and C intersects with L, and not F|L |-_unit untouch_alpha(C) }
-  G is satisfiable
+  G & ~L is satisfiable
   ---------------------
-  Learn ~lit1 or ~lit2
+  Learn ~L
 
-  Alternative: 
-  
+    
+
+
+  Alternative:   
 
   for p in literals:
       push(1)
@@ -99,46 +101,32 @@ Marijn's version:
 
   Alternative:
 
-  for p in literals:
-      push(1)
-      alpha := propagate(p)
-      for r in alpha u { p }
-          for (C or r) in use(r):
-              push(1)
-              propagate(~C)
-              .... TBD
-          pop(1)
-      ... TBD
-      pop(1) 
-
-
-  Alternative:
+  F, p |- ~u, 
+  F, q |- ~v, 
+  { p, v } u C in F
+  { q, u } u D in F
   
-  Candidates = literals
-  for p in literals: 
-      push(1)
-      propagate(p)
-      for (C or p) in use(p):
-          push(1)
-          propagate(~C)
-          if (!inconsistent()): 
-             for q in Candidates, q is unassigned
-                 push(1)
-                 propagate(q)
-                 if (!inconsistent()):
-                    update G, Candidates for C or p
-                 pop(1)
-             for q in C or ~q in C, q in Candidates, q != p
-                 update G, Candidates for C or p or q or C or p or ~q
-          pop(1)
-      for (q, G) in Candidates:
-          for (C or q) in use(q):
-              push(1)
-              propagate(~C) (remove p if p in C)
-              if (!inconsistent):
-                  update G, Candidates for C or q
-              pop(1)
-      pop(1)
+  Then use { p, ~u, q, ~v } as alpha, L = { p, q }
+  
+  for u in ~consequences of p:
+      for (u u D) in use(u):
+          for q in D, unassigned:
+              for v in ~consequences of q:
+                  for (v u C) in use(v):
+                      if p in C:
+                         check_spr(p, q, u, v)
+
+
+  for u in ~consequences of p:
+      for (u u D) in use(u):
+          for q in D, unassigned:              
+              check_spr(p, ~u, q)
+
+  what is ~s?
+
+  check_spr(p, ~u, q):
+      for v in ~consequences(q) | ({p, v} u C) in use(v):
+          check_spr(p, q, u, v)                
 
   --*/
 
@@ -170,32 +158,94 @@ namespace sat {
         m_use_list.reset();
         m_use_list.reserve(num*2);
         for (clause* c : s.m_clauses) {
-            if (!c->frozen()) { 
+            if (!c->frozen() && !c->was_removed()) { 
                 for (literal lit : *c) {
                     m_use_list[lit.index()].push_back(c);
                 }
             }
         }
         TRACE("sat", s.display(tout););
-        single_lookahead();
+        algorithm1();
     }
 
-    void binspr::single_lookahead() {
-        unsigned num = s.num_vars();
-        m_mark.reserve(s.num_vars() * 2, false);
+    void binspr::algorithm1() {
+        unsigned num_lits = 2 * s.num_vars();
+        m_mark.reserve(num_lits, false);
+        m_mark2.reserve(num_lits, false);
         IF_VERBOSE(0, verbose_stream() << "single lookahead\n");
-        for (bool_var v = 0; v < num && !s.inconsistent(); ++v) {
+        for (unsigned l_idx = 0; l_idx < num_lits && !s.inconsistent(); ++l_idx) {
             s.checkpoint();
-            literal lit(v, false);
-            if (!is_used(lit)) continue;
-            check_spr_single_lookahead(lit);
-            if (s.inconsistent()) break;
-            check_spr_single_lookahead(~lit);
-        }        
+            literal lit = to_literal(l_idx);
+            if (is_used(lit)) {
+                check_spr_single_lookahead(lit);
+            }       
+        } 
+    }
+
+    void binspr::algorithm2() {
+        IF_VERBOSE(0, verbose_stream() << "algorithm2\n");
+        unsigned num_lits = 2 * s.num_vars();
+        for (unsigned l_idx = 0; l_idx < num_lits && !s.inconsistent(); ++l_idx) {
+            s.checkpoint();
+            literal p = to_literal(l_idx);
+            if (is_used(p) && s.value(p) == l_undef) {
+                s.push();
+                s.assign_scoped(p);
+                unsigned sz_p = s.m_trail.size();
+                s.propagate(false);
+                if (s.inconsistent()) {
+                    s.pop(1);
+                    s.assign_unit(~p);
+                    s.propagate(false);
+                    continue;
+                }
+                for (unsigned i = sz_p; !s.inconsistent() && i < s.m_trail.size(); ++i) {
+                    literal u = ~s.m_trail[i];
+                    for (clause* cp : m_use_list[u.index()]) {
+                        for (literal q : *cp) {
+                            if (s.value(q) == l_undef && !s.inconsistent()) {
+                                s.push();
+                                s.assign_scoped(q);
+                                unsigned sz_q = s.m_trail.size();
+                                s.propagate(false);
+                                if (s.inconsistent()) {
+                                    // learn ~p or ~q
+                                    s.pop(1);
+                                    block_binary(p, q, true);
+                                    s.propagate(false);
+                                    sz_p = s.m_trail.size();
+                                    continue;
+                                }
+                                bool found = false;
+                                for (unsigned j = sz_q; !found && j < s.m_trail.size(); ++j) {
+                                    literal v = ~s.m_trail[j];
+                                    for (clause* cp2 : m_use_list[v.index()]) {
+                                        if (cp2->contains(p)) {
+                                            if (check_spr(p, q, u, v)) {
+                                                found = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                                s.pop(1);
+                                if (found) {
+                                    block_binary(p, q, false);
+                                    s.propagate(false);
+                                    sz_p = s.m_trail.size();
+                                }
+                            }
+                        }
+                    }
+                }
+                s.pop(1);
+            }
+        }               
     }
 
     void binspr::check_spr_single_lookahead(literal lit) {
         s.push();
+
         s.assign_scoped(lit);
         s.propagate(false);
         
@@ -242,37 +292,58 @@ namespace sat {
 
     void binspr::collect_candidates(literal lit, literal const* begin, literal const* end) {
         unsigned sz = s.m_trail.size();
+        literal const* it = begin;
         s.push();
-        for (; begin != end; ++begin) {
-            literal lit2 = *begin;
+        for (; it != end; ++it) {
+            literal lit2 = *it;
             if (lit2 != lit && s.value(lit2) != l_false) {
                 s.assign_scoped(~lit2);
             }
         }
         s.propagate(false);
+        IF_VERBOSE(0, verbose_stream() << "trail " << lit << ": " << s.m_trail << "\n";);
 
         if (s.inconsistent()) {
-            IF_VERBOSE(0, verbose_stream() << "TBD: can strengthen clause\n");
+            s.pop(1);
+            strengthen_clause(lit, begin, end);
+            return;
         }
-        else {
-            bool first = m_may_candidates.empty();
-            for (unsigned i = sz; i < s.m_trail.size(); ++i) {
-                literal lit2 = ~s.m_trail[i];
-                if (!m_mark[lit2.index()]) {
-                    m_may_candidates.push_back(lit2);
-                    m_mark[lit2.index()] = true;
-                    if (first) m_must_candidates.push_back(lit2);
-                }
+
+        bool first = m_may_candidates.empty();
+        for (unsigned i = sz; i < s.m_trail.size(); ++i) {
+            literal lit2 = ~s.m_trail[i];
+            if (!m_mark[lit2.index()]) {
+                m_may_candidates.push_back(lit2);
+                m_mark[lit2.index()] = true;
+                if (first) m_must_candidates.push_back(lit2);
             }
-            if (!first) {
-                unsigned j = 0;
-                for (literal l : m_must_candidates) {
-                    if (m_mark[l.index()]) m_must_candidates[j++] = l;
-                }
-                m_must_candidates.shrink(j);
+            m_mark2[lit2.index()] = true;
+        }
+        if (!first) {
+            unsigned j = 0;
+            for (literal l : m_must_candidates) {
+                if (m_mark2[l.index()]) m_must_candidates[j++] = l;
             }
+            m_must_candidates.shrink(j);
+        }
+        for (unsigned i = sz; i < s.m_trail.size(); ++i) {
+            literal lit2 = ~s.m_trail[i];
+            m_mark2[lit2.index()] = false;
         }
         s.pop(1);
+    }
+
+    void binspr::strengthen_clause(literal lit, literal const* begin, literal const* end) {
+        literal_vector lits;
+        for (literal const* it = begin; it != end; ++it) {
+            if (*it != lit) lits.push_back(*it);
+        }
+        IF_VERBOSE(0, verbose_stream() << "TBD clause strengthened " << lits << "\n");
+#if 0
+        s.mk_clause(lits.size(), lits.c_ptr(), true);
+        s.propagate(false);
+#endif
+        
     }
 
     void binspr::double_lookahead() {
@@ -325,26 +396,102 @@ namespace sat {
         s.propagate(false);
     }
 
+    // TBD: do we really need ~u, ~v? They are implied by p, q.
+    bool binspr::check_spr(literal p, literal q, literal u, literal v) {
+        SASSERT(s.value(p) == l_true);
+        SASSERT(s.value(q) == l_true);
+        SASSERT(s.value(u) == l_false);
+        SASSERT(s.value(v) == l_false);
+        init_g(p, q, u, v);
+        literal lits[4] = { p, q, ~u, ~v };
+        for (unsigned i = 0; g_is_sat() && i < 4; ++i) {
+            binary_are_unit_implied(lits[i]);
+            clauses_are_unit_implied(lits[i]);
+        }
+        return g_is_sat();
+    }
+
+    void binspr::binary_are_unit_implied(literal p) {
+        for (watched const& w : s.get_wlist(~p)) {
+            if (!g_is_sat()) {
+                break;
+            }
+            if (!w.is_binary_non_learned_clause()) {
+                continue;
+            }            
+
+            clear_alpha();
+            VERIFY(touch(p));
+            literal lit = w.get_literal();
+            SASSERT(lit != p);
+            
+            if (touch(lit)) {
+                add_touched();
+                continue;
+            }
+
+            bool inconsistent = (s.value(lit) == l_true);
+            if (s.value(lit) == l_undef) {
+                s.push();
+                s.assign_scoped(~lit);
+                s.propagate(false);
+                inconsistent = s.inconsistent();
+                s.pop(1);
+            }
+
+            if (!inconsistent) {            
+                add_touched();
+            }
+        }
+    }
+
+    void binspr::clauses_are_unit_implied(literal p) {
+        for (clause* cp : m_use_list[p.index()]) {
+            if (!g_is_sat()) break;
+            clause_is_unit_implied(*cp);
+        }
+    }
+
+    void binspr::clause_is_unit_implied(clause const& c) {
+        s.push();
+        clear_alpha();
+        for (literal lit : c) {
+            if (touch(lit)) {
+                continue;
+            }
+            else if (s.value(lit) == l_true) {
+                s.pop(1);
+                return;
+            }
+            else if (s.value(lit) != l_false) {
+                s.assign_scoped(~lit);
+            }
+        }
+        s.propagate(false);
+        bool inconsistent = s.inconsistent();
+        s.pop(1);
+        if (!inconsistent) {
+            add_touched();
+        }
+    }
+
     void binspr::check_spr(literal lit1, literal lit2) {
         s.push();
-        reset_g(lit1, lit2);
-        s.assign_scoped(lit2);
+        s.assign_scoped(lit2);        
         s.propagate(false);
-        if (s.inconsistent()) {
-            s.pop(1);
-            block_binary(lit1, lit2, true);
-            s.propagate(false);
+        IF_VERBOSE(3, verbose_stream() << "check-spr: " << lit1 << " " << lit2 << ": " << s.m_trail << "\n");
+        bool learned = s.inconsistent();
+        init_g();
+        if (!s.inconsistent()) {
+            binary_are_unit_implied (lit1, lit2);
+            clauses_are_unit_implied(lit1, lit2);
+            binary_are_unit_implied (lit2, lit1);
+            clauses_are_unit_implied(lit2, lit1);
         }
-        else if (binary_are_unit_implied(lit1, lit2) &&
-                 binary_are_unit_implied(lit2, lit1) &&
-                 clauses_are_unit_implied(lit1, lit2) &&
-                 clauses_are_unit_implied(lit2, lit1)) {
-            s.pop(1);
-            block_binary(lit1, lit2, false);
+        s.pop(1);
+        if (g_is_sat()) {
+            block_binary(lit1, lit2, learned);
             s.propagate(false);
-        }
-        else {
-            s.pop(1);
         }
     }
 
@@ -355,160 +502,182 @@ namespace sat {
         ++m_bin_clauses;
     }
 
-    bool binspr::binary_are_unit_implied(literal lit1, literal lit2) {
-        if (m_units.contains(lit1)) return true;
+    void binspr::binary_are_unit_implied(literal lit1, literal lit2) {
         for (watched const& w : s.get_wlist(~lit1)) {
+            if (!g_is_sat()) {
+                break;
+            }
             if (!w.is_binary_non_learned_clause()) {
                 continue;
             }            
             literal lit3 = w.get_literal();
             SASSERT(lit3 != lit1);
-            bool is_implied = true;
-            if (lit3 == lit2) {
-                is_implied = add_g(lit1, lit2);
-            }
-            else if (s.value(lit3) == l_true) {
+            
+            if (lit2.var() == lit3.var()) {
+                g_add_binary(lit1, lit2, lit2 != lit3);
                 continue;
             }
-            else if (s.value(lit3) == l_false) {
-                return add_g(lit1);
-            }
-            else {
+
+            bool inconsistent = (s.value(lit3) == l_true);
+            if (s.value(lit3) == l_undef) {
                 s.push();
                 s.assign_scoped(~lit3);
                 s.propagate(false);
-                is_implied = s.inconsistent() || add_g(lit1);
-                TRACE("sat", tout << "check-prop " << is_implied << ": " << ~lit1 << " " << ~lit2 << ": " << lit1 << " " << lit3 << "\n";);
+                inconsistent = s.inconsistent();
                 s.pop(1);
             }
-            if (!is_implied) {
-                return false;
+
+            if (!inconsistent) {            
+                g_add_unit(lit1, lit2);
             }
         }
-        return true;
     }
 
-    void binspr::reset_g(literal lit1, literal lit2) {
-        m_units.reset();
-        m_bins.reset();
-        m_bins.push_back(std::make_pair(~lit1, ~lit2));
-    }
-
-    // If we allow the case where G is non-empty there are the
-    // following cases for clauses in G:
-    // lit1
-    // lit2
-    // ~lit1
-    // ~lit2
-    //  (lit1 or  lit2)
-    // (~lit1 or ~lit2)  **
-    // (~lit1 or  lit2)
-    //  (lit1 or ~lit2)
-    // Given that satisfiability is checked with respect to **
-    // additional clauses create either equivalence constraints
-    // or units.
-    bool binspr::add_g(literal lit1, literal lit2) {
-        if (lit1 == lit2) {
-            return add_g(lit1);
-        }
-        if (lit1 == ~lit2) {
-            return true;
-        }
-        for (literal lit3 : m_units) {
-            if (lit3 == lit1 || lit3 == lit2) return true;
-            if (lit3 == ~lit1) return add_g(lit2);
-            if (lit3 == ~lit2) return add_g(lit1);
-        } 
-        SASSERT(m_units.empty());
-        if (lit1.var() > lit2.var()) {
-            std::swap(lit1, lit2);
-        }
-        for (auto const& p : m_bins) {
-            if (p.first == lit1  && p.second ==  lit2) return true;
-            if (p.first == ~lit1 && p.second ==  lit2) return add_g(lit2);
-            if (p.first == lit1  && p.second == ~lit2) return add_g(lit1);
-            // if (p.first == ~lit1 && p.second == ~lit2) continue;            
-        }
-        m_bins.push_back(std::make_pair(lit1, lit2));
-        return true;
-    }
-
-    bool binspr::add_g(literal lit1) {
-        for (literal lit2 : m_units) {
-            if (lit2 == lit1) return true;
-            if (lit2 == ~lit1) return false;
-        }
-        // crappy propagation 
-        m_units.push_back(lit1);
-        unsigned j = 0, i = 0, sz = m_bins.size();
-        for (; i < sz; ++i) {
-            auto const& p = m_bins[i];
-            if (p.first == ~lit1) {
-                if (m_units.contains(~(p.second))) return false;           
-                m_units.push_back(p.second);
-            }
-            else if (p.second == ~lit1) {
-                if (m_units.contains(~(p.first))) return false;
-                if (!m_units.contains(p.first)) m_units.push_back(p.first);
-            }
-            else {
-                m_bins[j++] = p;
-            }
-        }
-        m_bins.shrink(j);
-        return true;
-    }
-
-    bool binspr::clauses_are_unit_implied(literal lit1, literal lit2) {        
+    void binspr::clauses_are_unit_implied(literal lit1, literal lit2) {        
         for (clause* cp : m_use_list[lit1.index()]) {
-            if (!clause_is_unit_implied(lit1, lit2, *cp)) {
-                return false;
-            }
-            if (m_units.contains(lit1)) {
-                break;
-            }
+            if (!g_is_sat()) break;
+            clause_is_unit_implied(lit1, lit2, *cp);
         }
-        return true;
     }
 
-    bool binspr::clause_is_unit_implied(literal lit1, literal lit2, clause& c) {
-        if (c.was_removed()) {
-            return true;
-        }
-        literal lit2_ = lit1;
-        bool is_implied = false;
-        bool found = false;
+    void binspr::clause_is_unit_implied(literal lit1, literal lit2, clause& c) {
+        literal lit3 = null_literal;
         s.push();
         for (literal lit : c) {
             if (lit == lit1) {
-                found = true;
+                // found occurrence
             }
             else if (lit.var() == lit2.var()) {
-                lit2_ = lit2;
+                lit3 = lit;
             }
             else if (s.value(lit) == l_true) {
-                is_implied = true;
-                break;
+                s.pop(1);
+                return;
             }
             else if (s.value(lit) != l_false) {
                 s.assign_scoped(~lit);
             }
         }
-        if (!found && !is_implied) {
-            std::cout << lit1 << " " << lit2 << " " << c << "\n";
-        }
-        SASSERT(found || is_implied);
-        if (!is_implied) {
-            s.propagate(false);
-            is_implied = s.inconsistent();
-            CTRACE("sat", !is_implied, tout << "not unit implied " << lit1 << " " << lit2 << ": " << c << "\n";);            
-        }
-        if (!is_implied) {
-            is_implied = add_g(lit1, lit2_);
-        }
+        s.propagate(false);
+        bool inconsistent = s.inconsistent();
         s.pop(1);
-        TRACE("sat", tout << "is implied " << is_implied << " " << lit1 << " " << lit2 << " " << c << "\n";);
-        return is_implied;
+        if (inconsistent) {
+            // no op
+        }
+        else if (lit3 == null_literal) {
+            g_add_unit(lit1, lit2);
+        }
+        else {
+            g_add_binary(lit1, lit2, lit2 != lit3);
+        }
+    }
+
+    void binspr::g_add_unit(literal lit1, literal lit2) {
+        if (lit1.var() < lit2.var()) {
+            m_state &= 0x2;
+        }
+        else {
+            m_state &= 0x4;
+        }
+    }
+
+    void binspr::g_add_binary(literal lit1, literal lit2, bool flip2) {
+        bool flip1 = false;
+        if (lit1.var() > lit2.var()) { std::swap(flip1, flip2); }
+        m_state &= ((flip1?0x5:0xA) | (flip2?0x3:0xC)); 
+    }
+
+    // 0 -> 10
+    // 1 -> 01
+    // * -> 11
+    // 00 -> 1000
+    // 10 -> 0100
+    // 01 -> 0010
+    // 11 -> 0001
+    // *1 -> 00110011
+    // *0 -> 11001100
+    // 0* -> 10101010
+    // 1* -> 01010101
+    // **1 -> 00001111
+    // **0 -> 11110000
+
+    /**
+       \brief create masks (lsb is left)
+       i = 0: 1010101010101010
+       i = 1: 1100110011001100
+       i = 2: 1111000011110000
+     */
+    unsigned binspr::mk_mask(unsigned i) {
+        // variable number i is false.
+        unsigned mask0 = (1 << (1 + (1 << i))) - 1;  // 2^i bits of ones
+        unsigned pos = 1 << i;                       // how many bits in mask 
+        unsigned mask = mask0;
+        while (pos < 32) {
+            mask |= (mask0 << pos);
+            pos += 2*(i+1);
+        }
+        return mask;
+    }
+
+    void binspr::mk_masks() {
+        for (unsigned i = 0; i < max_lits; ++i) {
+            m_false[i] = mk_mask(i);
+            m_true[i]  = m_false[i] << (1 << i);
+        }
+    }
+
+    /**
+       \brief create Boolean function table
+       corresponding to disjunction of literals
+    */
+    
+    void binspr::add_touched() {
+        unsigned mask = 0;
+        for (unsigned i = 0; i < 4; ++i) {
+            switch (m_vals[i]) {
+            case l_true:
+                mask |= m_true[i];
+                break;
+            case l_false:
+                mask |= m_false[i];
+                break;
+            default:
+                break;
+            }
+            ++i;
+        }
+        IF_VERBOSE(0, display_mask(verbose_stream(), mask););
+        m_state &= mask;
+    }
+
+    void binspr::init_g(literal p, literal q, literal u, literal v) {
+        m_p = p.var();
+        m_q = q.var();
+        m_u = u.var();
+        m_v = v.var();
+        m_state = 0;
+        clear_alpha();
+        VERIFY(touch(~p));
+        VERIFY(touch(~q));
+        add_touched();
+    }
+
+    void binspr::clear_alpha() {
+        m_vals[0] = m_vals[1] = m_vals[2] = m_vals[3] = l_undef;
+    }
+
+    bool binspr::touch(literal p) {
+        bool_var v = p.var();
+        if (v == m_p) m_vals[0] = to_lbool(p.sign());
+        else if (v == m_q) m_vals[1] = to_lbool(p.sign());
+        else if (v == m_u) m_vals[2] = to_lbool(p.sign());
+        else if (v == m_v) m_vals[3] = to_lbool(p.sign());
+        else return false;
+        return true;
+    }
+
+    void binspr::display_mask(std::ostream& out, unsigned mask) {
+        if (m_p
     }
 
 
