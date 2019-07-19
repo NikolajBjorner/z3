@@ -89,6 +89,8 @@ namespace sat {
         void mk_masks();
         unsigned mk_mask(unsigned i);
 
+        std::ostream& display_mask(std::ostream& out, unsigned mask) const;
+
     public:
 
         binspr(solver& s, params_ref const& p): s(s), m_stopped_at(0), m_limit1(1000), m_limit2(300) {}

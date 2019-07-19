@@ -101,32 +101,6 @@ Marijn's version:
 
   Alternative:
 
-  F, p |- ~u, 
-  F, q |- ~v, 
-  { p, v } u C in F
-  { q, u } u D in F
-  
-  Then use { p, ~u, q, ~v } as alpha, L = { p, q }
-  
-  for u in ~consequences of p:
-      for (u u D) in use(u):
-          for q in D, unassigned:
-              for v in ~consequences of q:
-                  for (v u C) in use(v):
-                      if p in C:
-                         check_spr(p, q, u, v)
-
-
-  for u in ~consequences of p:
-      for (u u D) in use(u):
-          for q in D, unassigned:              
-              check_spr(p, ~u, q)
-
-  what is ~s?
-
-  check_spr(p, ~u, q):
-      for v in ~consequences(q) | ({p, v} u C) in use(v):
-          check_spr(p, q, u, v)                
 
   --*/
 
@@ -165,7 +139,7 @@ namespace sat {
             }
         }
         TRACE("sat", s.display(tout););
-        algorithm1();
+        algorithm2();
     }
 
     void binspr::algorithm1() {
@@ -182,12 +156,28 @@ namespace sat {
         } 
     }
 
+    /**
+       F, p |- ~u, 
+       F, p, q |- ~v, 
+       { p, v } u C in F
+       { q, u } u D in F
+  
+       Then use { p, ~u, q, ~v } as alpha, L = { p, q }
+
+      for u in ~consequences of p:
+          for (u u D) in use(u):
+              for q in D, unassigned:              
+                  for v in ~consequences(q) | ({p, v} u C) in use(v):
+                   check_spr(p, q, u, v)                
+    */
+
     void binspr::algorithm2() {
         IF_VERBOSE(0, verbose_stream() << "algorithm2\n");
         unsigned num_lits = 2 * s.num_vars();
         for (unsigned l_idx = 0; l_idx < num_lits && !s.inconsistent(); ++l_idx) {
             s.checkpoint();
             literal p = to_literal(l_idx);
+            IF_VERBOSE(0, verbose_stream() << "p " << p << "\n";);
             if (is_used(p) && s.value(p) == l_undef) {
                 s.push();
                 s.assign_scoped(p);
@@ -201,39 +191,43 @@ namespace sat {
                 }
                 for (unsigned i = sz_p; !s.inconsistent() && i < s.m_trail.size(); ++i) {
                     literal u = ~s.m_trail[i];
+                    IF_VERBOSE(0, verbose_stream() << "u " << u << "\n";);
                     for (clause* cp : m_use_list[u.index()]) {
                         for (literal q : *cp) {
-                            if (s.value(q) == l_undef && !s.inconsistent()) {
-                                s.push();
-                                s.assign_scoped(q);
-                                unsigned sz_q = s.m_trail.size();
+                            if (s.inconsistent()) 
+                                break;
+                            if (s.value(q) != l_undef) 
+                                continue;
+
+                            IF_VERBOSE(0, verbose_stream() << "u " << u << " q " << q << " in " << *cp << "\n";);
+                            s.push();
+                            s.assign_scoped(q);
+                            unsigned sz_q = s.m_trail.size();
+                            s.propagate(false);
+                            if (s.inconsistent()) {
+                                // learn ~p or ~q
+                                s.pop(1);
+                                block_binary(p, q, true);
                                 s.propagate(false);
-                                if (s.inconsistent()) {
-                                    // learn ~p or ~q
-                                    s.pop(1);
-                                    block_binary(p, q, true);
-                                    s.propagate(false);
-                                    sz_p = s.m_trail.size();
-                                    continue;
-                                }
-                                bool found = false;
-                                for (unsigned j = sz_q; !found && j < s.m_trail.size(); ++j) {
-                                    literal v = ~s.m_trail[j];
-                                    for (clause* cp2 : m_use_list[v.index()]) {
-                                        if (cp2->contains(p)) {
-                                            if (check_spr(p, q, u, v)) {
-                                                found = true;
-                                                break;
-                                            }
+                                continue;
+                            }
+                            bool found = false;
+                            for (unsigned j = sz_q; !found && j < s.m_trail.size(); ++j) {
+                                literal v = ~s.m_trail[j];
+                                for (clause* cp2 : m_use_list[v.index()]) {
+                                    IF_VERBOSE(0, verbose_stream() << "use of " << v << " " << *cp2 << " contains " << p << " " << cp2->contains(p) << "\n";);
+                                    if (cp2->contains(p)) {
+                                        if (check_spr(p, q, u, v)) {
+                                            found = true;
+                                            break;
                                         }
                                     }
                                 }
-                                s.pop(1);
-                                if (found) {
-                                    block_binary(p, q, false);
-                                    s.propagate(false);
-                                    sz_p = s.m_trail.size();
-                                }
+                            }
+                            s.pop(1);
+                            if (found) {
+                                block_binary(p, q, false);
+                                s.propagate(false);
                             }
                         }
                     }
@@ -398,6 +392,7 @@ namespace sat {
 
     // TBD: do we really need ~u, ~v? They are implied by p, q.
     bool binspr::check_spr(literal p, literal q, literal u, literal v) {
+        IF_VERBOSE(0, verbose_stream() << p << " " << q << " " << u << " " << v << "\n";); 
         SASSERT(s.value(p) == l_true);
         SASSERT(s.value(q) == l_true);
         SASSERT(s.value(u) == l_false);
@@ -646,7 +641,10 @@ namespace sat {
             }
             ++i;
         }
-        IF_VERBOSE(0, display_mask(verbose_stream(), mask););
+        if (m_state != 0 && m_state != ~0) {
+            IF_VERBOSE(0, display_mask(verbose_stream(), m_state););
+            IF_VERBOSE(0, display_mask(verbose_stream(), mask););
+        }
         m_state &= mask;
     }
 
@@ -655,7 +653,7 @@ namespace sat {
         m_q = q.var();
         m_u = u.var();
         m_v = v.var();
-        m_state = 0;
+        m_state = ~0;
         clear_alpha();
         VERIFY(touch(~p));
         VERIFY(touch(~q));
@@ -668,16 +666,24 @@ namespace sat {
 
     bool binspr::touch(literal p) {
         bool_var v = p.var();
-        if (v == m_p) m_vals[0] = to_lbool(p.sign());
-        else if (v == m_q) m_vals[1] = to_lbool(p.sign());
-        else if (v == m_u) m_vals[2] = to_lbool(p.sign());
-        else if (v == m_v) m_vals[3] = to_lbool(p.sign());
+        if (v == m_p) m_vals[0] = to_lbool(!p.sign());
+        else if (v == m_q) m_vals[1] = to_lbool(!p.sign());
+        else if (v == m_u) m_vals[2] = to_lbool(!p.sign());
+        else if (v == m_v) m_vals[3] = to_lbool(!p.sign());
         else return false;
         return true;
     }
 
-    void binspr::display_mask(std::ostream& out, unsigned mask) {
-        if (m_p
+    std::ostream& binspr::display_mask(std::ostream& out, unsigned mask) const {
+        for (unsigned i = 0; i < 4; ++i) {
+            out << m_vals[i] << " ";
+        }
+        out << " - ";
+        for (unsigned i = 0; i < 32; ++i) {
+            out << (0 != (mask & (1 << i)) ? 1 : 0);           
+        }
+        out << "\n";
+        return out;
     }
 
 
