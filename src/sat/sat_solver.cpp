@@ -1196,6 +1196,13 @@ namespace sat {
             SASSERT(scope_lvl() == 0);
             return check_par(num_lits, lits);
         }
+        if (m_config.m_binspr && !m_ext) {
+            binspr sp(*this, m_params);
+            sp();
+            sp.collect_statistics(m_aux_stats);
+            return inconsistent()? l_false : l_undef;
+        }
+
         flet<bool> _searching(m_searching, true);
         if (m_mc.empty() && gparams::get_ref().get_bool("model_validate", false)) {
             m_clone = alloc(solver, m_params, m_rlimit);
@@ -3330,11 +3337,6 @@ namespace sat {
             else {
                 m_search_sat_conflicts += m_config.m_search_sat_conflicts;
             }
-        }
-
-        if (m_search_state == s_unsat) {
-            m_search_state = s_sat;
-            m_search_next_toggle = m_search_sat_conflicts;
         }
 
         if (m_search_state == s_unsat) {

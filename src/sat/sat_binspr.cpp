@@ -102,6 +102,13 @@ Marijn's version:
   Alternative:
 
 
+  1. extract BIG
+     Use BIG to limit cone enumeration
+  2. for each literal lit:
+        enumerate k1 in cone of lit
+           enumerate lit2 in use(~k1)
+              check if cone of lit2 contains k2 such that lit1 in use(~k2)
+
   --*/
 
 #include "sat/sat_binspr.h"
@@ -142,19 +149,6 @@ namespace sat {
         algorithm2();
     }
 
-    void binspr::algorithm1() {
-        unsigned num_lits = 2 * s.num_vars();
-        m_mark.reserve(num_lits, false);
-        m_mark2.reserve(num_lits, false);
-        IF_VERBOSE(0, verbose_stream() << "single lookahead\n");
-        for (unsigned l_idx = 0; l_idx < num_lits && !s.inconsistent(); ++l_idx) {
-            s.checkpoint();
-            literal lit = to_literal(l_idx);
-            if (is_used(lit)) {
-                check_spr_single_lookahead(lit);
-            }       
-        } 
-    }
 
     /**
        F, p |- ~u, 
@@ -172,12 +166,12 @@ namespace sat {
     */
 
     void binspr::algorithm2() {
-        IF_VERBOSE(0, verbose_stream() << "algorithm2\n");
+        mk_masks();
         unsigned num_lits = 2 * s.num_vars();
         for (unsigned l_idx = 0; l_idx < num_lits && !s.inconsistent(); ++l_idx) {
             s.checkpoint();
             literal p = to_literal(l_idx);
-            IF_VERBOSE(0, verbose_stream() << "p " << p << "\n";);
+            TRACE("sat", tout << "p " << p << " " << s.value(p) << "\n";);
             if (is_used(p) && s.value(p) == l_undef) {
                 s.push();
                 s.assign_scoped(p);
@@ -187,11 +181,13 @@ namespace sat {
                     s.pop(1);
                     s.assign_unit(~p);
                     s.propagate(false);
+                    TRACE("sat", s.display(tout << "unit\n"););
+                    IF_VERBOSE(0, verbose_stream() << "unit " << (~p) << "\n");
                     continue;
                 }
                 for (unsigned i = sz_p; !s.inconsistent() && i < s.m_trail.size(); ++i) {
                     literal u = ~s.m_trail[i];
-                    IF_VERBOSE(0, verbose_stream() << "u " << u << "\n";);
+                    TRACE("sat", tout << "p " << p << " u " << u << "\n";);
                     for (clause* cp : m_use_list[u.index()]) {
                         for (literal q : *cp) {
                             if (s.inconsistent()) 
@@ -199,7 +195,6 @@ namespace sat {
                             if (s.value(q) != l_undef) 
                                 continue;
 
-                            IF_VERBOSE(0, verbose_stream() << "u " << u << " q " << q << " in " << *cp << "\n";);
                             s.push();
                             s.assign_scoped(q);
                             unsigned sz_q = s.m_trail.size();
@@ -214,8 +209,7 @@ namespace sat {
                             bool found = false;
                             for (unsigned j = sz_q; !found && j < s.m_trail.size(); ++j) {
                                 literal v = ~s.m_trail[j];
-                                for (clause* cp2 : m_use_list[v.index()]) {
-                                    IF_VERBOSE(0, verbose_stream() << "use of " << v << " " << *cp2 << " contains " << p << " " << cp2->contains(p) << "\n";);
+                                for (clause* cp2 : m_use_list[v.index()]) {                                    
                                     if (cp2->contains(p)) {
                                         if (check_spr(p, q, u, v)) {
                                             found = true;
@@ -228,6 +222,7 @@ namespace sat {
                             if (found) {
                                 block_binary(p, q, false);
                                 s.propagate(false);
+                                TRACE("sat", s.display(tout););
                             }
                         }
                     }
@@ -237,162 +232,11 @@ namespace sat {
         }               
     }
 
-    void binspr::check_spr_single_lookahead(literal lit) {
-        s.push();
-
-        s.assign_scoped(lit);
-        s.propagate(false);
-        
-        if (s.inconsistent()) {
-            s.pop(1);
-            s.assign_unit(~lit);
-            s.propagate(false);
-            return;
-        }
-        
-        IF_VERBOSE(0, verbose_stream() << "initialize candidates " << lit << "\n");
-        m_may_candidates.reset();        
-        m_must_candidates.reset();        
-        for (watched const& w : s.get_wlist(~lit)) {
-            if (s.inconsistent()) break;
-            if (w.is_binary_non_learned_clause()) {
-                literal lits[2] = { w.get_literal(), null_literal };
-                collect_candidates(lit, lits, lits + 1);
-            }
-        }
-        for (clause* cp : m_use_list[lit.index()]) {
-            if (s.inconsistent()) break;
-            collect_candidates(lit, cp->begin(), cp->end());
-        }
-        for (literal lit2 : m_must_candidates) {
-            block_binary(lit, lit2, false);
-            m_mark[lit2.index()] = false;
-        } 
-        IF_VERBOSE(0, 
-                   verbose_stream() << m_may_candidates.size()  << ": " << m_may_candidates  << "\n";
-                   verbose_stream() << m_must_candidates.size() << ": " << m_must_candidates << "\n";);
-
-        s.propagate(false);        
-        for (literal lit2 : m_may_candidates) {
-            if (!m_mark[lit2.index()]) continue;                
-            m_mark[lit2.index()] = false;
-            if (!s.inconsistent()) check_spr(lit, lit2);
-        }
-
-        s.pop(1);
-        s.propagate(false);
-        
-    }
-
-    void binspr::collect_candidates(literal lit, literal const* begin, literal const* end) {
-        unsigned sz = s.m_trail.size();
-        literal const* it = begin;
-        s.push();
-        for (; it != end; ++it) {
-            literal lit2 = *it;
-            if (lit2 != lit && s.value(lit2) != l_false) {
-                s.assign_scoped(~lit2);
-            }
-        }
-        s.propagate(false);
-        IF_VERBOSE(0, verbose_stream() << "trail " << lit << ": " << s.m_trail << "\n";);
-
-        if (s.inconsistent()) {
-            s.pop(1);
-            strengthen_clause(lit, begin, end);
-            return;
-        }
-
-        bool first = m_may_candidates.empty();
-        for (unsigned i = sz; i < s.m_trail.size(); ++i) {
-            literal lit2 = ~s.m_trail[i];
-            if (!m_mark[lit2.index()]) {
-                m_may_candidates.push_back(lit2);
-                m_mark[lit2.index()] = true;
-                if (first) m_must_candidates.push_back(lit2);
-            }
-            m_mark2[lit2.index()] = true;
-        }
-        if (!first) {
-            unsigned j = 0;
-            for (literal l : m_must_candidates) {
-                if (m_mark2[l.index()]) m_must_candidates[j++] = l;
-            }
-            m_must_candidates.shrink(j);
-        }
-        for (unsigned i = sz; i < s.m_trail.size(); ++i) {
-            literal lit2 = ~s.m_trail[i];
-            m_mark2[lit2.index()] = false;
-        }
-        s.pop(1);
-    }
-
-    void binspr::strengthen_clause(literal lit, literal const* begin, literal const* end) {
-        literal_vector lits;
-        for (literal const* it = begin; it != end; ++it) {
-            if (*it != lit) lits.push_back(*it);
-        }
-        IF_VERBOSE(0, verbose_stream() << "TBD clause strengthened " << lits << "\n");
-#if 0
-        s.mk_clause(lits.size(), lits.c_ptr(), true);
-        s.propagate(false);
-#endif
-        
-    }
-
-    void binspr::double_lookahead() {
-        unsigned num = s.num_vars();
-        unsigned offset = m_stopped_at;
-        for (unsigned i = 0, count = 0; i < num && count <= m_limit1 && !s.inconsistent(); ++i) {
-            s.checkpoint();
-            bool_var v = (offset + i) % num;
-            m_stopped_at = v;
-            if (s.value(v) == l_undef && !s.was_eliminated(v)) {
-                literal lit1(v, false);
-                if (is_used(lit1)) check_spr(lit1);            
-                if (!s.inconsistent() && s.value(v) == l_undef && is_used(~lit1)) check_spr(~lit1);            
-                ++count;
-            }
-        }        
-        m_limit1 *= 2;
-        m_limit2 *= 2;
-    }
-
     bool binspr::is_used(literal lit) const {
         return !m_use_list[lit.index()].empty() || !s.get_wlist(~lit).empty();
     }
     
-    void binspr::check_spr(literal lit1) {
-        TRACE("sat", tout << lit1 << "\n";);
-        s.push();
-        s.assign_scoped(lit1);
-        s.propagate(false);
-        unsigned num = s.num_vars() - lit1.var() - 1;
-        unsigned start = s.rand()(); 
-        // break symmetries: only consider variables larger than lit1
-        for (unsigned i = 0, count = 0; i < num && count <= m_limit2 && !s.inconsistent(); ++i) {
-            bool_var v = ((i + start) % num) + lit1.var() + 1;
-            s.checkpoint();
-            if (s.value(v) == l_undef && !s.was_eliminated(v)) {
-                literal lit2(v, false);
-                check_spr(lit1, lit2);            
-                if (!s.inconsistent() && s.value(lit2) == l_undef) check_spr(lit1, ~lit2);            
-                ++count;
-            }
-        }
-        if (s.inconsistent()) {
-            s.pop(1);
-            s.assign_unit(~lit1);
-        }
-        else {
-            s.pop(1);
-        }
-        s.propagate(false);
-    }
-
-    // TBD: do we really need ~u, ~v? They are implied by p, q.
     bool binspr::check_spr(literal p, literal q, literal u, literal v) {
-        IF_VERBOSE(0, verbose_stream() << p << " " << q << " " << u << " " << v << "\n";); 
         SASSERT(s.value(p) == l_true);
         SASSERT(s.value(q) == l_true);
         SASSERT(s.value(u) == l_false);
@@ -403,6 +247,7 @@ namespace sat {
             binary_are_unit_implied(lits[i]);
             clauses_are_unit_implied(lits[i]);
         }
+        TRACE("sat", tout << p << " " << q << " " << u << " " << v << " " << g_is_sat() << "\n";);
         return g_is_sat();
     }
 
@@ -435,6 +280,8 @@ namespace sat {
             }
 
             if (!inconsistent) {            
+                TRACE("sat", tout << "not implied: " << p << " " << lit << "\n";);
+                m_state = 0;
                 add_touched();
             }
         }
@@ -470,6 +317,180 @@ namespace sat {
         }
     }
 
+
+    void binspr::block_binary(literal lit1, literal lit2, bool learned) {
+        IF_VERBOSE(2, verbose_stream() << "SPR: " << learned << " " << ~lit1 << " " << ~lit2 << "\n");
+        TRACE("sat", tout << "SPR: " << learned << " " << ~lit1 << " " << ~lit2 << "\n";);
+        s.mk_clause(~lit1, ~lit2, learned);
+        ++m_bin_clauses;
+    }
+
+    void binspr::g_add_unit(literal lit1, literal lit2) {
+        if (lit1.var() < lit2.var()) {
+            m_state &= 0x2;
+        }
+        else {
+            m_state &= 0x4;
+        }
+    }
+
+    void binspr::g_add_binary(literal lit1, literal lit2, bool flip2) {
+        bool flip1 = false;
+        if (lit1.var() > lit2.var()) { std::swap(flip1, flip2); }
+        m_state &= ((flip1?0x5:0xA) | (flip2?0x3:0xC)); 
+    }
+
+    // 0 -> 10
+    // 1 -> 01
+    // * -> 11
+    // 00 -> 1000
+    // 10 -> 0100
+    // 01 -> 0010
+    // 11 -> 0001
+    // *1 -> 00110011
+    // *0 -> 11001100
+    // 0* -> 10101010
+    // 1* -> 01010101
+    // **1 -> 00001111
+    // **0 -> 11110000
+
+    /**
+       \brief create masks (lsb is left)
+       i = 0: 1010101010101010
+       i = 1: 1100110011001100
+       i = 2: 1111000011110000
+     */
+    unsigned binspr::mk_mask(unsigned i) {
+        // variable number i is false.
+        unsigned mask0 = (1 << (1 << i)) - 1;  // 2^i bits of ones
+        unsigned pos = 1 << (i+1);                  // how many bits in mask 
+
+        unsigned mask = mask0;
+        while (pos < 32) {
+            mask |= (mask0 << pos);
+            pos += 1 << (i + 1);
+        }
+        return mask;
+    }
+
+    void binspr::mk_masks() {
+        for (unsigned i = 0; i < max_lits; ++i) {
+            m_false[i] = mk_mask(i);
+            m_true[i]  = m_false[i] << (1 << i);
+        }
+    }
+
+    /**
+       \brief create Boolean function table
+       corresponding to disjunction of literals
+    */
+    
+    void binspr::add_touched() {
+
+        unsigned mask = 0;
+        for (unsigned i = 0; i < 4; ++i) {
+            switch (m_vals[i]) {
+            case l_true:
+                mask |= m_true[i];
+                break;
+            case l_false:
+                mask |= m_false[i];
+                break;
+            default:
+                break;
+            }
+        }
+        bool first = m_state == ~0;
+        m_state &= mask;
+        TRACE("sat", 
+              {
+                  bool_var vars[4];
+                  vars[0] = m_p; vars[1] = m_q; vars[2] = m_u; vars[3] = m_v;
+                  tout << "touched: ";
+                  for (unsigned i = 0; i < 4; ++i) {
+                      switch (m_vals[i]) {
+                      case l_true:
+                          tout << literal(vars[i], false) << " ";
+                          break;
+                      case l_false:
+                          tout << literal(vars[i], true) << " ";
+                          break;
+                      default:
+                          break;
+                      }
+                  }
+                  display_mask(tout << "  ", m_state);
+              });
+    }
+
+    void binspr::init_g(literal p, literal q, literal u, literal v) {
+        m_p = p.var();
+        m_q = q.var();
+        m_u = u.var();
+        m_v = v.var();
+        m_state = ~0;
+        clear_alpha();
+        VERIFY(touch(~p));
+        VERIFY(touch(~q));
+        add_touched();
+    }
+
+    void binspr::clear_alpha() {
+        m_vals[0] = m_vals[1] = m_vals[2] = m_vals[3] = l_undef;
+    }
+
+    bool binspr::touch(literal p) {
+        bool_var v = p.var();
+        if (v == m_p) m_vals[0] = to_lbool(!p.sign());
+        else if (v == m_q) m_vals[1] = to_lbool(!p.sign());
+        else if (v == m_u) m_vals[2] = to_lbool(!p.sign());
+        else if (v == m_v) m_vals[3] = to_lbool(!p.sign());
+        else return false;
+        return true;
+    }
+
+    std::ostream& binspr::display_mask(std::ostream& out, unsigned mask) const {
+        for (unsigned i = 0; i < 4; ++i) {
+            out << m_vals[i] << " ";
+        }
+        out << " - ";
+        for (unsigned i = 0; i < 32; ++i) {
+            out << (0 != (mask & (1 << i)) ? 1 : 0);           
+        }
+        return out << "\n";
+    }
+}
+
+
+#if 0
+    void binspr::check_spr(literal lit1) {
+        TRACE("sat", tout << lit1 << "\n";);
+        s.push();
+        s.assign_scoped(lit1);
+        s.propagate(false);
+        unsigned num = s.num_vars() - lit1.var() - 1;
+        unsigned start = s.rand()(); 
+        // break symmetries: only consider variables larger than lit1
+        for (unsigned i = 0, count = 0; i < num && count <= m_limit2 && !s.inconsistent(); ++i) {
+            bool_var v = ((i + start) % num) + lit1.var() + 1;
+            s.checkpoint();
+            if (s.value(v) == l_undef && !s.was_eliminated(v)) {
+                literal lit2(v, false);
+                check_spr(lit1, lit2);            
+                if (!s.inconsistent() && s.value(lit2) == l_undef) check_spr(lit1, ~lit2);            
+                ++count;
+            }
+        }
+        if (s.inconsistent()) {
+            s.pop(1);
+            s.assign_unit(~lit1);
+        }
+        else {
+            s.pop(1);
+        }
+        s.propagate(false);
+    }
+
     void binspr::check_spr(literal lit1, literal lit2) {
         s.push();
         s.assign_scoped(lit2);        
@@ -488,13 +509,6 @@ namespace sat {
             block_binary(lit1, lit2, learned);
             s.propagate(false);
         }
-    }
-
-    void binspr::block_binary(literal lit1, literal lit2, bool learned) {
-        IF_VERBOSE(1, verbose_stream() << "SPR: " << learned << " " << ~lit1 << " " << ~lit2 << "\n");
-        TRACE("sat", tout << "SPR: " << learned << " " << ~lit1 << " " << ~lit2 << "\n";);
-        s.mk_clause(~lit1, ~lit2, learned);
-        ++m_bin_clauses;
     }
 
     void binspr::binary_are_unit_implied(literal lit1, literal lit2) {
@@ -567,125 +581,5 @@ namespace sat {
         }
     }
 
-    void binspr::g_add_unit(literal lit1, literal lit2) {
-        if (lit1.var() < lit2.var()) {
-            m_state &= 0x2;
-        }
-        else {
-            m_state &= 0x4;
-        }
-    }
-
-    void binspr::g_add_binary(literal lit1, literal lit2, bool flip2) {
-        bool flip1 = false;
-        if (lit1.var() > lit2.var()) { std::swap(flip1, flip2); }
-        m_state &= ((flip1?0x5:0xA) | (flip2?0x3:0xC)); 
-    }
-
-    // 0 -> 10
-    // 1 -> 01
-    // * -> 11
-    // 00 -> 1000
-    // 10 -> 0100
-    // 01 -> 0010
-    // 11 -> 0001
-    // *1 -> 00110011
-    // *0 -> 11001100
-    // 0* -> 10101010
-    // 1* -> 01010101
-    // **1 -> 00001111
-    // **0 -> 11110000
-
-    /**
-       \brief create masks (lsb is left)
-       i = 0: 1010101010101010
-       i = 1: 1100110011001100
-       i = 2: 1111000011110000
-     */
-    unsigned binspr::mk_mask(unsigned i) {
-        // variable number i is false.
-        unsigned mask0 = (1 << (1 + (1 << i))) - 1;  // 2^i bits of ones
-        unsigned pos = 1 << i;                       // how many bits in mask 
-        unsigned mask = mask0;
-        while (pos < 32) {
-            mask |= (mask0 << pos);
-            pos += 2*(i+1);
-        }
-        return mask;
-    }
-
-    void binspr::mk_masks() {
-        for (unsigned i = 0; i < max_lits; ++i) {
-            m_false[i] = mk_mask(i);
-            m_true[i]  = m_false[i] << (1 << i);
-        }
-    }
-
-    /**
-       \brief create Boolean function table
-       corresponding to disjunction of literals
-    */
-    
-    void binspr::add_touched() {
-        unsigned mask = 0;
-        for (unsigned i = 0; i < 4; ++i) {
-            switch (m_vals[i]) {
-            case l_true:
-                mask |= m_true[i];
-                break;
-            case l_false:
-                mask |= m_false[i];
-                break;
-            default:
-                break;
-            }
-            ++i;
-        }
-        if (m_state != 0 && m_state != ~0) {
-            IF_VERBOSE(0, display_mask(verbose_stream(), m_state););
-            IF_VERBOSE(0, display_mask(verbose_stream(), mask););
-        }
-        m_state &= mask;
-    }
-
-    void binspr::init_g(literal p, literal q, literal u, literal v) {
-        m_p = p.var();
-        m_q = q.var();
-        m_u = u.var();
-        m_v = v.var();
-        m_state = ~0;
-        clear_alpha();
-        VERIFY(touch(~p));
-        VERIFY(touch(~q));
-        add_touched();
-    }
-
-    void binspr::clear_alpha() {
-        m_vals[0] = m_vals[1] = m_vals[2] = m_vals[3] = l_undef;
-    }
-
-    bool binspr::touch(literal p) {
-        bool_var v = p.var();
-        if (v == m_p) m_vals[0] = to_lbool(!p.sign());
-        else if (v == m_q) m_vals[1] = to_lbool(!p.sign());
-        else if (v == m_u) m_vals[2] = to_lbool(!p.sign());
-        else if (v == m_v) m_vals[3] = to_lbool(!p.sign());
-        else return false;
-        return true;
-    }
-
-    std::ostream& binspr::display_mask(std::ostream& out, unsigned mask) const {
-        for (unsigned i = 0; i < 4; ++i) {
-            out << m_vals[i] << " ";
-        }
-        out << " - ";
-        for (unsigned i = 0; i < 32; ++i) {
-            out << (0 != (mask & (1 << i)) ? 1 : 0);           
-        }
-        out << "\n";
-        return out;
-    }
-
-
-}
+#endif
 

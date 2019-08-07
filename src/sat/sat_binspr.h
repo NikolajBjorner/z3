@@ -58,7 +58,6 @@ namespace sat {
 
         void block_binary(literal lit1, literal lit2, bool learned);
         void double_lookahead();
-        void algorithm1();
         
         void check_spr_single_lookahead(literal lit);
         void check_spr(literal lit1);
