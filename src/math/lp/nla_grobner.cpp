@@ -201,10 +201,14 @@ nex * nla_grobner::mk_monomial_in_row(rational coeff, lpvar j, ci_dependency * &
 
 void nla_grobner::add_row(unsigned i) {    
     const auto& row = c().m_lar_solver.A_r().m_rows[i];    
-    TRACE("non_linear", tout << "adding row to gb\n"; c().m_lar_solver.print_row(row, tout););
-    nex * row_nex = nullptr;
-        /*    v_dependency * dep = nullptr;
-    m_tmp_var_set.reset();
+    TRACE("nla_grobner", tout << "adding row to gb\n"; c().m_lar_solver.print_row(row, tout););
+    nex_sum * ns = m_nex_creator.mk_sum();
+    create_sum_from_row(row, m_nex_creator, *ns);
+    TRACE("nla_grobner", tout << "ns = " << *ns << "\n";);
+    ci_dependency * dep = nullptr;
+    m_tmp_var_set.clear();
+    NOT_IMPLEMENTED_YET();
+    /*
     for (const auto & p : row) {
         rational coeff            = p.coeff();
         lpvar j                   = p.var();
