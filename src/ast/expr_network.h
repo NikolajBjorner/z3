@@ -11,6 +11,15 @@ Abstract:
     The network view offers access to parents (use-lists)
     and supports functions to change nodes.
 
+
+Plan for reconvergency driven cuts:
+1. given selection of root (outside of this procedure)
+2. traverse children as long as cost function is managed (good to revisit children already seen).
+3. sat sweeping
+4. MFFC on collisions:
+   recomputes reference counts based on internal reachability.
+   choose node with largest 0-ref subgraph.
+
 Author:
 
     Nikolaj Bjorner (nbjorner) 6-14-2019
