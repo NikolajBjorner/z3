@@ -49,8 +49,8 @@ class cut_rewriting_tactic : public tactic {
                 else {
                     cut2id.insert(&cut, i);
                 }
+                num_cuts += cuts[i].size();
             }
-            num_cuts += cuts.size();
         }
         std::cout << "num cuts: " << num_cuts << " num clash: " << num_clash << "\n";
         
