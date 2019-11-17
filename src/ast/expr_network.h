@@ -69,6 +69,9 @@ public:
             }
         }
 
+        unsigned operator[](unsigned idx) const {
+            return get(idx);
+        }
         unsigned get(unsigned idx) const {
             return (idx >= m_size) ? UINT_MAX : m_elems[idx];
         }
@@ -81,16 +84,16 @@ public:
             unsigned x = a.get(i);
             unsigned y = b.get(j);
             while (x != UINT_MAX || y != UINT_MAX) {
+                if (!add(std::min(x, y))) {
+                    return false;
+                }
                 if (x < y) {
-                    if (!add(x)) return false;
                     x = a.get(++i);
                 }
                 else if (y < x) {
-                    if (!add(y)) return false;
                     y = b.get(++j);
                 }
                 else {
-                    if (!add(x)) return false;
                     x = a.get(++i);
                     y = b.get(++j);
                 }

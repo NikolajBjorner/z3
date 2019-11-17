@@ -35,15 +35,13 @@ void expr_network::add_root(expr* e) {
         if (p) {
             n.m_parents.push_back(p->get_id());
         }
-        if (!n.m_expr) {
-            n.m_expr = e;
-            if (is_app(e)) {
-                for (expr* arg : *to_app(e)) {
-                    n.m_children.push_back(arg->get_id());
-                    todo.push_back(std::make_pair(arg, e));
-                }
+        if (!n.m_expr && is_app(e)) {
+            for (expr* arg : *to_app(e)) {
+                n.m_children.push_back(arg->get_id());
+                todo.push_back(std::make_pair(arg, e));
             }
         }
+        n.m_expr = e;
     }
 }
 
@@ -254,6 +252,7 @@ void expr_network::cut_set::insert(cut const& c) {
     if (j < i) {
         shrink(j);
     }
+    push_back(c);
 }
 
 // x0.shift_table(x0.x1.x2):    10   -> 1010 1010
@@ -264,22 +263,45 @@ void expr_network::cut_set::insert(cut const& c) {
 // x0.x2.shift_table(x0.x1.x2): 1011 -> 1010 1111
 // x0.shift_table(x0.x1):       10    -> 1010
 
+/**
+   \brief shift table 'a' by adding elements from 'c'.
+   a.shift_table(c)
+
+   \pre 'a' is a subset of 'c'.
+
+   Let 't' be the table for 'a'.
+
+   i'th bit in t  is function of indices x0*2^0 + x2*2^1 = i
+   i'th bit in t' is function of indices x0*2^0 + x1*2^1 + x2*2^2 = i
+
+   i -> assignment to coefficients in c, 
+     -> assignment to coefficients in a
+     -> compute j, 
+     -> t'[i] <- t'[j]
+   
+ */
+
 uint64_t expr_network::cut::shift_table(cut const& c) const {
     SASSERT(subset_of(c));
-    unsigned offset = 0;
-    unsigned len = 2;
-    uint64_t r = 0x3 & m_table;
-    unsigned i = 0;
-#if 0
-    for (unsigned e : c) {
-        if (i < m_size && m_elems[i] == c) {
-            ++i;
-            *= len;
+    uint64_t r = 0;
+    unsigned new_sz = c.m_size;
+    unsigned coeff[max_size+1];
+    
+    for (unsigned i = 0, j = 0, x = (*this)[i], y = c[j]; x != UINT_MAX; ) {
+        if (x == y) {
+            coeff[i] = (1 << j);
+            x = (*this)[++i];
         }
-        else {
-            
-        }
+        y = c[++j];
     }
-#endif
+    for (unsigned j = 0; j < (1u << new_sz); ++j) {
+        unsigned i = 0, k = 0;
+        for (unsigned i = 0; i < m_size; ++i) {
+            if (0 != (j & coeff[i])) {
+                k += (1 << i);
+            }
+        }
+        r |= ((m_table & (1ull << k)) << (j - k));
+    }
     return r;
 }
