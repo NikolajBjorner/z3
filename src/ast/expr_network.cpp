@@ -206,6 +206,7 @@ vector<expr_network::cut_set> expr_network::get_cuts(unsigned k) {
             }
         }
         cut_set.push_back(cut(id));
+        // std::cout << id << " " << get_depth(n.e()) << " " << cut_set.size() << "\n";
     }
     return cuts;
 }
@@ -246,6 +247,7 @@ void expr_network::cut_set::insert(cut const& c) {
         else if (j < i) {
             (*this)[j] = a;
         }
+        VERIFY(!(a == c));
         ++j;
     }
     if (j < i) {
@@ -253,14 +255,6 @@ void expr_network::cut_set::insert(cut const& c) {
     }
     push_back(c);
 }
-
-// x0.shift_table(x0.x1.x2):    10   -> 1010 1010
-// x1.shift_table(x0.x1.x2):    10   -> 1100 1100
-// x0.x1.shift_table(x0.x1.x2): 1011 -> 1011 1011
-// x1.x2.shift_table(x0.x1.x2): 1011 -> 1100 1111
-// x2.shift_table(x0.x1.x2):    10   -> 1111 0000
-// x0.x2.shift_table(x0.x1.x2): 1011 -> 1010 1111
-// x0.shift_table(x0.x1):       10    -> 1010
 
 /**
    \brief shift table 'a' by adding elements from 'c'.
@@ -315,7 +309,9 @@ bool expr_network::cut::operator==(cut const& other) const {
 }
 
 unsigned expr_network::cut::hash() const {
-    return get_composite_hash(*this, m_size, [](cut const& c) { return (unsigned)c.m_table; }, [](cut const& c, unsigned i) { return c[i]; });
+    return get_composite_hash(*this, m_size, 
+                              [](cut const& c) { return (unsigned)c.m_table; }, 
+                              [](cut const& c, unsigned i) { return c[i]; });
 }
 
 std::ostream& expr_network::cut::display(std::ostream& out) const {

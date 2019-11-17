@@ -38,18 +38,20 @@ class cut_rewriting_tactic : public tactic {
         map<expr_network::cut const*, unsigned, expr_network::cut::hash_proc, expr_network::cut::eq_proc> cut2id;
         unsigned num_cuts = 0, num_clash = 0;
         for (unsigned i = cuts.size(); i-- > 0; ) {
+            num_cuts += cuts[i].size();
             for (auto const& cut : cuts[i]) {
                 unsigned j = 0;
                 if (cut2id.find(&cut, j)) {
-                    ++num_clash;
-                    std::cout << "clash: " << i << " " << j << "\n";
-                    // apply substitution when there is a clash                    
-                    nw.substitute(i, j);
+                    if (i != j) {
+                        ++num_clash;
+                        std::cout << "clash: " << i << " " << j << "\n";
+                        nw.substitute(i, j);
+                        break;
+                    }
                 }
                 else {
                     cut2id.insert(&cut, i);
                 }
-                num_cuts += cuts[i].size();
             }
         }
         std::cout << "num cuts: " << num_cuts << " num clash: " << num_clash << "\n";
