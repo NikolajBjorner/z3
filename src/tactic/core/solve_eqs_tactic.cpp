@@ -452,14 +452,64 @@ class solve_eqs_tactic : public tactic {
             {}
         };
 
-        bool is_compatible(goal const& g, unsigned idx, vector<nnf_context> const & path, expr* v, expr* eq) {
-            return is_goal_compatible(g, idx, v, eq) && is_path_compatible(path, v, eq);
+        ptr_vector<expr> m_todo;       
+        void mark_occurs(expr_mark& occ, goal const& g, expr* v) {
+            expr_fast_mark2 visited;
+            occ.mark(v, true);
+            visited.mark(v, true);
+            for (unsigned j = 0; j < g.size(); ++j) {              
+                m_todo.push_back(g.form(j));
+            }
+            while (!m_todo.empty()) {
+                expr* e = m_todo.back();
+                if (visited.is_marked(e)) {
+                    m_todo.pop_back();
+                    continue;
+                }
+                if (is_app(e)) {
+                    bool does_occur = false;
+                    bool all_visited = true;
+                    for (expr* arg : *to_app(e)) {
+                        if (!visited.is_marked(arg)) {
+                            m_todo.push_back(arg);
+                            all_visited = false;
+                        }
+                        else {
+                            does_occur |= occ.is_marked(arg);
+                        }
+                    }
+                    if (all_visited) {
+                        occ.mark(e, does_occur);
+                        visited.mark(e, true);
+                        m_todo.pop_back();
+                    }
+                }
+                else if (is_quantifier(e)) {
+                    expr* body = to_quantifier(e)->get_expr();
+                    if (visited.is_marked(body)) {
+                        visited.mark(e, true);
+                        occ.mark(e, occ.is_marked(body));
+                        m_todo.pop_back();
+                    }
+                }
+                else {
+                    visited.mark(e, true);
+                    m_todo.pop_back();
+                }
+            }
         }
 
-        bool is_goal_compatible(goal const& g, unsigned idx, expr* v, expr* eq) {
+        bool is_compatible(goal const& g, unsigned idx, vector<nnf_context> const & path, expr* v, expr* eq) {
+            expr_mark occ;
+            svector<lbool> cache;
+            mark_occurs(occ, g, v);
+            return is_goal_compatible(g, occ, cache, idx, v, eq) && is_path_compatible(occ, cache, path, v, eq);
+        }
+
+        bool is_goal_compatible(goal const& g, expr_mark& occ, svector<lbool>& cache, unsigned idx, expr* v, expr* eq) {
             bool all_e = false;
             for (unsigned j = 0; j < g.size(); ++j) {              
-                if (j != idx && !check_eq_compat(g.form(j), v, eq, all_e)) {
+                if (j != idx && !check_eq_compat_rec(occ, cache, g.form(j), v, eq, all_e)) {
                     TRACE("solve_eqs", tout << "occurs goal " << mk_pp(eq, m()) << "\n";);
                     return false;
                 }
@@ -476,14 +526,14 @@ class solve_eqs_tactic : public tactic {
         // and, all_e -> all_e
         //
 
-        bool is_path_compatible(vector<nnf_context> const & path, expr* v, expr* eq) {
+        bool is_path_compatible(expr_mark& occ, svector<lbool>& cache, vector<nnf_context> const & path, expr* v, expr* eq) {
             bool all_e = true;
             for (unsigned i = path.size(); i-- > 0; ) {
                 auto const& p = path[i];
                 auto const& args = p.m_args;
                 if (p.m_is_and && !all_e) {
                     for (unsigned j = 0; j < args.size(); ++j) {
-                        if (j != p.m_index && occurs(v, args[j])) {
+                        if (j != p.m_index && occ.is_marked(args[j])) {
                             TRACE("solve_eqs", tout << "occurs and " << mk_pp(eq, m()) << " " << mk_pp(args[j], m()) << "\n";);
                             return false;
                         }
@@ -493,7 +543,7 @@ class solve_eqs_tactic : public tactic {
                     for (unsigned j = 0; j < args.size(); ++j) {
                         if (j != p.m_index) {
                             if (occurs(v, args[j])) {
-                                if (!check_eq_compat(args[j], v, eq, all_e)) {
+                                if (!check_eq_compat_rec(occ, cache, args[j], v, eq, all_e)) {
                                     TRACE("solve_eqs", tout << "occurs or " << mk_pp(eq, m()) << " " << mk_pp(args[j], m()) << "\n";);
                                     return false;
                                 }
@@ -508,17 +558,23 @@ class solve_eqs_tactic : public tactic {
             return true;
         }
 
-        bool check_eq_compat(expr* f, expr* v, expr* eq, bool& all) {
+        bool check_eq_compat_rec(expr_mark& occ, svector<lbool>& cache, expr* f, expr* v, expr* eq, bool& all) {
             expr_ref_vector args(m());
             expr* f1 = nullptr;
-            if (!occurs(v, f)) {
+            if (!occ.is_marked(f)) {
                 all = false;
                 return true;
+            }
+            unsigned idx = f->get_id();
+            if (cache.size() > idx && cache[idx] != l_undef) {
+                return cache[idx] == l_true;
             }
             if (m().is_not(f, f1) && m().is_or(f1)) {
                 flatten_and(f, args);
                 for (expr* arg : args) {
                     if (arg == eq) {
+                        cache.reserve(idx+1, l_undef);
+                        cache[idx] = l_true;
                         return true;
                     }
                 }                
@@ -531,10 +587,14 @@ class solve_eqs_tactic : public tactic {
             }
 
             for (expr* arg : args) {
-                if (!check_eq_compat(arg, v, eq, all)) {
+                if (!check_eq_compat_rec(occ, cache, arg, v, eq, all)) {
+                    cache.reserve(idx+1, l_undef);
+                    cache[idx] = l_false;
                     return false;
                 }
             }
+            cache.reserve(idx+1, l_undef);
+            cache[idx] = l_true;
             return true;
         }
 
@@ -840,9 +900,7 @@ class solve_eqs_tactic : public tactic {
                     return;
             }
             g.elim_true();
-            TRACE("solve_eqs", 
-                  tout << "after applying substitution\n";
-                  g.display(tout););
+            TRACE("solve_eqs", g.display(tout << "after applying substitution\n"););
 #if 0
             DEBUG_CODE({
                     for (expr* v : m_ordered_vars) {
@@ -938,11 +996,13 @@ class solve_eqs_tactic : public tactic {
                     if (m_context_solve) {
                         collect_hoist(*g);
                     }
-                    if (m_subst->empty()) 
+                    if (m_subst->empty()) {
                         break;
+                    }
                     sort_vars();
-                    if (m_ordered_vars.empty())
+                    if (m_ordered_vars.empty()) {
                         break;
+                    }
                     normalize();
                     substitute(*(g.get()));
                     if (g->inconsistent()) {

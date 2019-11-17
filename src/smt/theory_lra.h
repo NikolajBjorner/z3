@@ -43,6 +43,8 @@ namespace smt {
 
         void assign_eh(bool_var v, bool is_true) override;
 
+        lbool get_phase(bool_var v) override;
+
         void new_eq_eh(theory_var v1, theory_var v2) override;
 
         bool use_diseqs() const override;
@@ -83,8 +85,6 @@ namespace smt {
         bool get_upper(enode* n, expr_ref& r);
         bool get_lower(enode* n, rational& r, bool& is_strict);
         bool get_upper(enode* n, rational& r, bool& is_strict);
-
-        bool validate_eq_in_model(theory_var v1, theory_var v2, bool is_true) const override;
                 
         void display(std::ostream & out) const override;
         

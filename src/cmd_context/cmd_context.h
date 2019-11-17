@@ -273,6 +273,7 @@ protected:
     void init_external_manager();
     void reset_cmds();
     void finalize_cmds();
+    void add_declared_functions(model& mdl);
 
     void restore_func_decls(unsigned old_sz);
     void restore_psort_decls(unsigned old_sz);
@@ -366,6 +367,8 @@ public:
     check_sat_state cs_state() const;
     void complete_model(model_ref& mdl) const;
     void validate_model();
+    void analyze_failure(model_evaluator& ev, expr* e, bool expected_value);
+    void display_detailed_analysis(std::ostream& out, model_evaluator& ev, expr* e);
     void display_model(model_ref& mdl);
 
     void register_plugin(symbol const & name, decl_plugin * p, bool install_names);

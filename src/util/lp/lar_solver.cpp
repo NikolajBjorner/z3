@@ -512,7 +512,7 @@ bool lar_solver::move_non_basic_column_to_bounds(unsigned j) {
         }
         break;
     default:
-        if (is_int(j) && !val.is_int()) {
+        if (column_is_int(j) && !val.is_int()) {
             set_value_for_nbasic_column(j, impq(floor(val)));
             return true;
         }
@@ -1242,7 +1242,7 @@ void lar_solver::get_infeasibility_explanation_for_inf_sign(
 }
 
 void lar_solver::get_model(std::unordered_map<var_index, mpq> & variable_values) const {
-    lp_assert(m_status == lp_status::OPTIMAL);
+    lp_assert(m_mpq_lar_core_solver.m_r_solver.calc_current_x_is_feasible_include_non_basis());
     mpq delta = mpq(1, 2); // start from 0.5 to have less clashes
     unsigned i;
     do {
@@ -1775,6 +1775,25 @@ constraint_index lar_solver::add_var_bound(var_index j, lconstraint_kind kind, c
     }
     lp_assert(sizes_are_correct());
     return ci;
+}
+
+bool lar_solver::compare_values(var_index j, lconstraint_kind k, const mpq & rhs) {
+    if (is_term(j))
+        j = to_column(j);
+    return compare_values(get_column_value(j), k, rhs);
+}
+
+bool lar_solver::compare_values(impq const& lhs, lconstraint_kind k, const mpq & rhs) {
+    switch (k) {
+    case LT: return lhs < rhs;
+    case LE: return lhs <= rhs;
+    case GT: return lhs > rhs;
+    case GE: return lhs >= rhs;
+    case EQ: return lhs == rhs;
+    default:
+        UNREACHABLE();
+        return true;
+    }
 }
 
 void lar_solver::update_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index) {

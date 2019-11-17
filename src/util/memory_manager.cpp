@@ -35,7 +35,7 @@ out_of_memory_error::out_of_memory_error():z3_error(ERR_MEMOUT) {
 }
 
 
-static DECLARE_MUTEX(g_memory_mux);
+static DECLARE_INIT_MUTEX(g_memory_mux);
 static atomic<bool> g_memory_out_of_memory(false);
 static bool       g_memory_initialized       = false;
 static long long  g_memory_alloc_size        = 0;
@@ -134,7 +134,9 @@ void memory::finalize() {
     if (g_memory_initialized) {
         g_finalizing = true;
         mem_finalize();
-        delete g_memory_mux;
+        // we leak the mutex since we need it to be always live since memory may
+        // be reinitialized again
+        //delete g_memory_mux;
         g_memory_initialized = false;
         g_finalizing = false;
     }
@@ -161,7 +163,7 @@ unsigned long long memory::get_max_used_memory() {
 }
 
 #if defined(_WINDOWS)
-#include <Windows.h>
+#include <windows.h>
 #endif
 
 unsigned long long memory::get_max_memory_size() {
@@ -220,15 +222,8 @@ void * memory::allocate(char const* file, int line, char const* obj, size_t s) {
 // when the local counter > SYNCH_THRESHOLD 
 #define SYNCH_THRESHOLD 100000
 
-#ifdef _WINDOWS
-// This is VS2013 specific instead of Windows specific.
-// It can go away with VS2017 builds
-__declspec(thread) long long g_memory_thread_alloc_size    = 0;
-__declspec(thread) long long g_memory_thread_alloc_count   = 0;
-#else
 thread_local long long g_memory_thread_alloc_size    = 0;
 thread_local long long g_memory_thread_alloc_count   = 0;
-#endif
 
 static void synchronize_counters(bool allocating) {
 #ifdef PROFILE_MEMORY
@@ -327,7 +322,6 @@ void memory::deallocate(void * p) {
 
 void * memory::allocate(size_t s) {
     s = s + sizeof(size_t); // we allocate an extra field!
-    bool out_of_mem = false, counts_exceeded = false;
     {
         lock_guard lock(*g_memory_mux);
         g_memory_alloc_size += s;
@@ -335,14 +329,10 @@ void * memory::allocate(size_t s) {
         if (g_memory_alloc_size > g_memory_max_used_size)
             g_memory_max_used_size = g_memory_alloc_size;
         if (g_memory_max_size != 0 && g_memory_alloc_size > g_memory_max_size)
-            out_of_mem = true;
+            throw_out_of_memory();
         if (g_memory_max_alloc_count != 0 && g_memory_alloc_count > g_memory_max_alloc_count)
-            counts_exceeded = true;
+            throw_alloc_counts_exceeded();
     }
-    if (out_of_mem)
-        throw_out_of_memory();
-    if (counts_exceeded)
-        throw_alloc_counts_exceeded();
     void * r = malloc(s);
     if (r == nullptr) {
         throw_out_of_memory();
@@ -357,7 +347,6 @@ void* memory::reallocate(void *p, size_t s) {
     size_t sz      = *sz_p;
     void * real_p  = reinterpret_cast<void*>(sz_p);
     s = s + sizeof(size_t); // we allocate an extra field!
-    bool out_of_mem = false, counts_exceeded = false;
     {
         lock_guard lock(*g_memory_mux);
         g_memory_alloc_size += s - sz;
@@ -365,14 +354,10 @@ void* memory::reallocate(void *p, size_t s) {
         if (g_memory_alloc_size > g_memory_max_used_size)
             g_memory_max_used_size = g_memory_alloc_size;
         if (g_memory_max_size != 0 && g_memory_alloc_size > g_memory_max_size)
-            out_of_mem = true;
+            throw_out_of_memory();
         if (g_memory_max_alloc_count != 0 && g_memory_alloc_count > g_memory_max_alloc_count)
-            counts_exceeded = true;
+            throw_alloc_counts_exceeded();
     }
-    if (out_of_mem)
-        throw_out_of_memory();
-    if (counts_exceeded)
-        throw_alloc_counts_exceeded();
     void *r = realloc(real_p, s);
     if (r == nullptr) {
         throw_out_of_memory();

@@ -559,6 +559,8 @@ void seq_decl_plugin::init() {
     m_sigs[OP_SEQ_LAST_INDEX] = alloc(psig, m, "seq.last_indexof",  1, 2, seqAseqA, intT);
     m_sigs[OP_SEQ_AT]        = alloc(psig, m, "seq.at",       1, 2, seqAintT, seqA);
     m_sigs[OP_SEQ_NTH]       = alloc(psig, m, "seq.nth",      1, 2, seqAintT, A);
+    m_sigs[OP_SEQ_NTH_I]     = alloc(psig, m, "seq.nth_i",    1, 2, seqAintT, A);
+    m_sigs[OP_SEQ_NTH_U]     = alloc(psig, m, "seq.nth_u",    1, 2, seqAintT, A);
     m_sigs[OP_SEQ_LENGTH]    = alloc(psig, m, "seq.len",      1, 1, &seqA, intT);
     m_sigs[OP_RE_PLUS]       = alloc(psig, m, "re.+",         1, 1, &reA, reA);
     m_sigs[OP_RE_STAR]       = alloc(psig, m, "re.*",         1, 1, &reA, reA);
@@ -580,6 +582,8 @@ void seq_decl_plugin::init() {
     m_sigs[_OP_STRING_STRREPL]   = alloc(psig, m, "str.replace", 0, 3, str3T, strT);
     m_sigs[OP_STRING_ITOS]       = alloc(psig, m, "int.to.str", 0, 1, &intT, strT);
     m_sigs[OP_STRING_STOI]       = alloc(psig, m, "str.to.int", 0, 1, &strT, intT);
+    m_sigs[OP_STRING_LT]         = alloc(psig, m, "str.<", 0, 2, str2T, boolT);
+    m_sigs[OP_STRING_LE]         = alloc(psig, m, "str.<=", 0, 2, str2T, boolT);
     m_sigs[_OP_STRING_CONCAT]    = alloc(psig, m, "str.++", 1, 2, str2T, strT);
     m_sigs[_OP_STRING_LENGTH]    = alloc(psig, m, "str.len", 0, 1, &strT, intT);
     m_sigs[_OP_STRING_STRCTN]    = alloc(psig, m, "str.contains", 0, 2, str2T, boolT);
@@ -663,6 +667,7 @@ func_decl* seq_decl_plugin::mk_assoc_fun(decl_kind k, unsigned arity, sort* cons
     match_right_assoc(*m_sigs[k], arity, domain, range, rng);
     func_decl_info info(m_family_id, k_seq);
     info.set_right_associative(true);
+    info.set_left_associative(true);
     return m.mk_func_decl(m_sigs[(rng == m_string)?k_string:k_seq]->m_name, rng, rng, rng, info);
 }
 
@@ -695,9 +700,11 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_SEQ_UNIT:
     case OP_STRING_ITOS:
     case OP_STRING_STOI:
+    case OP_STRING_LT:
+    case OP_STRING_LE:
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
-
+        
     case _OP_REGEXP_FULL_CHAR:
         m_has_re = true;
         if (!range) range = m_re;
@@ -848,6 +855,8 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         return mk_str_fun(k, arity, domain, range, OP_SEQ_AT);
 
     case OP_SEQ_NTH:
+    case OP_SEQ_NTH_I:
+    case OP_SEQ_NTH_U:
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
 
@@ -904,6 +913,11 @@ app* seq_decl_plugin::mk_string(zstring const& s) {
     return m_manager->mk_const(f);
 }
 
+
+bool seq_decl_plugin::is_considered_uninterpreted(func_decl * f) {
+    seq_util util(*m_manager);
+    return util.str.is_nth_u(f);
+}
 
 bool seq_decl_plugin::is_value(app* e) const {
     while (true) {
@@ -1016,6 +1030,10 @@ app* seq_util::mk_le(expr* ch1, expr* ch2) const {
     return bv.mk_ule(ch1, ch2);
 }
 
+app* seq_util::mk_lt(expr* ch1, expr* ch2) const {
+    bv_util bv(m);
+    return m.mk_not(bv.mk_ule(ch2, ch1));
+}
 
 bool seq_util::str::is_string(expr const* n, zstring& s) const {
     if (is_string(n)) {
@@ -1027,16 +1045,15 @@ bool seq_util::str::is_string(expr const* n, zstring& s) const {
     }
 }
 
-bool seq_util::str::is_nth(expr const* n, expr*& s, unsigned& idx) const {
+bool seq_util::str::is_nth_i(expr const* n, expr*& s, unsigned& idx) const {
     expr* i = nullptr;
-    if (!is_nth(n, s, i)) return false;
+    if (!is_nth_i(n, s, i)) return false;
     return arith_util(m).is_unsigned(i, idx);
 }
 
-app* seq_util::str::mk_nth(expr* s, unsigned i) const {
-    return mk_nth(s, arith_util(m).mk_int(i));
+app* seq_util::str::mk_nth_i(expr* s, unsigned i) const {
+    return mk_nth_i(s, arith_util(m).mk_int(i));
 }
-
 
 void seq_util::str::get_concat(expr* e, expr_ref_vector& es) const {
     expr* e1, *e2;
@@ -1072,6 +1089,11 @@ app* seq_util::str::mk_is_empty(expr* s) const {
 }
 
 
+sort* seq_util::re::to_seq(sort* re) {
+    SASSERT(u.is_re(re));
+    return to_sort(re->get_parameter(0).get_ast());
+}
+
 app* seq_util::re::mk_loop(expr* r, unsigned lo) {
     parameter param(lo);
     return m.mk_app(m_fid, OP_RE_LOOP, 1, &param, 1, &r);
@@ -1080,6 +1102,16 @@ app* seq_util::re::mk_loop(expr* r, unsigned lo) {
 app* seq_util::re::mk_loop(expr* r, unsigned lo, unsigned hi) {
     parameter params[2] = { parameter(lo), parameter(hi) };
     return m.mk_app(m_fid, OP_RE_LOOP, 2, params, 1, &r);
+}
+
+app* seq_util::re::mk_loop(expr* r, expr* lo) {
+    expr* rs[2] = { r, lo };
+    return m.mk_app(m_fid, OP_RE_LOOP, 0, nullptr, 2, rs);
+}
+
+app* seq_util::re::mk_loop(expr* r, expr* lo, expr* hi) {
+    expr* rs[3] = { r, lo, hi };
+    return m.mk_app(m_fid, OP_RE_LOOP, 0, nullptr, 3, rs);
 }
 
 app* seq_util::re::mk_full_char(sort* s) {
@@ -1113,6 +1145,31 @@ bool seq_util::re::is_loop(expr const* n, expr*& body, unsigned& lo)  {
         if (a->get_num_args() == 1 && a->get_decl()->get_num_parameters() == 1) {
             body = a->get_arg(0);
             lo = a->get_decl()->get_parameter(0).get_int();
+            return true;
+        }
+    }
+    return false;
+}
+
+bool seq_util::re::is_loop(expr const* n, expr*& body, expr*& lo, expr*& hi)  {
+    if (is_loop(n)) {
+        app const* a = to_app(n);
+        if (a->get_num_args() == 3) {
+            body = a->get_arg(0);
+            lo = a->get_arg(1);
+            hi = a->get_arg(2);
+            return true;
+        }
+    }
+    return false;
+}
+
+bool seq_util::re::is_loop(expr const* n, expr*& body, expr*& lo)  {
+    if (is_loop(n)) {
+        app const* a = to_app(n);
+        if (a->get_num_args() == 2) {
+            body = a->get_arg(0);
+            lo = a->get_arg(1);
             return true;
         }
     }

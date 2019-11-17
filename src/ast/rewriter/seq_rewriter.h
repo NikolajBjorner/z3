@@ -115,6 +115,7 @@ class seq_rewriter {
     br_status mk_seq_contains(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_at(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_nth(expr* a, expr* b, expr_ref& result);
+    br_status mk_seq_nth_i(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result);
     br_status mk_seq_last_index(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& result);
@@ -124,6 +125,7 @@ class seq_rewriter {
     br_status mk_str_stoi(expr* a, expr_ref& result);
     br_status mk_str_in_regexp(expr* a, expr* b, expr_ref& result);
     br_status mk_str_to_regexp(expr* a, expr_ref& result);
+    br_status mk_str_le(expr* a, expr* b, expr_ref& result);
     br_status mk_re_concat(expr* a, expr* b, expr_ref& result);
     br_status mk_re_union(expr* a, expr* b, expr_ref& result);
     br_status mk_re_inter(expr* a, expr* b, expr_ref& result);
@@ -131,11 +133,13 @@ class seq_rewriter {
     br_status mk_re_star(expr* a, expr_ref& result);
     br_status mk_re_plus(expr* a, expr_ref& result);
     br_status mk_re_opt(expr* a, expr_ref& result);
-    br_status mk_re_loop(unsigned num_args, expr* const* args, expr_ref& result);
+    br_status mk_re_loop(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result);
     br_status mk_re_range(expr* lo, expr* hi, expr_ref& result);
 
     bool cannot_contain_prefix(expr* a, expr* b);
     bool cannot_contain_suffix(expr* a, expr* b);
+
+    bool is_suffix(expr* s, expr* offset, expr* len);
 
     bool set_empty(unsigned sz, expr* const* es, bool all, expr_ref_vector& lhs, expr_ref_vector& rhs);
     bool is_subsequence(unsigned n, expr* const* l, unsigned m, expr* const* r, 
@@ -154,6 +158,7 @@ class seq_rewriter {
     bool is_sequence(eautomaton& aut, expr_ref_vector& seq);
     bool is_epsilon(expr* e) const;
     void split_units(expr_ref_vector& lhs, expr_ref_vector& rhs);
+    bool get_lengths(expr* e, expr_ref_vector& lens, rational& pos);
 
 
 public:    

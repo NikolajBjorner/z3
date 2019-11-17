@@ -483,7 +483,7 @@ namespace smt {
             }
 
             void set_context(context * ctx) {
-                SASSERT(m_context==0);
+                SASSERT(m_context== nullptr);
                 m_context = ctx;
             }
             
@@ -522,7 +522,6 @@ namespace smt {
             }
 
             instantiation_set const * get_uvar_inst_set(quantifier * q, unsigned i) const {
-                SASSERT(!has_quantifiers(q->get_expr()));
                 ast_idx_pair k(q, i);
                 node * r = nullptr;
                 if (m_uvars.find(k, r))
@@ -1066,12 +1065,14 @@ namespace smt {
 
             void mk_inverse(node * n) {
                 SASSERT(n->is_root());
-                instantiation_set * s                 = n->get_instantiation_set();
+                instantiation_set * s = n->get_instantiation_set();
                 s->mk_inverse(*this);
             }
 
             void mk_inverses() {
-                for (node * n : m_root_nodes) {
+                unsigned offset = m_context->get_random_value();
+                for (unsigned i = m_root_nodes.size(); i-- > 0; ) {
+                    node* n = m_root_nodes[(i + offset) % m_root_nodes.size()];
                     SASSERT(n->is_root());
                     mk_inverse(n);
                 }
@@ -1735,12 +1736,6 @@ namespace smt {
                 m_the_one(nullptr),
                 m_uvar_inst_sets(nullptr) {
                 if (has_quantifiers(q->get_expr()) && !m.is_lambda_def(q)) {
-                    static bool displayed_flat_msg = false;
-                    if (!displayed_flat_msg) {
-                        // [Leo]: This warning message is not useful.
-                        // warning_msg("For problems containing quantifiers, the model finding capabilities of Z3 work better when the formula does not contain nested quantifiers. You can use PULL_NESTED_QUANTIFIERS=true to eliminate nested quantifiers.");
-                        displayed_flat_msg = true;
-                    }
                     proof_ref pr(m);
                     expr_ref  new_q(m);
                     pull_quant pull(m);
@@ -1753,7 +1748,6 @@ namespace smt {
                 }
                 CTRACE("model_finder_bug", has_quantifiers(m_flat_q->get_expr()),
                        tout << mk_pp(q, m) << "\n" << mk_pp(m_flat_q, m) << "\n";);
-                SASSERT(m.is_lambda_def(q) || !has_quantifiers(m_flat_q->get_expr()));
             }
 
             ~quantifier_info() {
@@ -1846,7 +1840,7 @@ namespace smt {
                 for (qinfo* qi : m_qinfo_vect)
                     qi->populate_inst_sets(m_flat_q, m_the_one, *m_uvar_inst_sets, ctx);
                 for (instantiation_set * s : *m_uvar_inst_sets) {
-                    if (s != nullptr)
+                    if (s != nullptr) 
                         s->mk_inverse(ev);
                 }
             }
@@ -2199,8 +2193,7 @@ namespace smt {
                         m_info->m_is_auf = false; // unexpected occurrence of variable.
                     }
                     else {
-                        SASSERT(is_quantifier(curr)); // no nested quantifiers
-                        UNREACHABLE();
+                        SASSERT(is_lambda(curr)); 
                     }
                 }
             }
@@ -2332,7 +2325,8 @@ namespace smt {
                     }
                     else {
                         SASSERT(is_quantifier(curr));
-                        UNREACHABLE(); // can't happen, the quantifier is supposed to be flat.
+                        SASSERT(is_lambda(curr));
+                        //UNREACHABLE(); // can't happen, the quantifier is supposed to be flat.
                     }
                 }
             }
@@ -2385,7 +2379,6 @@ namespace smt {
                 quantifier * q = d->get_flat_q();
                 if (m.is_lambda_def(q)) return;
                 expr * e = q->get_expr();
-                SASSERT(!has_quantifiers(e));
                 reset_cache();
                 SASSERT(m_ttodo.empty());
                 SASSERT(m_ftodo.empty());

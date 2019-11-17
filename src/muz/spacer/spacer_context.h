@@ -23,10 +23,6 @@ Notes:
 #ifndef _SPACER_CONTEXT_H_
 #define _SPACER_CONTEXT_H_
 
-#ifdef _CYGWIN
-#undef min
-#undef max
-#endif
 #include <queue>
 #include "util/scoped_ptr_vector.h"
 #include "muz/spacer/spacer_manager.h"
@@ -958,6 +954,7 @@ class context {
     bool                 m_use_restarts;
     bool                 m_simplify_pob;
     bool                 m_use_euf_gen;
+    bool                 m_use_lim_num_gen;
     bool                 m_use_ctp;
     bool                 m_use_inc_clause;
     bool                 m_use_ind_gen;
@@ -1010,7 +1007,7 @@ class context {
     /**
        \brief Retrieve satisfying assignment with explanation.
     */
-    expr_ref mk_sat_answer() {return get_ground_sat_answer();}
+    expr_ref mk_sat_answer() const {return get_ground_sat_answer();}
     expr_ref mk_unsat_answer() const;
     unsigned get_cex_depth ();
 
@@ -1059,6 +1056,7 @@ public:
     bool weak_abs() const {return m_weak_abs;}
     bool use_qlemmas() const {return m_use_qlemmas;}
     bool use_euf_gen() const {return m_use_euf_gen;}
+    bool use_lim_num_gen() const {return m_use_lim_num_gen;}
     bool simplify_pob() const {return m_simplify_pob;}
     bool use_ctp() const {return m_use_ctp;}
     bool use_inc_clause() const {return m_use_inc_clause;}
@@ -1069,6 +1067,7 @@ public:
 
     ast_manager&      get_ast_manager() const {return m;}
     manager&          get_manager() {return m_pm;}
+    const manager &   get_manager() const {return m_pm;}
     decl2rel const&   get_pred_transformers() const {return m_rels;}
     pred_transformer& get_pred_transformer(func_decl* p) const {return *m_rels.find(p);}
 
@@ -1086,8 +1085,8 @@ public:
      * get bottom-up (from query) sequence of ground predicate instances
      * (for e.g. P(0,1,0,0,3)) that together form a ground derivation to query
      */
-    expr_ref get_ground_sat_answer ();
-    proof_ref get_ground_refutation();
+    expr_ref get_ground_sat_answer () const;
+    proof_ref get_ground_refutation() const;
     void get_rules_along_trace (datalog::rule_ref_vector& rules);
 
     void collect_statistics(statistics& st) const;
@@ -1095,7 +1094,7 @@ public:
     void reset();
 
     std::ostream& display(std::ostream& out) const;
-    void display_certificate(std::ostream& out);
+    void display_certificate(std::ostream& out) const;
 
     pob& get_root() const {return m_pob_queue.get_root();}
     void set_query(func_decl* q) {m_query_pred = q;}
@@ -1112,7 +1111,7 @@ public:
     expr_ref get_reachable (func_decl* p);
     void add_invariant (func_decl *pred, expr* property);
     model_ref get_model();
-    proof_ref get_proof() const;
+    proof_ref get_proof() const {return get_ground_refutation();}
 
     expr_ref get_constraints (unsigned lvl);
     void add_constraint (expr *c, unsigned lvl);

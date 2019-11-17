@@ -27,15 +27,15 @@ Revision History:
 #include "util/inf_int_rational.h"
 #include "util/s_integer.h"
 #include "util/inf_s_integer.h"
+#include "util/map.h"
+#include "ast/arith_decl_plugin.h"
+#include "model/numeral_factory.h"
 #include "smt/smt_theory.h"
 #include "smt/diff_logic.h"
-#include "ast/arith_decl_plugin.h"
 #include "smt/smt_justification.h"
-#include "util/map.h"
 #include "smt/params/smt_params.h"
 #include "smt/arith_eq_adapter.h"
 #include "smt/smt_model_generator.h"
-#include "smt/proto_model/numeral_factory.h"
 #include "smt/smt_clause.h"
 #include "smt/theory_opt.h"
 #include "math/simplex/simplex.h"
@@ -307,8 +307,6 @@ namespace smt {
         void init_model(model_generator & m) override;
         
         model_value_proc * mk_value(enode * n, model_generator & mg) override;
-
-        bool validate_eq_in_model(theory_var v1, theory_var v2, bool is_true) const override;
                 
         void display(std::ostream & out) const override;
         

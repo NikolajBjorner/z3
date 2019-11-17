@@ -156,6 +156,8 @@ class asserted_formulas {
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { m_elim(j.get_fml(), n, p); }
         bool should_apply() const override { return af.m_smt_params.m_eliminate_term_ite && af.m_smt_params.m_lift_ite != LI_FULL; }
         void post_op() override { af.m_formulas.append(m_elim.new_defs()); af.reduce_and_solve(); m_elim.reset(); }
+        void push() { m_elim.push(); }
+        void pop(unsigned n) { m_elim.pop(n); }
     };
 
 #define MK_SIMPLIFIERA(NAME, FUNCTOR, MSG, APP, ARG, REDUCE)            \
@@ -223,6 +225,7 @@ class asserted_formulas {
 public:
     asserted_formulas(ast_manager & m, smt_params & smtp, params_ref const& p);
     ~asserted_formulas();
+    void finalize();
 
     void updt_params(params_ref const& p);
     bool has_quantifiers() const { return m_has_quantifiers; }
@@ -243,7 +246,7 @@ public:
     expr *  get_formula(unsigned idx) const { return m_formulas[idx].get_fml(); }
     proof * get_formula_proof(unsigned idx) const { return m_formulas[idx].get_proof(); }
     
-    th_rewriter & get_rewriter() { return m_rewriter; }
+    params_ref const& get_params() const { return m_params; }
     void get_assertions(ptr_vector<expr> & result) const;
     bool empty() const { return m_formulas.empty(); }
     void display(std::ostream & out) const;

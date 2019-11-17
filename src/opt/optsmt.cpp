@@ -181,6 +181,7 @@ namespace opt {
         for (unsigned i = 0; i < obj_index; ++i) {
             commit_assignment(i);
         }
+        m_s->get_model(m_model);
 
         unsigned steps = 0;
         unsigned step_incs = 0;
@@ -199,7 +200,6 @@ namespace opt {
                 m_s->maximize_objective(obj_index, bound);
                 m_s->get_model(m_model);
                 SASSERT(m_model);
-                m_s->get_labels(m_labels);
                 inf_eps obj = m_s->saved_objective_value(obj_index);
                 update_lower_lex(obj_index, obj, is_maximize);
                 if (!is_int || !m_lower[obj_index].is_finite()) {
@@ -374,7 +374,8 @@ namespace opt {
                 m_s->maximize_objective(i, tmp);
                 m_lower[i] = m_s->saved_objective_value(i);
             }
-
+            m_best_model = m_model;
+            m_s->get_labels(m_labels);
             m_context.set_model(m_model);
         }
     }
@@ -498,6 +499,7 @@ namespace opt {
 
     lbool optsmt::lex(unsigned obj_index, bool is_maximize) {
         TRACE("opt", tout << "optsmt:lex\n";);
+        m_context.get_base_model(m_best_model);
         solver::scoped_push _push(*m_s);
         SASSERT(obj_index < m_vars.size());
         if (is_maximize && m_optsmt_engine == symbol("farkas")) {
@@ -525,7 +527,6 @@ namespace opt {
             
             m_s->maximize_objective(obj_index, bound);
             m_s->get_model(m_model);
-            m_s->get_labels(m_labels);
             inf_eps obj = m_s->saved_objective_value(obj_index);
             update_lower_lex(obj_index, obj, is_maximize);
             TRACE("opt", tout << "strengthen bound: " << bound << "\n";);
@@ -590,7 +591,7 @@ namespace opt {
     }
 
     void optsmt::get_model(model_ref& mdl, svector<symbol> & labels) {        
-        mdl = m_model.get();
+        mdl = m_best_model.get();
         labels = m_labels;
     }
 

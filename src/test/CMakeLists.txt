@@ -38,6 +38,7 @@ add_executable(test-z3
   doc.cpp
   escaped.cpp
   ex.cpp
+  expr_network.cpp
   expr_rand.cpp
   expr_substitution.cpp
   ext_numeral.cpp

@@ -16,10 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include "model/model.h"
-#include "model/model_evaluator_params.hpp"
-#include "model/model_evaluator.h"
-#include "model/model_v2_pp.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_util.h"
 #include "ast/rewriter/rewriter_types.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "ast/rewriter/arith_rewriter.h"
@@ -31,10 +29,13 @@ Revision History:
 #include "ast/rewriter/fpa_rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
-#include "ast/ast_pp.h"
-#include "ast/ast_util.h"
-#include "model/model_smt2_pp.h"
 #include "ast/rewriter/var_subst.h"
+#include "model/model_smt2_pp.h"
+#include "model/model.h"
+#include "model/model_evaluator_params.hpp"
+#include "model/model_evaluator.h"
+#include "model/model_v2_pp.h"
+
 
 namespace {
 
@@ -51,6 +52,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
     fpa_rewriter                    m_f_rw;
     seq_rewriter                    m_seq_rw;
     array_util                      m_ar;
+    arith_util                      m_au;
+    fpa_util                        m_fpau;
     unsigned long long              m_max_memory;
     unsigned                        m_max_steps;
     bool                            m_model_completion;
@@ -75,6 +78,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
         m_f_rw(m),
         m_seq_rw(m),
         m_ar(m),
+        m_au(m),
+        m_fpau(m),
         m_pinned(m) {
         bool flat = true;
         m_b_rw.set_flat(flat);
@@ -129,9 +134,9 @@ struct evaluator_cfg : public default_rewriter_cfg {
         return false;
     }
 
-    bool reduce_quantifier(quantifier * old_q, 
-                           expr * new_body, 
-                           expr * const * new_patterns, 
+    bool reduce_quantifier(quantifier * old_q,
+                           expr * new_body,
+                           expr * const * new_patterns,
                            expr * const * new_no_patterns,
                            expr_ref & result,
                            proof_ref & result_pr) {
@@ -141,12 +146,12 @@ struct evaluator_cfg : public default_rewriter_cfg {
 
 
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-        TRACE("model_evaluator", tout << f->get_name() << "\n";);
         result_pr = nullptr;
         family_id fid = f->get_family_id();
         bool is_uninterp = fid != null_family_id && m.get_plugin(fid)->is_considered_uninterpreted(f);
         br_status st = BR_FAILED;
-        if (num == 0 && (fid == null_family_id || is_uninterp)) {
+        TRACE("model_evaluator", tout << f->get_name() << " " << is_uninterp << "\n";);
+        if (num == 0 && (fid == null_family_id || is_uninterp)) { // || m_ar.is_as_array(f)
             expr * val = m_model.get_const_interp(f);
             if (val != nullptr) {
                 result = val;
@@ -184,8 +189,16 @@ struct evaluator_cfg : public default_rewriter_cfg {
                     st = m_seq_rw.mk_eq_core(args[0], args[1], result);
                 else if (s_fid == m_ar_rw.get_fid())
                     st = mk_array_eq(args[0], args[1], result);
-                TRACE("model_evaluator", 
-                      tout << st << " " << mk_pp(s, m) << " " << s_fid << " " << m_ar_rw.get_fid() << " " 
+                else if (m.are_equal(args[0], args[1])) {
+                    result = m.mk_true();
+                    st = BR_DONE;
+                }
+                else if (m.are_distinct(args[0], args[1])) {
+                    result = m.mk_false();
+                    st = BR_DONE;
+                }
+                TRACE("model_evaluator",
+                      tout << st << " " << mk_pp(s, m) << " " << s_fid << " " << m_ar_rw.get_fid() << " "
                       << mk_pp(args[0], m) << " " << mk_pp(args[1], m) << " " << result << "\n";);
                 if (st != BR_FAILED)
                     return st;
@@ -229,25 +242,12 @@ struct evaluator_cfg : public default_rewriter_cfg {
             func_decl* g = nullptr;
             VERIFY(m_ar.is_as_array(f, g));
             expr* def = nullptr;
-            quantifier* q = nullptr;
-            proof* def_pr = nullptr;
             if (m_def_cache.find(g, def)) {
                 result = def;
                 return BR_DONE;
             }
-            if (get_macro(g, def, q, def_pr)) {
-                sort_ref_vector sorts(m);
-                expr_ref_vector vars(m);
-                svector<symbol> var_names;
-                unsigned sz = g->get_arity();
-                for (unsigned i = 0; i < sz; ++i) {
-                    var_names.push_back(symbol(sz - i - 1));
-                    vars.push_back(m.mk_var(sz - i - 1, g->get_domain(i)));
-                    sorts.push_back(g->get_domain(i));
-                }
-                var_subst subst(m, false);
-                result = subst(def, sorts.size(), vars.c_ptr());
-                result = m.mk_lambda(sorts.size(), sorts.c_ptr(), var_names.c_ptr(), result);
+            func_interp * fi = m_model.get_func_interp(g);
+            if (fi && (result = fi->get_array_interp(g))) {
                 model_evaluator ev(m_model, m_params);
                 result = ev(result);
                 m_pinned.push_back(result);
@@ -274,7 +274,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 expr_ref_vector args(m);
                 args.push_back(val);
                 args.append(stores[i].size(), stores[i].c_ptr());
-                val = m_ar.mk_store(args.size(), args.c_ptr());
+                val = m_ar.mk_store(args);
             }
         }
     }
@@ -326,7 +326,28 @@ struct evaluator_cfg : public default_rewriter_cfg {
         result = nullptr;
         result_pr = nullptr;
 
+        if (f->get_family_id() == m_fpau.get_family_id() &&
+            !m_fpau.is_considered_uninterpreted(f, num, args)) {
+            // cwinter: should this be unreachable?
+            return BR_FAILED;
+        }
+
         func_interp * fi = m_model.get_func_interp(f);
+
+        func_decl_ref f_ui(m);
+        if (!fi && m_au.is_considered_uninterpreted(f, num, args, f_ui)) {
+            if (f_ui) {
+                fi = m_model.get_func_interp(f_ui); 
+            }
+            if (!fi) {
+                result = m_au.mk_numeral(rational(0), f->get_range());
+                return BR_DONE;
+            }
+        }
+        else if (!fi && m_fpau.is_considered_uninterpreted(f, num, args)) {
+            result = m.get_some_value(f->get_range());
+            return BR_DONE;
+        }
         if (fi) {
             if (fi->is_partial())
                 fi->set_else(m.get_some_value(f->get_range()));
@@ -508,6 +529,12 @@ struct evaluator_cfg : public default_rewriter_cfg {
             return true;
         }
 
+        if (m_ar_rw.has_index_set(a, else_case, stores)) {
+            for (auto const& store : stores) {
+                are_values &= args_are_values(store, are_unique);
+            }
+            return true;
+        }
         if (!m_ar.is_as_array(a)) {
             TRACE("model_evaluator", tout << "no translation: " << mk_pp(a, m) << "\n";);
             TRACE("model_evaluator", tout << m_model << "\n";);
@@ -517,46 +544,33 @@ struct evaluator_cfg : public default_rewriter_cfg {
         func_decl* f = m_ar.get_as_array_func_decl(to_app(a));
         func_interp* g = m_model.get_func_interp(f);
         if (!g) return false;
+        else_case = g->get_else();
+        if (!else_case) {
+            TRACE("model_evaluator", tout << "no else case " << mk_pp(a, m) << "\n";);
+            return false;
+        }
+        bool ground = is_ground(else_case);
         unsigned sz = g->num_entries();
-        unsigned arity = f->get_arity();
-        unsigned base_sz = stores.size();
+        expr_ref_vector store(m);
         for (unsigned i = 0; i < sz; ++i) {
-            expr_ref_vector store(m);
+            store.reset();
             func_entry const* fe = g->get_entry(i);
-            store.append(arity, fe->get_args());
-            store.push_back(fe->get_result());
-            for (unsigned j = 0; j < store.size(); ++j) {
-                if (!is_ground(store[j].get())) {
-                    TRACE("model_evaluator", tout << "could not extract array interpretation: " << mk_pp(a, m) << "\n" << mk_pp(store[j].get(), m) << "\n";);
-                    return false;
-                }
+            expr* res = fe->get_result();
+            if (m.are_equal(else_case, res)) {
+                continue;
+            }
+            ground &= is_ground(res);
+            store.append(g->get_arity(), fe->get_args());
+            store.push_back(res);
+            for (expr* arg : store) {
+                ground &= is_ground(arg);
             }
             stores.push_back(store);
         }
-        else_case = g->get_else();
-        if (!else_case) {
-            TRACE("model_evaluator", tout << "no else case " << mk_pp(a, m) << "\n";
-                  /*model_smt2_pp(tout, m, m_model, 0);*/
-                  );
+        if (!ground) {
+            TRACE("model_evaluator", tout << "could not extract ground array interpretation: " << mk_pp(a, m) << "\n";);
             return false;
         }
-        if (!is_ground(else_case)) {
-            TRACE("model_evaluator", tout << "non-ground else case " << mk_pp(a, m) << "\n" << else_case << "\n";);
-            return false;
-        }
-        for (unsigned i = stores.size(); are_values && i > base_sz; ) {
-            --i;
-            if (m.are_equal(else_case, stores[i].back())) {
-                for (unsigned j = i + 1; j < stores.size(); ++j) {
-                    stores[j-1].reset();
-                    stores[j-1].append(stores[j]);
-                }
-                stores.pop_back();
-                continue;
-            }
-            are_values &= args_are_values(stores[i], are_unique);
-        }
-        TRACE("model_evaluator", tout << "else case: " << mk_pp(else_case, m) << "\n";);
         return true;
     }
 };

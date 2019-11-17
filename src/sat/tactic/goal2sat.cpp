@@ -29,6 +29,7 @@ Notes:
 #include "util/ref_util.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "ast/pb_decl_plugin.h"
 #include "ast/ast_util.h"
 #include "ast/for_each_expr.h"
@@ -107,9 +108,9 @@ struct goal2sat::imp {
         m_solver.add_clause(l1, l2, m_is_lemma);
     }
 
-    void mk_clause(sat::literal l1, sat::literal l2, sat::literal l3) {
+    void mk_clause(sat::literal l1, sat::literal l2, sat::literal l3, bool is_lemma = false) {
         TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << " " << l3 << "\n";);
-        m_solver.add_clause(l1, l2, l3, m_is_lemma);
+        m_solver.add_clause(l1, l2, l3, m_is_lemma || is_lemma);
     }
 
     void mk_clause(unsigned num, sat::literal * lits) {
@@ -142,7 +143,7 @@ struct goal2sat::imp {
                 sat::bool_var v = m_solver.add_var(ext);
                 m_map.insert(t, v);
                 l = sat::literal(v, sign);
-                TRACE("sat", tout << "new_var: " << v << ": " << mk_ismt2_pp(t, m) << "\n";);
+                TRACE("sat", tout << "new_var: " << v << ": " << mk_bounded_pp(t, m, 2) << "\n";);
                 if (ext && !is_uninterp_const(t)) {
                     m_interpreted_atoms.push_back(t);
                 }
@@ -228,7 +229,7 @@ struct goal2sat::imp {
     }
 
     void convert_or(app * t, bool root, bool sign) {
-        TRACE("goal2sat", tout << "convert_or:\n" << mk_ismt2_pp(t, m) << "\n";);
+        TRACE("goal2sat", tout << "convert_or:\n" << mk_bounded_pp(t, m, 2) << "\n";);
         unsigned num = t->get_num_args();
         if (root) {
             SASSERT(num == m_result_stack.size());
@@ -337,8 +338,8 @@ struct goal2sat::imp {
             mk_clause(l,  ~c, ~t);
             mk_clause(l,   c, ~e);
             if (m_ite_extra) {
-                mk_clause(~t, ~e, l);
-                mk_clause(t,  e, ~l);
+                mk_clause(~t, ~e, l, false);
+                mk_clause(t,  e, ~l, false);
             }
             m_result_stack.shrink(sz-3);
             if (sign)
@@ -348,7 +349,7 @@ struct goal2sat::imp {
     }
 
     void convert_iff2(app * t, bool root, bool sign) {
-        TRACE("goal2sat", tout << "convert_iff " << root << " " << sign << "\n" << mk_ismt2_pp(t, m) << "\n";);
+        TRACE("goal2sat", tout << "convert_iff " << root << " " << sign << "\n" << mk_bounded_pp(t, m, 2) << "\n";);
         unsigned sz = m_result_stack.size();
         SASSERT(sz >= 2);
         sat::literal  l1 = m_result_stack[sz-1];
@@ -381,7 +382,7 @@ struct goal2sat::imp {
     }
 
     void convert_iff(app * t, bool root, bool sign) {
-        TRACE("goal2sat", tout << "convert_iff " << root << " " << sign << "\n" << mk_ismt2_pp(t, m) << "\n";);
+        TRACE("goal2sat", tout << "convert_iff " << root << " " << sign << "\n" << mk_bounded_pp(t, m, 2) << "\n";);
         unsigned sz = m_result_stack.size();
         unsigned num = get_num_args(t);
         SASSERT(sz >= num && num >= 2);
@@ -512,7 +513,6 @@ struct goal2sat::imp {
     }
 
     void convert_pb_eq(app* t, bool root, bool sign) {
-        //IF_VERBOSE(0, verbose_stream() << "pbeq: " << mk_pp(t, m) << "\n";);
         rational k = pb.get_k(t);
         SASSERT(k.is_unsigned());
         svector<wliteral> wlits;
@@ -741,7 +741,7 @@ struct goal2sat::imp {
     
     void process(expr * n) {
         //SASSERT(m_result_stack.empty());
-        TRACE("goal2sat", tout << "converting: " << mk_ismt2_pp(n, m) << "\n";);
+        TRACE("goal2sat", tout << "converting: " << mk_bounded_pp(n, m, 2) << "\n";);
         if (visit(n, true, false)) {
             SASSERT(m_result_stack.empty());
             return;
@@ -839,7 +839,7 @@ struct goal2sat::imp {
                 }                
                 f = m.mk_or(fmls.size(), fmls.c_ptr());
             }
-            TRACE("goal2sat", tout << f << "\n";);
+            TRACE("goal2sat", tout << mk_bounded_pp(f, m, 2) << "\n";);
             process(f);
         skip_dep:
             ;
@@ -934,7 +934,6 @@ void sat2goal::mc::flush_smc(sat::solver_core& s, atom2bool_var const& map) {
 void sat2goal::mc::flush_gmc() {
     sat::literal_vector updates;
     m_smc.expand(updates);    
-    m_smc.reset();
     if (!m_gmc) m_gmc = alloc(generic_model_converter, m, "sat2goal");
     // now gmc owns the model converter
     sat::literal_vector clause;
@@ -1003,43 +1002,11 @@ void sat2goal::mc::get_units(obj_map<expr, bool>& units) {
 }
 
 
+void sat2goal::mc::operator()(sat::model& md) {
+    m_smc(md);
+}
+
 void sat2goal::mc::operator()(model_ref & md) {
-    model_evaluator ev(*md);
-    ev.set_model_completion(false);
-    
-    // create a SAT model using md
-    sat::model sat_md;
-    expr_ref val(m);
-    for (expr * atom : m_var2expr) {
-        if (!atom) {
-            sat_md.push_back(l_undef);
-            continue;
-        }
-        ev(atom, val);
-        if (m.is_true(val)) 
-            sat_md.push_back(l_true);
-        else if (m.is_false(val))
-            sat_md.push_back(l_false);
-        else 
-            sat_md.push_back(l_undef);
-    }
-    
-    // apply SAT model converter
-    m_smc(sat_md);
-            
-    // register value of non-auxiliary boolean variables back into md
-    unsigned sz = m_var2expr.size();
-    for (sat::bool_var v = 0; v < sz; v++) {
-        app * atom = m_var2expr.get(v);
-        if (atom && is_uninterp_const(atom)) {
-            func_decl * d = atom->get_decl();
-            lbool new_val = sat_md[v];
-            if (new_val == l_true)
-                md->register_decl(d, m.mk_true());
-            else if (new_val == l_false)
-                md->register_decl(d, m.mk_false());
-        }
-    }    
     // apply externalized model converter
     if (m_gmc) (*m_gmc)(md);
     TRACE("sat_mc", tout << "after sat_mc\n"; model_v2_pp(tout, *md););

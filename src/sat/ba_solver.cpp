@@ -372,7 +372,7 @@ namespace sat {
         SASSERT(s().at_base_lvl());
         if (p.lit() != null_literal && value(p.lit()) == l_false) {
             TRACE("ba", tout << "pb: flip sign " << p << "\n";);
-            IF_VERBOSE(0, verbose_stream() << "sign is flipped " << p << "\n";);
+            IF_VERBOSE(1, verbose_stream() << "sign is flipped " << p << "\n";);
             return;
         }
         bool nullify = p.lit() != null_literal && value(p.lit()) == l_true;
@@ -424,7 +424,7 @@ namespace sat {
                 s().assign_scoped(~p.lit());
             }
             else {
-                IF_VERBOSE(0, verbose_stream() << "unsat during simplification\n";);
+                IF_VERBOSE(1, verbose_stream() << "unsat during simplification\n";);
                 s().set_conflict(justification(0));
             }
             remove_constraint(p, "is false");
@@ -990,7 +990,6 @@ namespace sat {
                 // alit gets unwatched by propagate_core because we return l_undef
                 watch_literal(lit, x);
                 watch_literal(~lit, x);
-                // IF_VERBOSE(0, verbose_stream() << "swap " << lit << " " << alit << "\n");
                 TRACE("ba", tout << "swap in: " << lit << " " << x << "\n";);
                 return l_undef;
             }
@@ -1400,6 +1399,12 @@ namespace sat {
             unsigned ci = ineq.coeff(i); 
             unsigned q = ci % c;
             if (q != 0 && !is_false(ineq.lit(i))) {
+#if 1
+                // code review by Elffers:
+                ineq.weaken(i);
+                --i;
+                --sz;                
+#else
                 if (q == ci) {
                     ineq.weaken(i);
                     --i;
@@ -1409,6 +1414,7 @@ namespace sat {
                     ineq.m_wlits[i].first -= q;
                     ineq.m_k -= q;
                 }
+#endif
             }
         }
         ineq.divide(c);
@@ -2078,7 +2084,6 @@ namespace sat {
       \brief return true to keep watching literal.
     */
     bool ba_solver::propagate(literal l, ext_constraint_idx idx) {
-        TRACE("ba", tout << l << "\n";);
         SASSERT(value(l) == l_true);
         constraint& c = index2constraint(idx);
         if (c.lit() != null_literal && l.var() == c.lit().var()) {
@@ -2175,7 +2180,6 @@ namespace sat {
         unsigned level = lvl(l);
         bool_var v = l.var();
         SASSERT(js.get_kind() == justification::EXT_JUSTIFICATION);
-        // IF_VERBOSE(0, verbose_stream() << l << " : " << js << " " << xr_count << "\n");
         TRACE("ba", tout << l << ": " << js << "\n"; 
               for (unsigned i = 0; i <= index; ++i) tout << s().m_trail[i] << " "; tout << "\n";
               s().display_units(tout);
@@ -2411,7 +2415,6 @@ namespace sat {
             CTRACE("ba",!found, s().display(tout << l << ":" << c << "\n"););
             SASSERT(found););
         
-        // IF_VERBOSE(0, if (_debug_conflict) verbose_stream() << "ante " << l << " " << c << "\n");
         VERIFY(c.lit() == null_literal || value(c.lit()) != l_false);
         if (c.lit() != null_literal) r.push_back(value(c.lit()) == l_true ? c.lit() : ~c.lit());
         for (unsigned i = c.k(); i < c.size(); ++i) {
@@ -2497,7 +2500,7 @@ namespace sat {
     }
 
     void ba_solver::remove_constraint(constraint& c, char const* reason) {
-        TRACE("ba", tout << "remove " << c << " " << reason << "\n";);
+        TRACE("ba", display(tout << "remove ", c, true) << " " << reason << "\n";);
         IF_VERBOSE(21, display(verbose_stream() << "remove " << reason << " ", c, true););
         nullify_tracking_literal(c);
         clear_watch(c);
@@ -2806,7 +2809,7 @@ namespace sat {
         // literal is assigned to false.        
         unsigned sz = c.size();
         unsigned bound = c.k();
-        TRACE("ba", tout << "assign: " << c.lit() << ": " << ~alit << "@" << lvl(~alit) << "\n";);
+        TRACE("ba", tout << "assign: " << c.lit() << ": " << ~alit << "@" << lvl(~alit) << " " << c << "\n";);
 
         SASSERT(0 < bound && bound <= sz);
         if (bound == sz) {
@@ -2984,7 +2987,7 @@ namespace sat {
             init_use_lists();
             remove_unused_defs();
             set_non_external();
-            if (get_config().m_elim_vars) elim_pure();
+            elim_pure();
             for (unsigned sz = m_constraints.size(), i = 0; i < sz; ++i) subsumption(*m_constraints[i]);
             for (unsigned sz = m_learned.size(), i = 0; i < sz; ++i) subsumption(*m_learned[i]);    
             unit_strengthen();
@@ -3153,14 +3156,18 @@ namespace sat {
     // -------------------------------
     // set literals equivalent
 
-    bool ba_solver::set_root(literal l, literal r) { 
-        if (s().is_assumption(l.var())) {
-            return false;
-        }
+    void ba_solver::reserve_roots() {
         m_root_vars.reserve(s().num_vars(), false);
         for (unsigned i = m_roots.size(); i < 2 * s().num_vars(); ++i) {
             m_roots.push_back(to_literal(i));
         }
+    }
+
+    bool ba_solver::set_root(literal l, literal r) { 
+        if (s().is_assumption(l.var())) {
+            return false;
+        }
+        reserve_roots();
         m_roots[l.index()] = r;
         m_roots[(~l).index()] = ~r;
         m_root_vars[l.var()] = true;
@@ -3169,7 +3176,7 @@ namespace sat {
 
     void ba_solver::flush_roots() {
         if (m_roots.empty()) return;
-
+        reserve_roots();
         // validate();
         m_visited.resize(s().num_vars()*2, false);
         m_constraint_removed = false;
@@ -3235,7 +3242,6 @@ namespace sat {
 
         // pre-condition is that the literals, except c.lit(), in c are unwatched.
         if (c.id() == _bad_id) std::cout << "recompile: " << c << "\n";
-        // IF_VERBOSE(0, verbose_stream() << c << "\n";);
         m_weights.resize(2*s().num_vars(), 0);
         for (literal l : c) {
             ++m_weights[l.index()];
@@ -3311,7 +3317,6 @@ namespace sat {
             return;
         }
         if (all_units && sz < k) {
-            // IF_VERBOSE(0, verbose_stream() << "all units " << sz << " " << k << "\n");
             if (c.lit() == null_literal) {
                 s().mk_clause(0, nullptr, true);            
             }
@@ -3322,7 +3327,6 @@ namespace sat {
             remove_constraint(c, "recompiled to clause");
             return;            
         }
-        // IF_VERBOSE(0, verbose_stream() << "csz: " << c.size() << " ck:" << c.k() << " sz:" << sz << " k:" << k << "\n");
         VERIFY(!all_units || c.size() - c.k() >= sz - k);
         c.set_size(sz);
         c.set_k(k);    
@@ -3556,6 +3560,7 @@ namespace sat {
     }
 
     void ba_solver::remove_unused_defs() {
+        if (incremental_mode()) return;
         // remove constraints where indicator literal isn't used.
         for (constraint* cp : m_constraints) {
             constraint& c = *cp;
@@ -3627,6 +3632,9 @@ namespace sat {
     }
 
     unsigned ba_solver::elim_pure() {
+        if (!get_config().m_elim_vars || incremental_mode()) {
+            return 0;
+        }
         // eliminate pure literals
         unsigned pure_literals = 0;
         for (unsigned v = 0; v < s().num_vars(); ++v) {
@@ -3807,7 +3815,7 @@ namespace sat {
                     }
                     lits.shrink(j);
                     if (!parity) lits[0].neg();
-                    IF_VERBOSE(0, verbose_stream() << "binary " << lits << " : " << c1 << " " << c2 << "\n");
+                    IF_VERBOSE(1, verbose_stream() << "binary " << lits << " : " << c1 << " " << c2 << "\n");
                     c1.set_removed();
                     c2.set_removed();
                     add_xr(lits, !c1.learned() && !c2.learned());
@@ -3912,7 +3920,6 @@ namespace sat {
         m_barbet_clauses_to_remove.push_back(&c);
         m_barbet_clause.resize(c.size());
         m_barbet_combination = 0;
-        // IF_VERBOSE(0, verbose_stream() << "barbet: " << c << " parity: " << parity << " mask: " << mask << "\n");
         barbet_set_combination(mask);
         c.mark_used();
         for (literal l : c) {
@@ -3947,7 +3954,6 @@ namespace sat {
 
     void ba_solver::barbet_add_xor(bool parity, clause& c) {
         for (clause* cp : m_barbet_clauses_to_remove) {
-            //IF_VERBOSE(0, verbose_stream() << "remove " << *cp << "\n");
             cp->set_removed(true);
         }
         m_clause_removed = true;
@@ -3958,12 +3964,10 @@ namespace sat {
             s().set_external(l.var());
         }
         if (parity) lits[0].neg();
-        // IF_VERBOSE(0, verbose_stream() << "mk: " << lits << "\n");
         add_xr(lits, learned);
     }
 
     bool ba_solver::barbet_extract_xor(bool parity, clause& c, literal l1, literal l2) {
-        //IF_VERBOSE(0, verbose_stream() << "adding " << l1 << " " << l2 << "\n"); 
         SASSERT(is_visited(l1.var()));
         SASSERT(is_visited(l2.var()));
         m_barbet_missing.reset();
@@ -4364,7 +4368,7 @@ namespace sat {
             SASSERT(c1.index() != c2.index());
             if (subsumes(c1, c2, slit)) {
                 if (slit.empty()) {
-                    TRACE("ba", tout << "subsume cardinality\n" << c1.index() << ":" << c1 << "\n" << c2.index() << ":" << c2 << "\n";);
+                    TRACE("ba", tout << "subsume cardinality\n" << c1 << "\n" << c2.index() << ":" << c2 << "\n";);
                     remove_constraint(c2, "subsumed");
                     ++m_stats.m_num_pb_subsumes;
                     set_non_learned(c1);
@@ -4782,13 +4786,14 @@ namespace sat {
         return out << index2constraint(idx);
     }
 
-    void ba_solver::display(std::ostream& out, constraint const& c, bool values) const {
+    std::ostream& ba_solver::display(std::ostream& out, constraint const& c, bool values) const {
         switch (c.tag()) {
         case card_t: display(out, c.to_card(), values); break;
         case pb_t: display(out, c.to_pb(), values); break;
         case xr_t: display(out, c.to_xr(), values); break;
         default: UNREACHABLE(); break;
         }
+        return out;
     }
 
     void ba_solver::collect_statistics(statistics& st) const {

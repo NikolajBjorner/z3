@@ -31,7 +31,7 @@ Revision History:
 #include "sat/sat_ddfw.h"
 #include "sat/sat_prob.h"
 #include "sat/sat_binspr.h"
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(_M_ARM) && !defined(_M_ARM64)
 # include <xmmintrin.h>
 #endif
 
@@ -148,8 +148,8 @@ namespace sat {
         
         // create new vars
         for (bool_var v = num_vars(); v < src.num_vars(); v++) {
-            bool ext  = src.m_external[v] != 0;
-            bool dvar = src.m_decision[v] != 0;
+            bool ext  = src.m_external[v];
+            bool dvar = src.m_decision[v];
             VERIFY(v == mk_var(ext, dvar));
             if (src.was_eliminated(v)) {
                 set_eliminated(v, true);
@@ -281,7 +281,7 @@ namespace sat {
     }
 
     void solver::set_external(bool_var v) {
-        if (m_external[v] != 0) return;
+        if (m_external[v]) return;
         m_external[v] = true;
         if (!m_ext) return;
         
@@ -309,8 +309,10 @@ namespace sat {
     clause* solver::mk_clause(unsigned num_lits, literal * lits, bool learned) {
         m_model_is_current = false;
         DEBUG_CODE({
-            for (unsigned i = 0; i < num_lits; i++)
-                SASSERT(m_eliminated[lits[i].var()] == false);
+                for (unsigned i = 0; i < num_lits; i++) {
+                    CTRACE("sat", m_eliminated[lits[i].var()], tout << lits[i] << " was eliminated\n";);
+                    SASSERT(m_eliminated[lits[i].var()] == false);
+                }
         });
 
         if (m_user_scope_literals.empty()) {
@@ -365,6 +367,9 @@ namespace sat {
                 m_drat.add(m_lemma);
             }
             ++m_stats.m_non_learned_generation;
+            if (!m_searching) {
+                m_mc.add_clause(num_lits, lits);
+            }
         }
         
         switch (num_lits) {
@@ -391,15 +396,15 @@ namespace sat {
         m_touched[l1.var()] = m_touch_index;
         m_touched[l2.var()] = m_touch_index;
         
-        if (find_binary_watch(get_wlist(~l1), ~l2) && value(l1) == l_undef) {
+        if (learned && find_binary_watch(get_wlist(~l1), ~l2) && value(l1) == l_undef) {
             assign_unit(l1);
             return;
         }
-        if (find_binary_watch(get_wlist(~l2), ~l1) && value(l2) == l_undef) {
+        if (learned && find_binary_watch(get_wlist(~l2), ~l1) && value(l2) == l_undef) {
             assign_unit(l2);
             return;
         }
-        watched* w0 = find_binary_watch(get_wlist(~l1), l2);
+        watched* w0 = learned ? find_binary_watch(get_wlist(~l1), l2) : nullptr;
         if (w0) {
             TRACE("sat", tout << "found binary " << l1 << " " << l2 << "\n";);
             if (w0->is_learned() && !learned) {
@@ -888,10 +893,9 @@ namespace sat {
             uint64_t age = m_stats.m_conflict - m_canceled[v];
             if (age > 0) {
                 double decay = pow(0.95, age);
-                m_activity[v] = static_cast<unsigned>(m_activity[v] * decay);
+                set_activity(v, static_cast<unsigned>(m_activity[v] * decay));
                 // NB. MapleSAT does not update canceled.
                 m_canceled[v] = m_stats.m_conflict;
-                m_case_split_queue.activity_changed_eh(v, false);
             }
         }
         
@@ -899,7 +903,9 @@ namespace sat {
 #if defined(__GNUC__) || defined(__clang__)
             __builtin_prefetch((const char*)((m_watches[l.index()].c_ptr())));
 #else
+    #if !defined(_M_ARM) && !defined(_M_ARM64)
             _mm_prefetch((const char*)((m_watches[l.index()].c_ptr())), _MM_HINT_T1);
+    #endif
 #endif
         }
 
@@ -1245,6 +1251,7 @@ namespace sat {
                 else if (do_cleanup(false)) continue;
                 else if (should_gc()) do_gc();
                 else if (should_rephase()) do_rephase();
+                else if (should_reorder()) do_reorder();
                 else if (should_restart()) do_restart(!m_config.m_restart_fast);
                 else if (should_update_neuro_activity()) do_update_neuro_activity();
                 else if (should_simplify()) do_simplify();
@@ -1289,6 +1296,7 @@ namespace sat {
         SASSERT(m_local_search);
         i_local_search& srch = *m_local_search;
         srch.add(*this);
+        srch.updt_params(m_params);
         scoped_rl.push_child(&srch.rlimit());
         lbool r = srch.check(num_lits, lits, nullptr);
         if (r == l_true) {
@@ -1474,7 +1482,7 @@ namespace sat {
         if (finished_id == -1) {
             switch (ex_kind) {
             case ERROR_EX: throw z3_error(error_code);
-            default: throw default_exception(ex_msg.c_str());
+            default: throw default_exception(std::move(ex_msg));
             }
         }
         return result;
@@ -1541,8 +1549,7 @@ namespace sat {
                 next = m_case_split_queue.min_var();
                 auto age = m_stats.m_conflict - m_canceled[next];
                 while (age > 0) {
-                    m_activity[next] = static_cast<unsigned>(m_activity[next] * pow(0.95, age));
-                    m_case_split_queue.activity_changed_eh(next, false);
+                    set_activity(next, static_cast<unsigned>(m_activity[next] * pow(0.95, age)));
                     m_canceled[next] = m_stats.m_conflict;
                     next = m_case_split_queue.min_var();
                     age = m_stats.m_conflict - m_canceled[next];                    
@@ -2004,10 +2011,12 @@ namespace sat {
         return tracking_assumptions() && m_assumption_set.contains(l);
     }
 
-    void solver::set_activity(bool_var v, unsigned act) {
+    void solver::set_activity(bool_var v, unsigned new_act) {
         unsigned old_act = m_activity[v];
-        m_activity[v] = act; 
-        m_case_split_queue.activity_changed_eh(v, act > old_act);
+        m_activity[v] = new_act; 
+        if (!was_eliminated(v) && value(v) == l_undef && new_act != old_act) {
+            m_case_split_queue.activity_changed_eh(v, new_act > old_act);
+        }
     }
 
     bool solver::is_assumption(bool_var v) const {
@@ -2026,6 +2035,8 @@ namespace sat {
         m_rephase_inc             = 0;
         m_neuro_activity_lim      = m_config.m_neuro_activity_base;
         m_neuro_activity_inc      = 0;
+        m_reorder_lim             = m_config.m_reorder_base;
+        m_reorder_inc             = 0;
         m_conflicts_since_restart = 0;
         m_force_conflict_analysis = false;
         m_restart_threshold       = m_config.m_restart_initial;
@@ -2049,8 +2060,8 @@ namespace sat {
         m_min_core_valid = false;
         m_min_core.reset();
         m_simplifier.init_search();
+        m_mc.init_search(*this);
         TRACE("sat", display(tout););
-
     }
 
     bool solver::should_simplify() const {
@@ -2435,12 +2446,8 @@ namespace sat {
 
 
     void solver::update_activity(bool_var v, double p) {
-        unsigned old_act = m_activity[v];
         unsigned new_act = (unsigned) (num_vars() * m_config.m_activity_scale *  p);
-        m_activity[v] = new_act;
-        if (!was_eliminated(v) && value(v) == l_undef && new_act != old_act) {
-            m_case_split_queue.activity_changed_eh(v, new_act > old_act);
-        }
+        set_activity(v, new_act);
     }
 
     void solver::set_next_restart() {
@@ -3152,26 +3159,20 @@ namespace sat {
 
         justification js = m_conflict;
 
+        int init_sz = init_trail_size();
         while (true) {
             process_consequent_for_unsat_core(consequent, js);
-            while (idx >= 0) {
-                literal l = m_trail[idx];
-                if (is_marked(l.var()))
+            while (idx >= init_sz) {
+                consequent = m_trail[idx];
+                if (is_marked(consequent.var()) && lvl(consequent) == m_conflict_lvl)
                     break;
                 idx--;
             }
-
-            if (idx < 0) {
+            if (idx < init_sz) {
                 break;
             }
-            consequent     = m_trail[idx];
-            if (lvl(consequent) < m_conflict_lvl) {
-                TRACE("sat", tout << consequent << " at level " << lvl(consequent) << "\n";);
-                break;
-            }
-            bool_var c_var = consequent.var();
             SASSERT(lvl(consequent) == m_conflict_lvl);
-            js             = m_justification[c_var];
+            js = m_justification[consequent.var()];
             idx--;
         }
         reset_unmark(old_size);
@@ -3413,6 +3414,55 @@ namespace sat {
         }
         m_rephase_inc += m_config.m_rephase_base;
         m_rephase_lim += m_rephase_inc;
+    }
+
+    bool solver::should_reorder() {
+        return m_conflicts_since_init > m_reorder_lim;
+    }
+
+    void solver::do_reorder() {
+        IF_VERBOSE(1, verbose_stream() << "(reorder)\n");
+        m_activity_inc = 128;
+        svector<bool_var> vars;
+        for (bool_var v = num_vars(); v-- > 0; ) {
+            if (!was_eliminated(v) && value(v) == l_undef) {            
+                vars.push_back(v);
+            }
+        }
+#if 1
+        // 
+        //   exp(logits[i]) / sum(exp(logits)) 
+        // = 
+        //   exp(log(exp(logits[i]) / sum(exp(logits)))) 
+        // = 
+        //   exp(log(exp(logits[i])) - log(sum(exp(logits)))) 
+        // =
+        //   exp(logits[i] - lse)
+        svector<double> logits(vars.size(), 0.0);
+        double itau = m_config.m_reorder_itau;
+        double lse = 0;
+        double mid = m_rand.max_value()/2;
+        double max = 0;
+        for (double& f : logits) {
+            f = itau * (m_rand() - mid)/mid;
+            if (f > max) max = f;
+        }
+        for (double f : logits) {
+            lse += log(f - max);
+        }
+        lse = max + exp(lse);
+
+        for (unsigned i = 0; i < vars.size(); ++i) {
+            update_activity(vars[i], exp(logits[i] - lse));
+        }
+#else
+        shuffle(vars.size(), vars.c_ptr(), m_rand);
+        for (bool_var v : vars) {
+            update_activity(v, m_rand(10)/10.0);
+        }
+#endif
+        m_reorder_inc += m_config.m_reorder_base;
+        m_reorder_lim += m_reorder_inc;
     }
 
     void solver::updt_phase_counters() {
@@ -3923,8 +3973,7 @@ namespace sat {
                 if (interval > 0) {
                     auto activity = m_activity[v];
                     auto reward = (m_config.m_reward_offset * (m_participated[v] + m_reasoned[v])) / interval;
-                    m_activity[v] = static_cast<unsigned>(m_step_size * reward + ((1 - m_step_size) * activity));
-                    m_case_split_queue.activity_changed_eh(v, m_activity[v] > activity);
+                    set_activity(v, static_cast<unsigned>(m_step_size * reward + ((1 - m_step_size) * activity)));
                 }
             }
             if (m_config.m_anti_exploration) {
@@ -4120,7 +4169,7 @@ namespace sat {
     // -----------------------
 
     void solver::updt_params(params_ref const & p) {
-        m_params = p;
+        m_params.append(p);
         m_config.updt_params(p);
         m_simplifier.updt_params(p);
         m_asymm_branch.updt_params(p);
@@ -4184,10 +4233,9 @@ namespace sat {
         double multiplier = m_config.m_reward_offset * (is_sat ? m_config.m_reward_multiplier : 1.0);
         for (unsigned i = qhead; i < m_trail.size(); ++i) {
             auto v = m_trail[i].var();
-            auto reward = multiplier / (m_stats.m_conflict - m_last_conflict[v] + 1);
+            auto reward = multiplier / (m_stats.m_conflict - m_last_conflict[v] + 1);            
             auto activity = m_activity[v];
-            m_activity[v] = static_cast<unsigned>(m_step_size * reward + ((1.0 - m_step_size) * activity));
-            m_case_split_queue.activity_changed_eh(v, m_activity[v] > activity);
+            set_activity(v, static_cast<unsigned>(m_step_size * reward + ((1.0 - m_step_size) * activity)));
         }
     }
 
@@ -4732,13 +4780,14 @@ namespace sat {
     lbool solver::get_bounded_consequences(literal_vector const& asms, bool_var_vector const& vars, vector<literal_vector>& conseq) {
         bool_var_set unfixed_vars;
         unsigned num_units = 0, num_iterations = 0;
-        for (unsigned i = 0; i < vars.size(); ++i) {
-            unfixed_vars.insert(vars[i]);
+        for (bool_var v : vars) {
+            unfixed_vars.insert(v);
         }
         TRACE("sat", tout << asms << "\n";);
         m_antecedents.reset();
         pop_to_base_level();
         if (inconsistent()) return l_false;
+        flet<bool> _searching(m_searching, true);
         init_search();
         propagate(false);
         if (inconsistent()) return l_false;

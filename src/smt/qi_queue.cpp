@@ -16,13 +16,13 @@ Author:
 Revision History:
 
 --*/
-#include "smt/smt_context.h"
-#include "smt/qi_queue.h"
 #include "util/warning.h"
+#include "util/stats.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/rewriter/var_subst.h"
-#include "util/stats.h"
+#include "smt/smt_context.h"
+#include "smt/qi_queue.h"
 
 namespace smt {
 
@@ -130,7 +130,7 @@ namespace smt {
         // max_top_generation and min_top_generation are not available for computing inc_gen
         set_values(q, nullptr, generation, 0, 0, cost);
         float r = m_evaluator(m_new_gen_function, m_vals.size(), m_vals.c_ptr());
-        return static_cast<unsigned>(r);
+        return std::max(generation + 1, static_cast<unsigned>(r));
     }
 
     void qi_queue::insert(fingerprint * f, app * pat, unsigned generation, unsigned min_top_generation, unsigned max_top_generation) {
@@ -140,7 +140,7 @@ namespace smt {
               tout << "new instance of " << q->get_qid() << ", weight " << q->get_weight()
               << ", generation: " << generation << ", scope_level: " << m_context.get_scope_level() << ", cost: " << cost << "\n";
               for (unsigned i = 0; i < f->get_num_args(); i++) {
-                  tout << "#" << f->get_arg(i)->get_owner_id() << " ";
+                  tout << "#" << f->get_arg(i)->get_owner_id() << " d:" << f->get_arg(i)->get_owner()->get_depth() << " ";
               }
               tout << "\n";);
         TRACE("new_entries_bug", tout << "[qi:insert]\n";);
@@ -171,6 +171,9 @@ namespace smt {
                 if (m_context.resource_limits_exceeded()) {
                     break;
                 }
+                if (m_context.get_cancel_flag()) {
+                    break;
+                }
                 since_last_check = 0;
             }
         }
@@ -198,7 +201,7 @@ namespace smt {
 
         ent.m_instantiated = true;
 
-        TRACE("qi_queue_profile", tout << q->get_qid() << ", gen: " << generation << " " << *f;);
+        TRACE("qi_queue_profile", tout << q->get_qid() << ", gen: " << generation << " " << *f << " cost: " << ent.m_cost << "\n";);
 
         if (m_checker.is_sat(q->get_expr(), num_bindings, bindings)) {
             TRACE("checker", tout << "instance already satisfied\n";);
@@ -217,7 +220,7 @@ namespace smt {
             TRACE("checker", tout << "reduced to true, before:\n" << mk_ll_pp(instance, m););
 
             if (m.has_trace_stream()) {
-                display_instance_profile(f, q, num_bindings, bindings, pr->get_id(), generation);
+                display_instance_profile(f, q, num_bindings, bindings, pr ? pr->get_id() : 0, generation);
                 m.trace_stream() << "[end-of-instance]\n";
             }
 

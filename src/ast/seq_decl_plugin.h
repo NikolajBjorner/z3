@@ -40,7 +40,9 @@ enum seq_op_kind {
     OP_SEQ_EXTRACT,
     OP_SEQ_REPLACE,
     OP_SEQ_AT,
-    OP_SEQ_NTH,
+    OP_SEQ_NTH,         // NTH function exposed over API. Rewritten to NTH(s,i) := if (0 <= i < len(s)) then NTH_I(s,i) else NTH_U(s,i)
+    OP_SEQ_NTH_I,       // Interpreted variant of Nth for indices within defined domain.
+    OP_SEQ_NTH_U,       // Uninterpreted variant of Nth for indices outside of uniquely defined domain.
     OP_SEQ_LENGTH,
     OP_SEQ_INDEX,
     OP_SEQ_LAST_INDEX,
@@ -66,6 +68,8 @@ enum seq_op_kind {
     OP_STRING_CONST,
     OP_STRING_ITOS,
     OP_STRING_STOI,
+    OP_STRING_LT,
+    OP_STRING_LE,
     // internal only operators. Converted to SEQ variants.
     _OP_STRING_STRREPL,
     _OP_STRING_CONCAT,
@@ -203,6 +207,7 @@ public:
 
     bool has_re() const { return m_has_re; }
 
+    bool is_considered_uninterpreted(func_decl * f) override;
 };
 
 class seq_util {
@@ -226,6 +231,7 @@ public:
     bool is_const_char(expr* e, unsigned& c) const;
     app* mk_char(unsigned ch) const;
     app* mk_le(expr* ch1, expr* ch2) const;
+    app* mk_lt(expr* ch1, expr* ch2) const;
 
     app* mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range);
     bool is_skolem(expr const* e) const { return is_app_of(e, m_fid, _OP_SEQ_SKOLEM); }
@@ -256,8 +262,8 @@ public:
         expr* mk_concat(expr_ref_vector const& es) const { return mk_concat(es.size(), es.c_ptr()); }
         app* mk_length(expr* a) const { return m.mk_app(m_fid, OP_SEQ_LENGTH, 1, &a); }
         app* mk_at(expr* s, expr* i) const { expr* es[2] = { s, i }; return m.mk_app(m_fid, OP_SEQ_AT, 2, es); }
-        app* mk_nth(expr* s, expr* i) const { expr* es[2] = { s, i }; return m.mk_app(m_fid, OP_SEQ_NTH, 2, es); }
-        app* mk_nth(expr* s, unsigned i) const;
+        app* mk_nth_i(expr* s, expr* i) const { expr* es[2] = { s, i }; return m.mk_app(m_fid, OP_SEQ_NTH_I, 2, es); }
+        app* mk_nth_i(expr* s, unsigned i) const;
 
         app* mk_substr(expr* a, expr* b, expr* c) const { expr* es[3] = { a, b, c }; return m.mk_app(m_fid, OP_SEQ_EXTRACT, 3, es); }
         app* mk_contains(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_CONTAINS, 2, es); }
@@ -270,9 +276,13 @@ public:
         app* mk_itos(expr* i) const { return m.mk_app(m_fid, OP_STRING_ITOS, 1, &i); }
         app* mk_stoi(expr* s) const { return m.mk_app(m_fid, OP_STRING_STOI, 1, &s); }
         app* mk_is_empty(expr* s) const;
+        app* mk_lex_lt(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_STRING_LT, 2, es); }
+        app* mk_lex_le(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_STRING_LE, 2, es); }
 
 
-        bool is_nth(func_decl* f)       const { return is_decl_of(f, m_fid, OP_SEQ_NTH); }
+        bool is_nth_i(func_decl const* f)       const { return is_decl_of(f, m_fid, OP_SEQ_NTH_I); }
+        bool is_nth_u(func_decl const* f)       const { return is_decl_of(f, m_fid, OP_SEQ_NTH_U); }
+        bool is_skolem(func_decl const* f)      const { return is_decl_of(f, m_fid, _OP_SEQ_SKOLEM); }
 
         bool is_string(expr const * n) const { return is_app_of(n, m_fid, OP_STRING_CONST); }
         bool is_string(expr const* n, symbol& s) const {
@@ -287,8 +297,9 @@ public:
         bool is_extract(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_EXTRACT); }
         bool is_contains(expr const* n) const { return is_app_of(n, m_fid, OP_SEQ_CONTAINS); }
         bool is_at(expr const* n)       const { return is_app_of(n, m_fid, OP_SEQ_AT); }
-        bool is_nth(expr const* n)       const { return is_app_of(n, m_fid, OP_SEQ_NTH); }
-        bool is_nth(expr const* n, expr*& s, unsigned& idx) const;
+        bool is_nth_i(expr const* n)       const { return is_app_of(n, m_fid, OP_SEQ_NTH_I); }
+        bool is_nth_u(expr const* n)       const { return is_app_of(n, m_fid, OP_SEQ_NTH_U); }
+        bool is_nth_i(expr const* n, expr*& s, unsigned& idx) const;
         bool is_index(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_INDEX); }
         bool is_last_index(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_LAST_INDEX); }
         bool is_replace(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_REPLACE); }
@@ -298,6 +309,8 @@ public:
         bool is_stoi(expr const* n)     const { return is_app_of(n, m_fid, OP_STRING_STOI); }
         bool is_in_re(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_IN_RE); }
         bool is_unit(expr const* n)     const { return is_app_of(n, m_fid, OP_SEQ_UNIT); }
+        bool is_lt(expr const* n)       const { return is_app_of(n, m_fid, OP_STRING_LT); }
+        bool is_le(expr const* n)       const { return is_app_of(n, m_fid, OP_STRING_LE); }
 
         bool is_string_term(expr const * n) const {
             sort * s = get_sort(n);
@@ -314,13 +327,16 @@ public:
         MATCH_TERNARY(is_extract);
         MATCH_BINARY(is_contains);
         MATCH_BINARY(is_at);
-        MATCH_BINARY(is_nth);
+        MATCH_BINARY(is_nth_i);
+        MATCH_BINARY(is_nth_u);
         MATCH_BINARY(is_index);
         MATCH_TERNARY(is_index);
         MATCH_BINARY(is_last_index);
         MATCH_TERNARY(is_replace);
         MATCH_BINARY(is_prefix);
         MATCH_BINARY(is_suffix);
+        MATCH_BINARY(is_lt);
+        MATCH_BINARY(is_le);
         MATCH_UNARY(is_itos);
         MATCH_UNARY(is_stoi);
         MATCH_BINARY(is_in_re);
@@ -333,12 +349,14 @@ public:
     };
 
     class re {
+        seq_util&    u;
         ast_manager& m;
         family_id    m_fid;
     public:
-        re(seq_util& u): m(u.m), m_fid(u.m_fid) {}
+        re(seq_util& u): u(u), m(u.m), m_fid(u.m_fid) {}
 
         sort* mk_re(sort* seq) { parameter param(seq); return m.mk_sort(m_fid, RE_SORT, 1, &param); }
+        sort* to_seq(sort* re);
 
         app* mk_to_re(expr* s) { return m.mk_app(m_fid, OP_SEQ_TO_RE, 1, &s); }
         app* mk_in_re(expr* s, expr* r) { return m.mk_app(m_fid, OP_SEQ_IN_RE, s, r); }
@@ -352,6 +370,8 @@ public:
         app* mk_opt(expr* r) { return m.mk_app(m_fid, OP_RE_OPTION, r); }
         app* mk_loop(expr* r, unsigned lo);
         app* mk_loop(expr* r, unsigned lo, unsigned hi);
+        app* mk_loop(expr* r, expr* lo);
+        app* mk_loop(expr* r, expr* lo, expr* hi);
         app* mk_full_char(sort* s);
         app* mk_full_seq(sort* s);
         app* mk_empty(sort* s);
@@ -380,6 +400,8 @@ public:
         MATCH_UNARY(is_opt);
         bool is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& hi);
         bool is_loop(expr const* n, expr*& body, unsigned& lo);
+        bool is_loop(expr const* n, expr*& body, expr*& lo, expr*& hi);
+        bool is_loop(expr const* n, expr*& body, expr*& lo);
         bool is_unroll(expr const* n) const { return is_app_of(n, m_fid, _OP_RE_UNROLL); }
     };
     str str;

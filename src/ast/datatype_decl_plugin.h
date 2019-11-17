@@ -108,7 +108,7 @@ namespace datatype {
             size(): m_ref(0) {}
             virtual ~size() {}
             void inc_ref() { ++m_ref; }
-            void dec_ref() { --m_ref; if (m_ref == 0) dealloc(this); }
+            void dec_ref();
             static size* mk_offset(sort_size const& s); 
             static size* mk_param(sort_ref& p); 
             static size* mk_plus(size* a1, size* a2); 
@@ -159,13 +159,13 @@ namespace datatype {
     };
 
     class def {
-        ast_manager&        m;
-        util&               m_util;
-        symbol              m_name;
-        unsigned            m_class_id;
-        param_size::size*   m_sort_size;
-        sort_ref_vector     m_params;
-        mutable sort_ref    m_sort;
+        ast_manager&            m;
+        util&                   m_util;
+        symbol                  m_name;
+        unsigned                m_class_id;
+        param_size::size*       m_sort_size;
+        sort_ref_vector         m_params;
+        mutable sort_ref        m_sort;
         ptr_vector<constructor> m_constructors;
     public:
         def(ast_manager& m, util& u, symbol const& n, unsigned class_id, unsigned num_params, sort * const* params):
@@ -210,13 +210,14 @@ namespace datatype {
             unsigned                 m_id_counter;
             svector<symbol>          m_def_block;
             unsigned                 m_class_id;
+            mutable bool             m_has_nested_arrays;
 
             void inherit(decl_plugin* other_p, ast_translation& tr) override;
 
             void log_axiom_definitions(symbol const& s, sort * new_sort);
 
         public:
-            plugin(): m_id_counter(0), m_class_id(0) {}
+            plugin(): m_id_counter(0), m_class_id(0), m_has_nested_arrays(false) {}
             ~plugin() override;
 
             void finalize() override;
@@ -254,6 +255,8 @@ namespace datatype {
             unsigned get_axiom_base_id(symbol const& s) { return m_axiom_bases[s]; }
             util & u() const;
 
+            bool has_nested_arrays() const { return m_has_nested_arrays; }
+
         private:
             bool is_value_visit(expr * arg, ptr_buffer<app> & todo) const;
         
@@ -289,10 +292,10 @@ namespace datatype {
         ast_manager & m;
         family_id     m_family_id;
         mutable decl::plugin* m_plugin;
-
+        typedef std::pair<func_decl*, unsigned> cnstr_depth;
                 
         obj_map<sort, ptr_vector<func_decl> *>      m_datatype2constructors;
-        obj_map<sort, func_decl *>                  m_datatype2nonrec_constructor;
+        obj_map<sort, cnstr_depth>                  m_datatype2nonrec_constructor;
         obj_map<func_decl, ptr_vector<func_decl> *> m_constructor2accessors;
         obj_map<func_decl, func_decl *>             m_constructor2recognizer;
         obj_map<func_decl, func_decl *>             m_recognizer2constructor;
@@ -301,11 +304,12 @@ namespace datatype {
         obj_map<sort, bool>                         m_is_enum;
         mutable obj_map<sort, bool>                 m_is_fully_interp;
         mutable ast_ref_vector                      m_asts;
+        sref_vector<param_size::size>               m_refs;
         ptr_vector<ptr_vector<func_decl> >          m_vectors;
         unsigned                                    m_start;
         mutable ptr_vector<sort>                    m_fully_interp_trail;
         
-        func_decl * get_non_rec_constructor_core(sort * ty, ptr_vector<sort> & forbidden_set);
+        cnstr_depth get_non_rec_constructor_core(sort * ty, ptr_vector<sort> & forbidden_set);
 
         friend class decl::plugin;
 
@@ -353,6 +357,7 @@ namespace datatype {
         func_decl * get_accessor_constructor(func_decl * accessor);
         func_decl * get_recognizer_constructor(func_decl * recognizer) const;
         func_decl * get_update_accessor(func_decl * update) const;
+        bool has_nested_arrays() const { return m_plugin->has_nested_arrays(); }
         family_id get_family_id() const { return m_family_id; }
         bool are_siblings(sort * s1, sort * s2);
         bool is_func_decl(op_kind k, unsigned num_params, parameter const* params, func_decl* f);

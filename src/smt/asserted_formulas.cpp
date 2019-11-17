@@ -25,6 +25,7 @@ Revision History:
 #include "ast/normal_forms/nnf.h"
 #include "ast/pattern/pattern_inference.h"
 #include "ast/macros/quasi_macros.h"
+#include "ast/occurs.h"
 #include "smt/asserted_formulas.h"
 
 asserted_formulas::asserted_formulas(ast_manager & m, smt_params & sp, params_ref const& p):
@@ -133,6 +134,7 @@ void asserted_formulas::set_eliminate_and(bool flag) {
     m_params.set_bool("eq2ineq", m_smt_params.m_arith_eq2ineq);
     m_params.set_bool("gcd_rounding", true);
     m_params.set_bool("expand_select_store", true);
+    //m_params.set_bool("expand_nested_stores", true);
     m_params.set_bool("bv_sort_ac", true);
     m_params.set_bool("som", true);
     m_rewriter.updt_params(m_params);
@@ -184,6 +186,7 @@ void asserted_formulas::push_scope() {
     SASSERT(inconsistent() || s.m_formulas_lim == m_qhead || m.canceled());
     s.m_inconsistent_old = m_inconsistent;
     m_defined_names.push();
+    m_elim_term_ite.push();
     m_bv_sharing.push_scope();
     m_macro_manager.push_scope();
     commit();
@@ -198,6 +201,7 @@ void asserted_formulas::pop_scope(unsigned num_scopes) {
     scope & s           = m_scopes[new_lvl];
     m_inconsistent      = s.m_inconsistent_old;
     m_defined_names.pop(num_scopes);
+    m_elim_term_ite.pop(num_scopes);
     m_scoped_substitution.pop(num_scopes);
     m_formulas.shrink(s.m_formulas_lim);
     m_qhead    = s.m_formulas_lim;
@@ -214,6 +218,11 @@ void asserted_formulas::reset() {
     m_bv_sharing.reset();
     m_rewriter.reset();
     m_inconsistent = false;
+}
+
+void asserted_formulas::finalize() {
+    reset();
+    m_substitution.cleanup();
 }
 
 bool asserted_formulas::check_well_sorted() const {
@@ -432,7 +441,6 @@ void asserted_formulas::commit() {
 }
 
 void asserted_formulas::commit(unsigned new_qhead) {
-    TRACE("asserted_formulas", tout << "commit " << new_qhead << "\n";);
     m_macro_manager.mark_forbidden(new_qhead - m_qhead, m_formulas.c_ptr() + m_qhead);
     m_expr2depth.reset();
     for (unsigned i = m_qhead; i < new_qhead; ++i) {

@@ -181,6 +181,10 @@ struct purify_arith_proc {
         return true;
     }
   
+    struct div_def {
+        expr* x, *y, *d;
+        div_def(expr* x, expr* y, expr* d): x(x), y(y), d(d) {}
+    };
 
     struct rw_cfg : public default_rewriter_cfg {
         purify_arith_proc &  m_owner;
@@ -189,6 +193,7 @@ struct purify_arith_proc {
         expr_ref_vector      m_pinned;
         expr_ref_vector      m_new_cnstrs;
         proof_ref_vector     m_new_cnstr_prs;
+        svector<div_def>     m_divs;
         expr_ref             m_subst;
         proof_ref            m_subst_pr;
         expr_ref_vector      m_new_vars;
@@ -297,12 +302,13 @@ struct purify_arith_proc {
                           EQ(u().mk_mul(y, k), x)));
             push_cnstr_pr(result_pr);
             rational r;
-            if (complete() && (!u().is_numeral(y, r) || r.is_zero())) {
+            if (complete()) {
                 // y != 0 \/ k = div-0(x)
                 push_cnstr(OR(NOT(EQ(y, mk_real_zero())),
                               EQ(k, u().mk_div(x, mk_real_zero()))));
                 push_cnstr_pr(result_pr);
             }
+            m_divs.push_back(div_def(x, y, k));
         }
    
         void process_idiv(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) { 
@@ -734,7 +740,7 @@ struct purify_arith_proc {
             scoped_ptr<expr_replacer> replacer = mk_default_expr_replacer(m());
             replacer->set_substitution(&subst);
             (*replacer)(new_body, new_body);
-            new_body = m().mk_exists(num_vars, sorts.c_ptr(), names.c_ptr(), new_body);
+            new_body = m().mk_exists(num_vars, sorts.c_ptr(), names.c_ptr(), new_body, q->get_weight());
             result = m().update_quantifier(q, new_body);
             if (m_produce_proofs) {
                 proof_ref_vector & cnstr_prs = r.cfg().m_new_cnstr_prs;
@@ -768,6 +774,16 @@ struct purify_arith_proc {
         for (unsigned i = 0; i < sz; i++) {
             m_goal.assert_expr(r.cfg().m_new_cnstrs.get(i), m_produce_proofs ? r.cfg().m_new_cnstr_prs.get(i) : nullptr, nullptr);
         }
+        auto const& divs = r.cfg().m_divs;
+        for (unsigned i = 0; i < divs.size(); ++i) {
+            auto const& p1 = divs[i];
+            for (unsigned j = i + 1; j < divs.size(); ++j) {
+                auto const& p2 = divs[j];
+                m_goal.assert_expr(m().mk_implies(
+                                       m().mk_and(m().mk_eq(p1.x, p2.x), m().mk_eq(p1.y, p2.y)), 
+                                       m().mk_eq(p1.d, p2.d)));
+            }
+        }
         
         // add generic_model_converter to eliminate auxiliary variables from model
         if (produce_models) {
@@ -778,6 +794,15 @@ struct purify_arith_proc {
                 app * v = to_app(kv.m_value);
                 SASSERT(is_uninterp_const(v));
                 fmc->hide(v->get_decl());
+            }
+            if (!divs.empty()) {
+                expr_ref body(u().mk_real(0), m());
+                expr_ref v0(m().mk_var(0, u().mk_real()), m());
+                expr_ref v1(m().mk_var(1, u().mk_real()), m());
+                for (auto const& p : divs) {
+                    body = m().mk_ite(m().mk_and(m().mk_eq(v0, p.x), m().mk_eq(v1, p.y)), p.d, body);
+                }
+                fmc->add(u().mk_div0(), body);
             }
         }
         if (produce_models && !m_sin_cos.empty()) {

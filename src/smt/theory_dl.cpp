@@ -22,14 +22,14 @@ Revision History:
 
 --*/
 
-#include "smt/smt_theory.h"
 #include "ast/dl_decl_plugin.h"
-#include "smt/proto_model/value_factory.h"
-#include "smt/smt_model_generator.h"
 #include "ast/bv_decl_plugin.h"
+#include "ast/ast_pp.h"
+#include "model/value_factory.h"
+#include "smt/smt_theory.h"
+#include "smt/smt_model_generator.h"
 #include "smt/theory_bv.h"
 #include "smt/smt_context.h"
-#include "ast/ast_pp.h"
 
 // Basic approach: reduce theory to bit-vectors:
 //
@@ -76,7 +76,7 @@ namespace smt {
             
             void get_dependencies(buffer<smt::model_value_dependency> & result) override {}
             
-            app * mk_value(smt::model_generator & mg, ptr_vector<expr> & ) override {
+            app * mk_value(smt::model_generator & mg, expr_ref_vector const & ) override {
                 smt::context& ctx = m_th.get_context();
                 app* result = nullptr;
                 expr* n = m_node->get_owner();

@@ -5,6 +5,7 @@ import platform
 import subprocess
 import multiprocessing
 import re
+import glob
 from setuptools import setup
 from distutils.util import get_platform
 from distutils.errors import LibError
@@ -33,11 +34,13 @@ if RELEASE_DIR is None:
     RELEASE_METADATA = None
     BUILD_PLATFORM = sys.platform
 else:
+    if not os.path.isdir(RELEASE_DIR):
+        raise Exception("RELEASE_DIR (%s) is not a directory!" % RELEASE_DIR)
     BUILD_DIR = os.path.join(RELEASE_DIR, 'bin')
     HEADER_DIRS = [os.path.join(RELEASE_DIR, 'include')]
     RELEASE_METADATA = os.path.basename(RELEASE_DIR).split('-')
     if RELEASE_METADATA[0] != 'z3' or len(RELEASE_METADATA) not in (4, 5):
-        raise Exception("RELEASE_DIR must be in the format z3-version-arch-os[-osversion] so we can extract metadata from it. Sorry!")
+        raise Exception("RELEASE_DIR (%s) must be in the format z3-version-arch-os[-osversion] so we can extract metadata from it. Sorry!" % RELEASE_DIR)
     RELEASE_METADATA.pop(0)
     BUILD_PLATFORM = RELEASE_METADATA[2]
 
@@ -114,6 +117,7 @@ def _build_z3():
                     env=build_env, cwd=BUILD_DIR) != 0:
             raise LibError("Unable to build Z3.")
 
+
 def _copy_bins():
     """
     Copy the library and header files into their final destinations
@@ -139,6 +143,8 @@ def _copy_bins():
     os.mkdir(HEADERS_DIR)
     shutil.copy(os.path.join(BUILD_DIR, LIBRARY_FILE), LIBS_DIR)
     shutil.copy(os.path.join(BUILD_DIR, EXECUTABLE_FILE), BINS_DIR)
+    for filepath in glob.glob(os.path.join(BUILD_DIR, "msvcp*")) + glob.glob(os.path.join(BUILD_DIR, "vcomp*")):
+        shutil.copy(filepath, LIBS_DIR)
 
     for header_dir in HEADER_DIRS:
         for fname in os.listdir(header_dir):
@@ -225,7 +231,12 @@ if 'bdist_wheel' in sys.argv and '--plat-name' not in sys.argv:
         distos = RELEASE_METADATA[2]
         if distos in ('debian', 'ubuntu') or 'linux' in distos:
             raise Exception("Linux binary distributions must be built on centos to conform to PEP 513")
-        if distos == 'win':
+        elif distos == 'centos':
+            if arch == 'x64':
+                plat_name = 'manylinux1_x86_64'
+            else:
+                plat_name = 'manylinux1_i686'
+        elif distos == 'win':
             if arch == 'x64':
                 plat_name = 'win_amd64'
             else:

@@ -149,6 +149,7 @@ public:
     bool is_select(expr* n) const { return is_app_of(n, m_fid, OP_SELECT); }
     bool is_store(expr* n) const { return is_app_of(n, m_fid, OP_STORE); }
     bool is_const(expr* n) const { return is_app_of(n, m_fid, OP_CONST_ARRAY); }
+    bool is_ext(expr* n) const { return is_app_of(n, m_fid, OP_ARRAY_EXT); }
     bool is_map(expr* n) const { return is_app_of(n, m_fid, OP_ARRAY_MAP); }
     bool is_as_array(expr * n) const { return is_app_of(n, m_fid, OP_AS_ARRAY); }
     bool is_as_array(expr * n, func_decl*& f) const { return is_as_array(n) && (f = get_as_array_func_decl(n), true); }
@@ -184,6 +185,13 @@ public:
         return m_manager.mk_app(m_fid, OP_STORE, 0, nullptr, num_args, args);
     }
 
+    app * mk_store(expr_ref_vector const& args) {
+        return mk_store(args.size(), args.c_ptr());
+    }
+    app * mk_store(ptr_vector<expr> const& args) {
+        return mk_store(args.size(), args.c_ptr());
+    }
+
     app * mk_select(unsigned num_args, expr * const * args) {
         return m_manager.mk_app(m_fid, OP_SELECT, 0, nullptr, num_args, args);
     }
@@ -208,6 +216,10 @@ public:
             r = mk_map(f, 2, es);
         }
         return r;
+    }
+
+    app * mk_default(expr * a) {
+        return m_manager.mk_app(m_fid, OP_ARRAY_DEFAULT, 0, nullptr, 1, &a);
     }
 
     app * mk_const_array(sort * s, expr * v) {
@@ -251,6 +263,14 @@ public:
         parameter param(f);
         return m_manager.mk_app(m_fid, OP_AS_ARRAY, 1, &param, 0, nullptr, nullptr);
     }
+
+    sort* get_array_range_rec(sort* s) {
+        while (is_array(s)) {
+            s = get_array_range(s);
+        }
+        return s;
+    }
+
 };
 
 

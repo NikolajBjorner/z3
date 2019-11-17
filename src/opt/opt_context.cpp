@@ -38,6 +38,7 @@ Notes:
 #include "tactic/arith/eq2bv_tactic.h"
 #include "tactic/bv/dt2bv_tactic.h"
 #include "tactic/generic_model_converter.h"
+#include "ackermannization/ackermannize_bv_tactic.h"
 #include "sat/sat_solver/inc_sat_solver.h"
 #include "qe/qsat.h"
 #include "opt/opt_context.h"
@@ -804,6 +805,8 @@ namespace opt {
             and_then(mk_simplify_tactic(m, m_params), 
                      mk_propagate_values_tactic(m),
                      mk_solve_eqs_tactic(m),
+                     // NB: cannot ackermannize because max/min objectives would disappear
+                     // mk_ackermannize_bv_tactic(m, m_params), 
                      // NB: mk_elim_uncstr_tactic(m) is not sound with soft constraints
                      mk_simplify_tactic(m));   
         opt_params optp(m_params);
@@ -1167,7 +1170,7 @@ namespace opt {
     app* context::purify(generic_model_converter_ref& fm, expr* term) {
        std::ostringstream out;
        out << mk_pp(term, m);
-       app* q = m.mk_fresh_const(out.str().c_str(), m.get_sort(term));
+       app* q = m.mk_fresh_const(out.str(), m.get_sort(term));
        if (!fm) fm = alloc(generic_model_converter, m, "opt");
        if (m_arith.is_int_real(term)) {
            m_hard_constraints.push_back(m_arith.mk_ge(q, term));

@@ -328,6 +328,7 @@ namespace sat {
         void update_psm(constraint& c) const;
         void mutex_reduction();
         void update_pure();
+        void reserve_roots();
 
         unsigned use_count(literal lit) const { return m_cnstr_use_list[lit.index()].size() + m_clause_use_list.get(lit).size(); }
 
@@ -608,7 +609,7 @@ namespace sat {
         bool check_model(model const& m) const override;
 
         ptr_vector<constraint> const & constraints() const { return m_constraints; }
-        void display(std::ostream& out, constraint const& c, bool values) const;
+        std::ostream& display(std::ostream& out, constraint const& c, bool values) const;
 
         bool validate() override;
 

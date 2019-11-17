@@ -139,7 +139,7 @@ namespace {
                     app_ref val(m.mk_fresh_const ("diff", val_sort), m);
                     store_args.push_back (val);
                     aux_consts.push_back (val);
-                    rhs = m_arr_u.mk_store (store_args.size (), store_args.c_ptr ());
+                    rhs = m_arr_u.mk_store (store_args);
                 }
                 m_eq = m.mk_eq (lhs, rhs);
             }
@@ -389,7 +389,7 @@ namespace qe {
                 if (!m_has_stores_v.is_marked (lhs)) {
                     std::swap (lhs, rhs);
                 }
-                if (m_has_stores_v.is_marked (lhs)) {
+                if (m_has_stores_v.is_marked (lhs) && m_arr_u.is_store(lhs)) {
                     /** project using the equivalence:
                      *
                      *  (store(arr0,idx,x) ==I arr1) <->
@@ -515,9 +515,8 @@ namespace qe {
          * ...
          */
         unsigned get_nesting_depth(app* eq) {
-            SASSERT(m.is_eq(eq));
-            expr* lhs = eq->get_arg (0);
-            expr* rhs = eq->get_arg (1);
+            expr* lhs = nullptr, *rhs = nullptr;
+            VERIFY(m.is_eq(eq, lhs, rhs));
             bool lhs_has_v = (lhs == m_v || m_has_stores_v.is_marked (lhs));
             bool rhs_has_v = (rhs == m_v || m_has_stores_v.is_marked (rhs));
             app* store = nullptr;
@@ -537,9 +536,13 @@ namespace qe {
             }
 
             unsigned nd = 0; // nesting depth
-            for (nd = 1; m_arr_u.is_store (store); nd++, store = to_app (store->get_arg (0)))
+            for (nd = 1; m_arr_u.is_store (store); nd++, store = to_app (store->get_arg (0))) {
                 /* empty */ ;
-            SASSERT (store == m_v);
+            }
+            if (store != m_v) {
+                TRACE("qe", tout << "not a store " << mk_pp(eq, m) << " " << lhs_has_v << " " << rhs_has_v << " " << mk_pp(m_v, m) << "\n";);
+                return UINT_MAX;
+            }
             return nd;
         }
 

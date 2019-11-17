@@ -317,3 +317,18 @@ bool expr_network::cut::operator==(cut const& other) const {
 unsigned expr_network::cut::hash() const {
     return get_composite_hash(*this, m_size, [](cut const& c) { return (unsigned)c.m_table; }, [](cut const& c, unsigned i) { return c[i]; });
 }
+
+std::ostream& expr_network::cut::display(std::ostream& out) const {
+    for (unsigned i = 0; i < m_size; ++i) {
+        out << (*this)[i] << " ";
+    }
+    out << "t: ";
+    for (unsigned i = 0; i < (1u << m_size); ++i) {
+        if (0 != (m_table & (1ull << i))) out << "1"; else out << "0";
+    }    
+    return out;
+}
+
+void expr_network::cut::sort() {
+    std::sort(m_elems, m_elems + m_size);
+}

@@ -11,7 +11,7 @@ if (POLICY CMP0042)
 endif()
 
 set(CMAKE_USER_MAKE_RULES_OVERRIDE_CXX "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cxx_compiler_flags_overrides.cmake")
-project(Z3 VERSION 4.8.6.0 LANGUAGES CXX)
+project(Z3 VERSION 4.8.7.0 LANGUAGES CXX)
 
 ################################################################################
 # Project version
@@ -199,6 +199,9 @@ if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
   if ("${TARGET_ARCHITECTURE}" STREQUAL "x86_64")
     list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_USE_THREAD_LOCAL")
   endif()
+elseif ("${CMAKE_SYSTEM_NAME}" MATCHES "GNU")
+  message(STATUS "Platform: GNU/Hurd")
+  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_HURD_")
 elseif ("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
   # Does macOS really not need any special flags?
   message(STATUS "Platform: Darwin")
@@ -423,6 +426,14 @@ endif()
 ################################################################################
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
   include(${PROJECT_SOURCE_DIR}/cmake/msvc_legacy_quirks.cmake)
+endif()
+
+################################################################################
+# Pass /RELEASE to the linker so that checksums in PE files are calculated.
+################################################################################
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+  string(APPEND CMAKE_EXE_LINKER_FLAGS " /RELEASE")
+  string(APPEND CMAKE_SHARED_LINKER_FLAGS " /RELEASE")
 endif()
 
 ################################################################################

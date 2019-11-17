@@ -126,6 +126,11 @@ namespace smt2 {
                 return SYMBOL_TOKEN;
             }
         }
+        if (!m_string.empty()) {
+            m_string.push_back(0);
+            m_id = m_string.begin();
+            return SYMBOL_TOKEN;
+        }
         return EOF_TOKEN;
     }
 
@@ -255,7 +260,7 @@ namespace smt2 {
                 throw scanner_exception("invalid empty bit-vector literal", m_line, m_spos);
             return BV_TOKEN;
         }
-        else if ('|') {
+        else if (c == '|') {
             read_multiline_comment();
             return NULL_TOKEN;
         }
@@ -313,6 +318,7 @@ namespace smt2 {
         m_normalized[static_cast<int>('.')] = 'a';
         m_normalized[static_cast<int>('?')] = 'a';
         m_normalized[static_cast<int>('/')] = 'a';
+        m_normalized[static_cast<int>(',')] = 'a';
         next();
     }
 

@@ -20,6 +20,7 @@ Notes:
 #include "util/rational.h"
 #include "util/symbol.h"
 #include "util/dictionary.h"
+#include <atomic>
 
 params_ref params_ref::g_empty_params_ref;
 
@@ -323,8 +324,8 @@ class params {
         };
     };
     typedef std::pair<symbol, value> entry;
-    svector<entry> m_entries;
-    unsigned       m_ref_count;
+    svector<entry>        m_entries;
+    std::atomic<unsigned> m_ref_count;
     void del_value(entry & e);
     void del_values();
 
@@ -336,7 +337,7 @@ public:
 
     void inc_ref() { m_ref_count++; }
     void dec_ref() { 
-        SASSERT(m_ref_count > 0); 
+        SASSERT(m_ref_count > 0);
         if (--m_ref_count == 0) dealloc(this); 
     }
 

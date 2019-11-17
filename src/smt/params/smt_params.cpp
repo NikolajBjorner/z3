@@ -18,7 +18,6 @@ Revision History:
 --*/
 #include "smt/params/smt_params.h"
 #include "smt/params/smt_params_helper.hpp"
-#include "model/model_params.hpp"
 #include "util/gparams.h"
 
 void smt_params::updt_local_params(params_ref const & _p) {
@@ -37,15 +36,11 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_delay_units = p.delay_units();
     m_delay_units_threshold = p.delay_units_threshold();
     m_preprocess = _p.get_bool("preprocess", true); // hidden parameter
-    m_timeout = p.timeout();
-    m_rlimit  = p.rlimit();
     m_max_conflicts = p.max_conflicts();
     m_restart_max   = p.restart_max();
     m_core_validate = p.core_validate();
     m_logic = _p.get_sym("logic", m_logic);
     m_string_solver = p.string_solver();
-    model_params mp(_p);
-    m_model_compact = mp.compact();
     if (_p.get_bool("arith.greatest_error_pivot", false))
         m_arith_pivot_strategy = ARITH_PIVOT_GREATEST_ERROR;
     else if (_p.get_bool("arith.least_error_pivot", false))
@@ -144,23 +139,18 @@ void smt_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_profile_res_sub);
     DISPLAY_PARAM(m_display_bool_var2expr);
     DISPLAY_PARAM(m_display_ll_bool_var2expr);
-    DISPLAY_PARAM(m_abort_after_preproc);
 
     DISPLAY_PARAM(m_model);
-    DISPLAY_PARAM(m_model_compact);
     DISPLAY_PARAM(m_model_on_timeout);
     DISPLAY_PARAM(m_model_on_final_check);
 
     DISPLAY_PARAM(m_progress_sampling_freq);
 
-    DISPLAY_PARAM(m_display_installed_theories);
     DISPLAY_PARAM(m_core_validate);
 
     DISPLAY_PARAM(m_preprocess);
     DISPLAY_PARAM(m_user_theory_preprocess_axioms);
     DISPLAY_PARAM(m_user_theory_persist_axioms);
-    DISPLAY_PARAM(m_timeout);
-    DISPLAY_PARAM(m_rlimit);
     DISPLAY_PARAM(m_at_labels_cex);
     DISPLAY_PARAM(m_check_at_labels);
     DISPLAY_PARAM(m_dump_goal_as_smt);

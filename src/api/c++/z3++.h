@@ -634,7 +634,7 @@ namespace z3 {
         symbol name() const { Z3_symbol s = Z3_get_decl_name(ctx(), *this); check_error(); return symbol(ctx(), s); }
         Z3_decl_kind decl_kind() const { return Z3_get_decl_kind(ctx(), *this); }
 
-        func_decl transitive_closure(func_decl const& f) {
+        func_decl transitive_closure(func_decl const&) {
             Z3_func_decl tc = Z3_mk_transitive_closure(ctx(), *this); check_error(); return func_decl(ctx(), tc); 
         }
 
@@ -1118,6 +1118,17 @@ namespace z3 {
         friend expr min(expr const& a, expr const& b);
         friend expr max(expr const& a, expr const& b);
 
+        friend expr bv2int(expr const& a, bool is_signed); 
+        friend expr int2bv(unsigned n, expr const& a);
+        friend expr bvadd_no_overflow(expr const& a, expr const& b, bool is_signed);
+        friend expr bvadd_no_underflow(expr const& a, expr const& b);
+        friend expr bvsub_no_overflow(expr const& a, expr const& b);
+        friend expr bvsub_no_underflow(expr const& a, expr const& b, bool is_signed);
+        friend expr bvsdiv_no_overflow(expr const& a, expr const& b);
+        friend expr bvneg_no_overflow(expr const& a);
+        friend expr bvmul_no_overflow(expr const& a, expr const& b, bool is_signed);
+        friend expr bvmul_no_underflow(expr const& a, expr const& b);
+        
         expr rotate_left(unsigned i) { Z3_ast r = Z3_mk_rotate_left(ctx(), i, *this); ctx().check_error(); return expr(ctx(), r); }
         expr rotate_right(unsigned i) { Z3_ast r = Z3_mk_rotate_right(ctx(), i, *this); ctx().check_error(); return expr(ctx(), r); }
         expr repeat(unsigned i) { Z3_ast r = Z3_mk_repeat(ctx(), i, *this); ctx().check_error(); return expr(ctx(), r); }
@@ -1259,9 +1270,21 @@ namespace z3 {
     inline expr pw(expr const & a, int b) { return pw(a, a.ctx().num_val(b, a.get_sort())); }
     inline expr pw(int a, expr const & b) { return pw(b.ctx().num_val(a, b.get_sort()), b); }
 
-    inline expr mod(expr const& a, expr const& b) { _Z3_MK_BIN_(a, b, Z3_mk_mod);   }
+    inline expr mod(expr const& a, expr const& b) { 
+        if (a.is_bv()) {
+            _Z3_MK_BIN_(a, b, Z3_mk_bvsmod);   
+        }
+        else {
+            _Z3_MK_BIN_(a, b, Z3_mk_mod);   
+        }
+    }
     inline expr mod(expr const & a, int b) { return mod(a, a.ctx().num_val(b, a.get_sort())); }
     inline expr mod(int a, expr const & b) { return mod(b.ctx().num_val(a, b.get_sort()), b); }
+
+    inline expr operator%(expr const& a, expr const& b) { return mod(a, b); }
+    inline expr operator%(expr const& a, int b) { return mod(a, b); }
+    inline expr operator%(int a, expr const& b) { return mod(a, b); }
+
 
     inline expr rem(expr const& a, expr const& b) {
         if (a.is_fpa() && b.is_fpa()) {
@@ -1613,6 +1636,7 @@ namespace z3 {
         return expr(a.ctx(), r);
     }
 
+
     /**
        \brief Create the if-then-else expression <tt>ite(c, t, e)</tt>
 
@@ -1727,6 +1751,41 @@ namespace z3 {
        \brief Extend the given bit-vector with zeros to the (unsigned) equivalent bitvector of size m+i, where m is the size of the given bit-vector.
     */
     inline expr zext(expr const & a, unsigned i) { return to_expr(a.ctx(), Z3_mk_zero_ext(a.ctx(), i, a)); }
+
+    /**
+       \brief bit-vector and integer conversions.
+    */
+    inline expr bv2int(expr const& a, bool is_signed) { Z3_ast r = Z3_mk_bv2int(a.ctx(), a, is_signed); a.check_error(); return expr(a.ctx(), r); }
+    inline expr int2bv(unsigned n, expr const& a) { Z3_ast r = Z3_mk_int2bv(a.ctx(), n, a); a.check_error(); return expr(a.ctx(), r); }
+
+    /**
+       \brief bit-vector overflow/underflow checks
+    */
+    inline expr bvadd_no_overflow(expr const& a, expr const& b, bool is_signed) { 
+        check_context(a, b); Z3_ast r = Z3_mk_bvadd_no_overflow(a.ctx(), a, b, is_signed); a.check_error(); return expr(a.ctx(), r); 
+    }
+    inline expr bvadd_no_underflow(expr const& a, expr const& b) {
+        check_context(a, b); Z3_ast r = Z3_mk_bvadd_no_underflow(a.ctx(), a, b); a.check_error(); return expr(a.ctx(), r); 
+    }
+    inline expr bvsub_no_overflow(expr const& a, expr const& b) {
+        check_context(a, b); Z3_ast r = Z3_mk_bvsub_no_overflow(a.ctx(), a, b); a.check_error(); return expr(a.ctx(), r); 
+    }
+    inline expr bvsub_no_underflow(expr const& a, expr const& b, bool is_signed) {
+        check_context(a, b); Z3_ast r = Z3_mk_bvsub_no_underflow(a.ctx(), a, b, is_signed); a.check_error(); return expr(a.ctx(), r); 
+    }
+    inline expr bvsdiv_no_overflow(expr const& a, expr const& b) {
+        check_context(a, b); Z3_ast r = Z3_mk_bvsdiv_no_overflow(a.ctx(), a, b); a.check_error(); return expr(a.ctx(), r); 
+    }
+    inline expr bvneg_no_overflow(expr const& a) {
+        Z3_ast r = Z3_mk_bvneg_no_overflow(a.ctx(), a); a.check_error(); return expr(a.ctx(), r); 
+    }
+    inline expr bvmul_no_overflow(expr const& a, expr const& b, bool is_signed) {
+        check_context(a, b); Z3_ast r = Z3_mk_bvmul_no_overflow(a.ctx(), a, b, is_signed); a.check_error(); return expr(a.ctx(), r); 
+    }
+    inline expr bvmul_no_underflow(expr const& a, expr const& b) {
+        check_context(a, b); Z3_ast r = Z3_mk_bvmul_no_underflow(a.ctx(), a, b); a.check_error(); return expr(a.ctx(), r); 
+    }
+
 
     /**
        \brief Sign-extend of the given bit-vector to the (signed) equivalent bitvector of size m+i, where m is the size of the given bit-vector.

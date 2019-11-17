@@ -77,6 +77,7 @@ public:
                 return true;
             }
         }
+        void sort();
 
         bool operator==(cut const& other) const;
         unsigned hash() const;
@@ -130,6 +131,8 @@ public:
             }
             return true;
         }
+
+        std::ostream& display(std::ostream& out) const;
     };
 
     struct cut_set : public svector<cut> {
@@ -157,5 +160,8 @@ public:
     vector<cut_set> get_cuts(unsigned k);
 };
 
+inline std::ostream& operator<<(std::ostream& out, expr_network::cut const& cut) {
+    return cut.display(out);
+}
 
 #endif /* EXPR_NETWORK_H_ */
