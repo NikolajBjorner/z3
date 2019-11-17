@@ -226,7 +226,6 @@ decl_kind expr_network::get_decl_kind(node const& n) const {
     return to_app(n.e())->get_decl_kind();
 }
 
-
 /**
    \brief
    if c is subsumed by a member in cut_set, then c is not inserted.
@@ -295,7 +294,7 @@ uint64_t expr_network::cut::shift_table(cut const& c) const {
         y = c[++j];
     }
     for (unsigned j = 0; j < (1u << new_sz); ++j) {
-        unsigned i = 0, k = 0;
+        unsigned k = 0;
         for (unsigned i = 0; i < m_size; ++i) {
             if (0 != (j & coeff[i])) {
                 k += (1 << i);
@@ -304,4 +303,17 @@ uint64_t expr_network::cut::shift_table(cut const& c) const {
         r |= ((m_table & (1ull << k)) << (j - k));
     }
     return r;
+}
+
+bool expr_network::cut::operator==(cut const& other) const {
+    if (m_size != other.m_size) return false;
+    if (m_table != other.m_table) return false;
+    for (unsigned i = 0; i < m_size; ++i) {
+        if ((*this)[i] != other[i]) return false;
+    }
+    return true;
+}
+
+unsigned expr_network::cut::hash() const {
+    return get_composite_hash(*this, m_size, [](cut const& c) { return (unsigned)c.m_table; }, [](cut const& c, unsigned i) { return c[i]; });
 }

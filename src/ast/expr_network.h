@@ -78,10 +78,18 @@ public:
             }
         }
 
+        bool operator==(cut const& other) const;
+        unsigned hash() const;
+        struct eq_proc { 
+            bool operator()(cut const& a, cut const& b) const { return a == b; }
+            bool operator()(cut const* a, cut const* b) const { return *a == *b; }
+        };
+        struct hash_proc {
+            unsigned operator()(cut const& a) const { return a.hash(); }
+            unsigned operator()(cut const* a) const { return a->hash(); }
+        };
+
         unsigned operator[](unsigned idx) const {
-            return get(idx);
-        }
-        unsigned get(unsigned idx) const {
             return (idx >= m_size) ? UINT_MAX : m_elems[idx];
         }
 
@@ -90,21 +98,21 @@ public:
         bool merge(cut const& a, cut const& b) {
             SASSERT(a.m_size > 0 && b.m_size > 0);
             unsigned i = 0, j = 0;
-            unsigned x = a.get(i);
-            unsigned y = b.get(j);
+            unsigned x = a[i];
+            unsigned y = b[j];
             while (x != UINT_MAX || y != UINT_MAX) {
                 if (!add(std::min(x, y))) {
                     return false;
                 }
                 if (x < y) {
-                    x = a.get(++i);
+                    x = a[++i];
                 }
                 else if (y < x) {
-                    y = b.get(++j);
+                    y = b[++j];
                 }
                 else {
-                    x = a.get(++i);
-                    y = b.get(++j);
+                    x = a[++i];
+                    y = b[++j];
                 }
             }
             return true;
@@ -112,13 +120,13 @@ public:
 
         bool subset_of(cut const& other) const {
             unsigned i = 0;
-            unsigned other_id = other.get(i);
+            unsigned other_id = other[i];
             for (unsigned id : *this) {
                 while (id > other_id) {
-                    other_id = other.get(++i);
+                    other_id = other[++i];
                 }
                 if (id != other_id) return false;
-                other_id = other.get(++i);
+                other_id = other[++i];
             }
             return true;
         }
@@ -137,8 +145,6 @@ private:
     bool is_ac_bool_op(node const&) const;
     bool is_ite(node const&) const;
     decl_kind get_decl_kind(node const&) const;
-
-    bool is_bool_op(expr* e) const { NOT_IMPLEMENTED_YET(); return false; }
 
 public:
     expr_network(ast_manager& m): m(m), m_roots(m) {}
