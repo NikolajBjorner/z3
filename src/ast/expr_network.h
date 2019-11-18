@@ -137,6 +137,7 @@ public:
 
     struct cut_set : public svector<cut> {
         void insert(cut const& c);
+        bool no_duplicates() const;
     };
 
 private:

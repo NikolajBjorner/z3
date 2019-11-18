@@ -42,6 +42,14 @@ class cut_rewriting_tactic : public tactic {
             for (auto const& cut : cuts[i]) {
                 unsigned j = 0;
                 if (cut2id.find(&cut, j)) {
+                    if (i == j) {
+                        std::cout << "cut: " << cut << "\n";
+                        for (auto const& c : cuts[i]) {
+                            std::cout << c << "\n";
+                        }
+                        std::cout << "\n";
+                        exit(0);
+                    }
                     if (i != j) {
                         ++num_clash;
                         std::cout << "clash: " << i << " " << j << "\n";
@@ -65,6 +73,7 @@ class cut_rewriting_tactic : public tactic {
                 g.update(idx, new_goals.get(idx), new_pr, g.dep(idx));
             }
         }
+        std::cout << "updated\n";
         g.elim_redundancies();
         TRACE("after_cut", g.display(tout););
         SASSERT(g.is_well_sorted());

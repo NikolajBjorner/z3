@@ -142,7 +142,7 @@ vector<expr_network::cut_set> expr_network::get_cuts(unsigned k) {
     unsigned_vector sorted = top_sort();
     vector<cut_set> cuts;
     cuts.resize(m_nodes.size());
-    svector<cut> cut_set2;
+    cut_set cut_set2;
     for (unsigned id : sorted) {
         auto& cut_set = cuts[id];
         SASSERT(cut_set.empty());
@@ -182,6 +182,7 @@ vector<expr_network::cut_set> expr_network::get_cuts(unsigned k) {
                         cut_set.push_back(a);
                     }
                     first = false;
+                    //VERIFY(cut_set.no_duplicates());
                     continue;
                 }
                 cut_set2.reset();
@@ -202,10 +203,14 @@ vector<expr_network::cut_set> expr_network::get_cuts(unsigned k) {
                         }
                     }
                 }
+                //VERIFY(cut_set.no_duplicates());
+                //VERIFY(cut_set2.no_duplicates());
                 cut_set.swap(cut_set2);
+                //VERIFY(cut_set.no_duplicates());
             }
         }
         cut_set.push_back(cut(id));
+        //VERIFY(cut_set.no_duplicates());
         // std::cout << id << " " << get_depth(n.e()) << " " << cut_set.size() << "\n";
     }
     return cuts;
@@ -250,11 +255,20 @@ void expr_network::cut_set::insert(cut const& c) {
         VERIFY(!(a == c));
         ++j;
     }
-    if (j < i) {
-        shrink(j);
-    }
+    shrink(j);    
     push_back(c);
+    //VERIFY(no_duplicates());
 }
+
+bool expr_network::cut_set::no_duplicates() const {
+    hashtable<cut const*, cut::hash_proc, cut::eq_proc> table;
+    for (auto const& cut : *this) {
+        VERIFY(!table.contains(&cut));
+        table.insert(&cut);
+    }
+    return true;
+}
+
 
 /**
    \brief shift table 'a' by adding elements from 'c'.
