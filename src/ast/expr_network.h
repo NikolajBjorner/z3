@@ -159,6 +159,7 @@ public:
     unsigned_vector top_sort();
     void substitute(unsigned src, unsigned dst);
     vector<cut_set> get_cuts(unsigned k);
+    unsigned depth(unsigned id) const;
 };
 
 inline std::ostream& operator<<(std::ostream& out, expr_network::cut const& cut) {

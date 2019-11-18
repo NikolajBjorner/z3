@@ -78,7 +78,24 @@ expr_ref_vector expr_network::get_roots() {
             expr* e = m_nodes[id].e();
             if (is_app(e)) {
                 func_decl* f = to_app(e)->get_decl();
-                node2expr[id] = m.mk_app(f, args.size(), args.c_ptr());
+                bool diff = false;
+                for (unsigned i = args.size(); i-- > 0 && !diff; ) {
+                    diff = args.get(i) != to_app(e)->get_arg(i);
+                }
+                if (diff) {
+                    if (m.is_or(f)) {
+                        node2expr[id] = m.mk_or(args.size(), args.c_ptr());
+                    }
+                    else if (m.is_and(f)) {
+                        node2expr[id] = m.mk_and(args.size(), args.c_ptr());
+                    }
+                    else {
+                        node2expr[id] = m.mk_app(f, args.size(), args.c_ptr());
+                    }
+                }
+                else {
+                    node2expr[id] = e;
+                }
             }
             else {
                 node2expr[id] = e;
@@ -203,18 +220,19 @@ vector<expr_network::cut_set> expr_network::get_cuts(unsigned k) {
                         }
                     }
                 }
-                //VERIFY(cut_set.no_duplicates());
-                //VERIFY(cut_set2.no_duplicates());
                 cut_set.swap(cut_set2);
-                //VERIFY(cut_set.no_duplicates());
             }
         }
         cut_set.push_back(cut(id));
-        //VERIFY(cut_set.no_duplicates());
         // std::cout << id << " " << get_depth(n.e()) << " " << cut_set.size() << "\n";
     }
     return cuts;
 }
+
+unsigned expr_network::depth(unsigned id) const {
+    return get_depth(m_nodes[id].e());
+}
+
 
 bool expr_network::is_not(node const& n) const {
     return n.e() && m.is_not(n.e());
