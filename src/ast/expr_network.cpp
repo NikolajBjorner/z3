@@ -57,13 +57,10 @@ expr_ref_vector expr_network::get_roots() {
     svector<bool> valid;
     ptr_vector<expr> args;
     valid.reserve(m_nodes.size(), false);
-    std::cout << "1\n";
     for (auto const& n : m_nodes) {
         node2expr.push_back(n.m_expr);
     }
-    std::cout << "2\n";
     while (!todo.empty()) {
-        if ((todo.size() % 100000) == 0) std::cout << todo.size() << "\n";
         unsigned id = todo.back();
         if (valid[id]) {            
             todo.pop_back();
@@ -108,12 +105,10 @@ expr_ref_vector expr_network::get_roots() {
             todo.pop_back();
         }
     }
-    std::cout << "3\n";
     expr_ref_vector result(m);
     for (expr* r : m_roots) {
         result.push_back(node2expr.get(r->get_id()));
     }
-    std::cout << "4\n";
     return result;
 }
 
@@ -206,7 +201,6 @@ vector<expr_network::cut_set> expr_network::get_cuts(unsigned k) {
                         cut_set.push_back(a);
                     }
                     first = false;
-                    //VERIFY(cut_set.no_duplicates());
                     continue;
                 }
                 cut_set2.reset();
@@ -278,12 +272,11 @@ void expr_network::cut_set::insert(cut const& c) {
         else if (j < i) {
             (*this)[j] = a;
         }
-        VERIFY(!(a == c));
+        SASSERT(!(a == c));
         ++j;
     }
     shrink(j);    
     push_back(c);
-    //VERIFY(no_duplicates());
 }
 
 bool expr_network::cut_set::no_duplicates() const {
