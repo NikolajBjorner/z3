@@ -47,6 +47,9 @@ void expr_network::add_root(expr* e) {
 
 expr_ref_vector expr_network::get_roots() {
     unsigned_vector todo;
+    todo.reserve(m_nodes.size(), 0);
+    todo.reset();
+
     for (expr* r : m_roots) {
         todo.push_back(r->get_id());
     }
@@ -54,10 +57,13 @@ expr_ref_vector expr_network::get_roots() {
     svector<bool> valid;
     ptr_vector<expr> args;
     valid.reserve(m_nodes.size(), false);
+    std::cout << "1\n";
     for (auto const& n : m_nodes) {
         node2expr.push_back(n.m_expr);
     }
+    std::cout << "2\n";
     while (!todo.empty()) {
+        if ((todo.size() % 100000) == 0) std::cout << todo.size() << "\n";
         unsigned id = todo.back();
         if (valid[id]) {            
             todo.pop_back();
@@ -77,8 +83,23 @@ expr_ref_vector expr_network::get_roots() {
         if (all_valid) {
             expr* e = m_nodes[id].e();
             if (is_app(e)) {
+                bool diff = false;
+                for (unsigned i = args.size(); i-- > 0; ) {
+                    diff = args[i] != node2expr.get(m_nodes[id].m_children[i]);
+                }
                 func_decl* f = to_app(e)->get_decl();
-                node2expr[id] = m.mk_app(f, args.size(), args.c_ptr());
+                if (!diff) {
+                    node2expr[id] = e;
+                }
+                else if (m.is_and(f)) {
+                    node2expr[id] = m.mk_and(args.size(), args.c_ptr());
+                }
+                else if (m.is_or(f)) {
+                    node2expr[id] = m.mk_or(args.size(), args.c_ptr());
+                }
+                else {
+                    node2expr[id] = m.mk_app(f, args.size(), args.c_ptr());
+                }
             }
             else {
                 node2expr[id] = e;
@@ -87,10 +108,12 @@ expr_ref_vector expr_network::get_roots() {
             todo.pop_back();
         }
     }
+    std::cout << "3\n";
     expr_ref_vector result(m);
     for (expr* r : m_roots) {
         result.push_back(node2expr.get(r->get_id()));
     }
+    std::cout << "4\n";
     return result;
 }
 
@@ -164,6 +187,7 @@ vector<expr_network::cut_set> expr_network::get_cuts(unsigned k) {
                         uint64_t t3 = c.shift_table(abc);
                         abc.m_table = (t1 & t2) | (~t1 & t3);
                         cut_set.insert(abc);
+                        if (cut_set.size() >= 10) break;
                     } 
                 }
             }
@@ -202,15 +226,12 @@ vector<expr_network::cut_set> expr_network::get_cuts(unsigned k) {
                             cut_set2.insert(c);
                         }
                     }
+                    if (cut_set2.size() >= 10) break;
                 }
-                //VERIFY(cut_set.no_duplicates());
-                //VERIFY(cut_set2.no_duplicates());
                 cut_set.swap(cut_set2);
-                //VERIFY(cut_set.no_duplicates());
             }
         }
         cut_set.push_back(cut(id));
-        //VERIFY(cut_set.no_duplicates());
         // std::cout << id << " " << get_depth(n.e()) << " " << cut_set.size() << "\n";
     }
     return cuts;

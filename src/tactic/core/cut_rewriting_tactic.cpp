@@ -70,6 +70,7 @@ class cut_rewriting_tactic : public tactic {
                 if (proofs_enabled) {
                     // TBD: add rewrite proof step
                 }
+                std::cout << "rewrite\n";
                 g.update(idx, new_goals.get(idx), new_pr, g.dep(idx));
             }
         }
