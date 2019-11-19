@@ -21,11 +21,9 @@ Author:
 class cut_rewriting_tactic : public tactic {
     ast_manager& m;
     
-    void rewrite(goal & g) {
+    bool rewrite(goal & g, unsigned max_cutset_size) {
         SASSERT(g.is_well_sorted());
         bool proofs_enabled = g.proofs_enabled();
-        tactic_report report("cut-rewriting", g);
-        TRACE("before_cut", g.display(tout););
         expr_ref   new_curr(m);
         proof_ref  new_pr(m);
         unsigned size = g.size();
@@ -34,7 +32,7 @@ class cut_rewriting_tactic : public tactic {
         for (unsigned idx = 0; idx < size; idx++) {
             nw.add_root(g.form(idx));
         }
-        vector<expr_network::cut_set> cuts = nw.get_cuts(5);
+        vector<expr_network::cut_set> cuts = nw.get_cuts(6, max_cutset_size);
         map<expr_network::cut const*, unsigned, expr_network::cut::hash_proc, expr_network::cut::eq_proc> cut2id;
         unsigned num_cuts = 0, num_clash = 0;
         for (unsigned i = cuts.size(); i-- > 0; ) {
@@ -69,9 +67,8 @@ class cut_rewriting_tactic : public tactic {
                 g.update(idx, new_goals.get(idx), new_pr, g.dep(idx));
             }
         }
-        g.elim_redundancies();
-        TRACE("after_cut", g.display(tout););
-        SASSERT(g.is_well_sorted());
+
+        return cuts.size() <= 33 * num_clash;
     }
 
 public:
@@ -87,8 +84,17 @@ public:
     
     void operator()(goal_ref const & in, 
                     goal_ref_buffer & result) override {
-        rewrite(*(in.get()));
-        in->inc_depth();
+        goal& g = *in.get();
+        tactic_report report("cut-rewriting", g);
+        TRACE("before_cut", g.display(tout););
+        unsigned max_cutset_size = 10;
+        while (rewrite(g, max_cutset_size)) {
+            max_cutset_size *= 2;
+        }
+        g.elim_redundancies();
+        TRACE("after_cut", g.display(tout););
+        SASSERT(g.is_well_sorted());
+        g.inc_depth();
         result.push_back(in.get());
     }
 

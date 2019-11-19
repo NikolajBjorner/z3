@@ -158,7 +158,7 @@ public:
     vector<node> const& nodes() { return m_nodes; }
     unsigned_vector top_sort();
     void substitute(unsigned src, unsigned dst);
-    vector<cut_set> get_cuts(unsigned k);
+    vector<cut_set> get_cuts(unsigned max_cut_size, unsigned max_cutset_size);
     unsigned depth(unsigned id) const;
 };
 

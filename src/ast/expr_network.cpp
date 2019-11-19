@@ -156,7 +156,7 @@ unsigned_vector expr_network::top_sort() {
     return result;
 }
 
-vector<expr_network::cut_set> expr_network::get_cuts(unsigned k) {
+vector<expr_network::cut_set> expr_network::get_cuts(unsigned max_cut_size, unsigned max_cutset_size) {
     unsigned_vector sorted = top_sort();
     vector<cut_set> cuts;
     cuts.resize(m_nodes.size());
@@ -182,7 +182,7 @@ vector<expr_network::cut_set> expr_network::get_cuts(unsigned k) {
                         uint64_t t3 = c.shift_table(abc);
                         abc.m_table = (t1 & t2) | (~t1 & t3);
                         cut_set.insert(abc);
-                        if (cut_set.size() >= 10) break;
+                        if (cut_set.size() >= max_cutset_size) break;
                     } 
                 }
             }
@@ -193,7 +193,7 @@ vector<expr_network::cut_set> expr_network::get_cuts(unsigned k) {
                 cut_set.back().m_table = ~a.m_table;
             }
         }
-        else if ((is_ac_bool_op(n)) && n.m_children.size() < k) {
+        else if ((is_ac_bool_op(n)) && n.m_children.size() < max_cut_size) {
             bool first = true;
             for (unsigned child : n.m_children) {
                 if (first) {
@@ -220,13 +220,12 @@ vector<expr_network::cut_set> expr_network::get_cuts(unsigned k) {
                             cut_set2.insert(c);
                         }
                     }
-                    if (cut_set2.size() >= 10) break;
+                    if (cut_set2.size() >= max_cutset_size) break;
                 }
                 cut_set.swap(cut_set2);
             }
         }
         cut_set.push_back(cut(id));
-        // std::cout << id << " " << get_depth(n.e()) << " " << cut_set.size() << "\n";
     }
     return cuts;
 }
@@ -257,6 +256,11 @@ decl_kind expr_network::get_decl_kind(node const& n) const {
    if c is subsumed by a member in cut_set, then c is not inserted.
    otherwise, remove members that c subsumes.
    Note that the cut_set maintains invariant that elements don't subsume each-other.
+
+   TBD: this is a bottleneck.
+   Ideas:
+   - add Bloom filter to is_subset_of operation.
+   - pre-allocate fixed array instead of vector for cut_set to avoid overhead for memory allocation.
  */
 
 void expr_network::cut_set::insert(cut const& c) {
@@ -304,7 +308,12 @@ bool expr_network::cut_set::no_duplicates() const {
      -> assignment to coefficients in a
      -> compute j, 
      -> t'[i] <- t'[j]
-   
+
+     This is still time consuming:
+     Ideas: 
+     - pre-compute some shift operations.
+     - use strides on some common cases.
+     - what ABC does?
  */
 
 uint64_t expr_network::cut::shift_table(cut const& c) const {
@@ -312,10 +321,12 @@ uint64_t expr_network::cut::shift_table(cut const& c) const {
     uint64_t r = 0;
     unsigned new_sz = c.m_size;
     unsigned coeff[max_size+1];
+    unsigned deficit[max_size+1];
     
     for (unsigned i = 0, j = 0, x = (*this)[i], y = c[j]; x != UINT_MAX; ) {
         if (x == y) {
             coeff[i] = (1 << j);
+            deficit[i] = j - i;
             x = (*this)[++i];
         }
         y = c[++j];
@@ -323,9 +334,12 @@ uint64_t expr_network::cut::shift_table(cut const& c) const {
     for (unsigned j = 0; j < (1u << new_sz); ++j) {
         unsigned k = 0;
         for (unsigned i = 0; i < m_size; ++i) {
+            k += (deficit[i] >> (j & coeff[i]));
+#if 0
             if (0 != (j & coeff[i])) {
                 k += (1 << i);
             }
+#endif
         }
         r |= ((m_table & (1ull << k)) << (j - k));
     }
