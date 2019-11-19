@@ -84,18 +84,18 @@ expr_ref_vector expr_network::get_roots() {
             expr* e = m_nodes[id].e();
             if (is_app(e)) {
                 bool diff = false;
-                for (unsigned i = args.size(); i-- > 0; ) {
-                    diff = args[i] != node2expr.get(m_nodes[id].m_children[i]);
+                for (unsigned i = args.size(); i-- > 0 && !diff; ) {
+                    diff = args.get(i) != to_app(e)->get_arg(i);
                 }
                 func_decl* f = to_app(e)->get_decl();
                 if (!diff) {
                     node2expr[id] = e;
                 }
-                else if (m.is_and(f)) {
-                    node2expr[id] = m.mk_and(args.size(), args.c_ptr());
-                }
                 else if (m.is_or(f)) {
                     node2expr[id] = m.mk_or(args.size(), args.c_ptr());
+                }
+                else if (m.is_and(f)) {
+                    node2expr[id] = m.mk_and(args.size(), args.c_ptr());
                 }
                 else {
                     node2expr[id] = m.mk_app(f, args.size(), args.c_ptr());
@@ -236,6 +236,11 @@ vector<expr_network::cut_set> expr_network::get_cuts(unsigned k) {
     }
     return cuts;
 }
+
+unsigned expr_network::depth(unsigned id) const {
+    return get_depth(m_nodes[id].e());
+}
+
 
 bool expr_network::is_not(node const& n) const {
     return n.e() && m.is_not(n.e());

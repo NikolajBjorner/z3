@@ -20,7 +20,7 @@ Author:
 
 class cut_rewriting_tactic : public tactic {
     ast_manager& m;
-
+    
     void rewrite(goal & g) {
         SASSERT(g.is_well_sorted());
         bool proofs_enabled = g.proofs_enabled();
@@ -50,12 +50,16 @@ class cut_rewriting_tactic : public tactic {
                         std::cout << "\n";
                         exit(0);
                     }
-                    if (i != j) {
-                        ++num_clash;
-                        std::cout << "clash: " << i << " " << j << "\n";
-                        nw.substitute(i, j);
-                        break;
+                    VERIFY(i != j);
+                    ++num_clash;
+                    if (nw.depth(i) < nw.depth(j)) {
+                        nw.substitute(j, i);
+                        cut2id.insert(&cut, i);
                     }
+                    else {
+                        nw.substitute(i, j);
+                    }
+                    break;
                 }
                 else {
                     cut2id.insert(&cut, i);
@@ -63,6 +67,7 @@ class cut_rewriting_tactic : public tactic {
             }
         }
         std::cout << "num cuts: " << num_cuts << " num clash: " << num_clash << "\n";
+        
         
         expr_ref_vector new_goals = nw.get_roots();
         for (unsigned idx = 0; idx < size; idx++) {
