@@ -26,7 +26,7 @@ static void tst_expr_network1() {
     expr_ref y(m.mk_const("y", m.mk_bool_sort()), m);
     nw.add_root(m.mk_and(x, y));
     nw.add_root(m.mk_and(y, x));
-    auto cuts = nw.get_cuts(4);
+    auto cuts = nw.get_cuts(4, 5);
     display_cuts(cuts);
 }
 
