@@ -58,12 +58,13 @@ public:
     static const unsigned max_size = 6;
 
     struct cut {
+        unsigned m_filter;
         unsigned m_size;
         unsigned m_elems[max_size];
         uint64_t m_table;
-        cut(): m_size(0), m_table(0) {}
+        cut(): m_filter(0), m_size(0), m_table(0) {}
 
-        cut(unsigned id): m_size(1), m_table(2) { m_elems[0] = id; }
+        cut(unsigned id): m_filter(1u << (id & 0x1F)), m_size(1), m_table(2) { m_elems[0] = id; }
 
         unsigned const* begin() const { return m_elems; }
         unsigned const* end() const  { return m_elems + m_size; }
@@ -74,6 +75,7 @@ public:
             }
             else {
                 m_elems[m_size++] = i;
+                m_filter |= (1u << (i & 0x1F));
                 return true;
             }
         }
@@ -120,6 +122,9 @@ public:
         }
 
         bool subset_of(cut const& other) const {
+            if (other.m_filter != (m_filter | other.m_filter)) {
+                return false;
+            }
             unsigned i = 0;
             unsigned other_id = other[i];
             for (unsigned id : *this) {
