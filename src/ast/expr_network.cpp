@@ -982,31 +982,35 @@ unsigned_vector expr_network::top_sort() {
 
 vector<expr_network::cut_set> expr_network::get_cuts(unsigned max_cut_size, unsigned max_cutset_size) {
     unsigned_vector sorted = top_sort();
-    vector<cut_set> cuts;
+    vector<cut_set> cuts;    
     cuts.resize(m_nodes.size());
+    max_cut_size = std::min(cut::max_cut_size, max_cut_size);
     cut_set cut_set2;
+    cut_set2.init(m_region, max_cutset_size + 1);
     for (unsigned id : sorted) {
         auto& cut_set = cuts[id];
+        cut_set.init(m_region, max_cutset_size + 1);
         SASSERT(cut_set.empty());
         node const& n = m_nodes[id];
         if (is_ite(n)) {
             for (auto const& a : cuts[n.m_children[0]]) {
                 for (auto const& b : cuts[n.m_children[1]]) {
                     cut ab;
-                    if (!ab.merge(a, b)) {
+                    if (!ab.merge(a, b, max_cut_size)) {
                         continue;
                     }
                     for (auto const& c : cuts[n.m_children[2]]) {
                         cut abc;
-                        if (!abc.merge(ab, c)) {
+                        if (!abc.merge(ab, c, max_cut_size)) {
                             continue;
                         }
+                        if (cut_set.size() >= max_cutset_size) break;
                         uint64_t t1 = a.shift_table(abc);
                         uint64_t t2 = b.shift_table(abc);
                         uint64_t t3 = c.shift_table(abc);
                         abc.m_table = (t1 & t2) | (~t1 & t3);
+                        // extract tree size: abc.m_tree_size = a.m_tree_size + b.m_tree_size + c.m_tree_size + 1;
                         cut_set.insert(abc);
-                        if (cut_set.size() >= max_cutset_size) break;
                     } 
                 }
             }
@@ -1031,7 +1035,8 @@ vector<expr_network::cut_set> expr_network::get_cuts(unsigned max_cut_size, unsi
                 for (auto const& a : cut_set) {
                     for (auto const& b : cuts[child]) {
                         cut c;
-                        if (c.merge(a, b)) {
+                        if (cut_set2.size() >= max_cutset_size) break;
+                        if (c.merge(a, b, max_cut_size)) {
                             uint64_t t1 = a.shift_table(c);
                             uint64_t t2 = b.shift_table(c);
                             switch (get_decl_kind(n)) {
@@ -1131,7 +1136,7 @@ bool expr_network::cut_set::no_duplicates() const {
    i -> assignment to coefficients in c, 
      -> assignment to coefficients in a
      -> compute j, 
-     -> t'[i] <- t'[j]
+     -> t'[i] <- t[j]
 
      This is still time consuming:
      Ideas: 

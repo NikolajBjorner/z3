@@ -13,6 +13,11 @@ Author:
 
     Nikolaj Bjorner (nbjorner) 2019-11-17
 
+Notes:
+ 
+- find size of cut subexpressions see if they can be recompiled to "known" functions.
+
+
 --*/
 #include "ast/expr_network.h"
 #include "tactic/tactical.h"
@@ -21,7 +26,7 @@ Author:
 class cut_rewriting_tactic : public tactic {
     ast_manager& m;
     
-    bool rewrite(goal & g, unsigned max_cutset_size) {
+    bool rewrite(goal & g, unsigned max_cut_size, unsigned max_cutset_size) {
         SASSERT(g.is_well_sorted());
         bool proofs_enabled = g.proofs_enabled();
         expr_ref   new_curr(m);
@@ -32,9 +37,10 @@ class cut_rewriting_tactic : public tactic {
         for (unsigned idx = 0; idx < size; idx++) {
             nw.add_root(g.form(idx));
         }
-        vector<expr_network::cut_set> cuts = nw.get_cuts(6, max_cutset_size);
+        vector<expr_network::cut_set> cuts = nw.get_cuts(max_cut_size, max_cutset_size);
         map<expr_network::cut const*, unsigned, expr_network::cut::hash_proc, expr_network::cut::eq_proc> cut2id;
         unsigned num_cuts = 0, num_clash = 0;
+        // TBD: get information of cut size distribution
         for (unsigned i = cuts.size(); i-- > 0; ) {
             num_cuts += cuts[i].size();
             for (auto const& cut : cuts[i]) {
@@ -87,9 +93,11 @@ public:
         goal& g = *in.get();
         tactic_report report("cut-rewriting", g);
         TRACE("before_cut", g.display(tout););
-        unsigned max_cutset_size = 10;
-        while (rewrite(g, max_cutset_size)) {
+        unsigned max_cutset_size = 6;
+        unsigned max_cut_size = 4;
+        while (rewrite(g, max_cut_size, max_cutset_size)) {
             max_cutset_size *= 2;
+            max_cut_size = std::min(max_cut_size+1, expr_network::cut::max_cut_size);
         }
         g.elim_redundancies();
         TRACE("after_cut", g.display(tout););
