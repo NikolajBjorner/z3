@@ -871,12 +871,10 @@ void expr_network::add_root(expr* e) {
 
 expr_ref_vector expr_network::get_roots() {
     unsigned_vector todo;
+    unsigned_vector roots = remove_meta_root();
     todo.reserve(m_nodes.size(), 0);
     todo.reset();
-
-    for (expr* r : m_roots) {
-        todo.push_back(r->get_id());
-    }
+    todo.append(roots);
     expr_ref_vector node2expr(m);
     svector<bool> valid;
     ptr_vector<expr> args;
@@ -930,11 +928,24 @@ expr_ref_vector expr_network::get_roots() {
         }
     }
     expr_ref_vector result(m);
-    for (expr* r : m_roots) {
-        result.push_back(node2expr.get(r->get_id()));
+    for (unsigned id : roots) {
+        result.push_back(node2expr.get(id));
     }
     return result;
 }
+
+void expr_network::add_meta_root() {
+    expr_ref root(m.mk_and(m_roots.size(), m_roots.c_ptr()), m);
+    m_nodes.push_back(node(root));
+}
+
+unsigned_vector expr_network::remove_meta_root() {
+    unsigned_vector roots;
+    roots.append(m_nodes.back().m_children);
+    m_nodes.pop_back();
+    return roots;
+}
+
 
 void expr_network::substitute(unsigned src, unsigned dst) {
     if (src == dst) {
@@ -981,6 +992,7 @@ unsigned_vector expr_network::top_sort() {
 }
 
 vector<expr_network::cut_set> expr_network::get_cuts(unsigned max_cut_size, unsigned max_cutset_size) {
+    add_meta_root();
     unsigned_vector sorted = top_sort();
     vector<cut_set> cuts;    
     cuts.resize(m_nodes.size());

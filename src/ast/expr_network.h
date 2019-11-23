@@ -189,6 +189,9 @@ private:
     bool is_ite(node const&) const;
     decl_kind get_decl_kind(node const&) const;
 
+    void add_meta_root();
+    unsigned_vector remove_meta_root();
+
 public:
     expr_network(ast_manager& m): m(m), m_roots(m) {}
     void add_root(expr* e);
