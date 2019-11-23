@@ -51,8 +51,8 @@ class cut_rewriting_tactic : public tactic {
                     VERIFY(i != j);
                     ++num_clash;
                     if (cut.m_size == 1) {
-                        std::cout << mk_bounded_pp(nw.nodes()[i].e(), m, 3) << "\n";
-                        std::cout << mk_bounded_pp(nw.nodes()[j].e(), m, 3) << "\n";
+                        //std::cout << mk_bounded_pp(nw.nodes()[i].e(), m, 3) << "\n";
+                        //std::cout << mk_bounded_pp(nw.nodes()[j].e(), m, 3) << "\n";
                     }
                     if (nw.depth(i) < nw.depth(j)) {
                         nw.substitute(j, i);

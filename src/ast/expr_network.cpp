@@ -936,13 +936,13 @@ expr_ref_vector expr_network::get_roots() {
 
 void expr_network::add_meta_root() {
     expr_ref root(m.mk_and(m_roots.size(), m_roots.c_ptr()), m);
-    m_nodes.push_back(node(root));
+    add_root(root);
 }
 
 unsigned_vector expr_network::remove_meta_root() {
     unsigned_vector roots;
-    roots.append(m_nodes.back().m_children);
-    m_nodes.pop_back();
+    roots.append(m_nodes[m_roots.back()->get_id()].m_children);
+    m_roots.pop_back();
     return roots;
 }
 
