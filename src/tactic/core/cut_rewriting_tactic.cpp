@@ -16,10 +16,12 @@ Author:
 Notes:
  
 - find size of cut subexpressions see if they can be recompiled to "known" functions.
+- get information of cut size distribution for clashes
 
 
 --*/
 #include "ast/expr_network.h"
+#include "ast/ast_ll_pp.h"
 #include "tactic/tactical.h"
 #include "tactic/core/cut_rewriting_tactic.h"
 
@@ -40,7 +42,7 @@ class cut_rewriting_tactic : public tactic {
         vector<expr_network::cut_set> cuts = nw.get_cuts(max_cut_size, max_cutset_size);
         map<expr_network::cut const*, unsigned, expr_network::cut::hash_proc, expr_network::cut::eq_proc> cut2id;
         unsigned num_cuts = 0, num_clash = 0;
-        // TBD: get information of cut size distribution
+        unsigned_vector cut_sizes;
         for (unsigned i = cuts.size(); i-- > 0; ) {
             num_cuts += cuts[i].size();
             for (auto const& cut : cuts[i]) {
@@ -48,6 +50,10 @@ class cut_rewriting_tactic : public tactic {
                 if (cut2id.find(&cut, j)) {
                     VERIFY(i != j);
                     ++num_clash;
+                    if (cut.m_size == 1) {
+                        std::cout << mk_bounded_pp(nw.nodes()[i].e(), m, 3) << "\n";
+                        std::cout << mk_bounded_pp(nw.nodes()[j].e(), m, 3) << "\n";
+                    }
                     if (nw.depth(i) < nw.depth(j)) {
                         nw.substitute(j, i);
                         cut2id.insert(&cut, i);
@@ -55,6 +61,8 @@ class cut_rewriting_tactic : public tactic {
                     else {
                         nw.substitute(i, j);
                     }
+                    cut_sizes.reserve(cut.m_size+1, 0);
+                    cut_sizes[cut.m_size]++;
                     break;
                 }
                 else {
@@ -63,6 +71,10 @@ class cut_rewriting_tactic : public tactic {
             }
         }
         IF_VERBOSE(1, verbose_stream() << "(tactic.cut-rewriting :num-cuts " << num_cuts << " :num-clash " << num_clash << ")\n");        
+        for (unsigned cs : cut_sizes) {
+            std::cout << cs << " ";
+        }
+        std::cout << "\n";
         
         expr_ref_vector new_goals = nw.get_roots();
         for (unsigned idx = 0; idx < size; idx++) {
@@ -74,7 +86,7 @@ class cut_rewriting_tactic : public tactic {
             }
         }
 
-        return cuts.size() <= 33 * num_clash;
+        return cuts.size() <= 100 * num_clash;
     }
 
 public:
@@ -93,11 +105,12 @@ public:
         goal& g = *in.get();
         tactic_report report("cut-rewriting", g);
         TRACE("before_cut", g.display(tout););
-        unsigned max_cutset_size = 6;
+        unsigned max_cutset_size = 8;
         unsigned max_cut_size = 4;
         while (rewrite(g, max_cut_size, max_cutset_size)) {
-            max_cutset_size *= 2;
+//            max_cutset_size *= 2;
             max_cut_size = std::min(max_cut_size+1, expr_network::cut::max_cut_size);
+            max_cut_size = expr_network::cut::max_cut_size;
         }
         g.elim_redundancies();
         TRACE("after_cut", g.display(tout););
