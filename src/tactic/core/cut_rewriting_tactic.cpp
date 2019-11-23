@@ -70,12 +70,12 @@ class cut_rewriting_tactic : public tactic {
                 }
             }
         }
-        IF_VERBOSE(1, verbose_stream() << "(tactic.cut-rewriting :num-cuts " << num_cuts << " :num-clash " << num_clash << ")\n");        
-        for (unsigned cs : cut_sizes) {
-            std::cout << cs << " ";
-        }
-        std::cout << "\n";
-        
+        IF_VERBOSE(1, verbose_stream() << "(tactic.cut-rewriting :num-cuts " << num_cuts << " :num-clash " << num_clash;
+                   if (!cut_sizes.empty()) {
+                       verbose_stream() << " :cuts";
+                       for (unsigned cs : cut_sizes) verbose_stream() << " " << cs;                       
+                   }
+                   verbose_stream() << ")\n";);                
         expr_ref_vector new_goals = nw.get_roots();
         for (unsigned idx = 0; idx < size; idx++) {
             if (g.form(idx) != new_goals.get(idx)) {
@@ -108,7 +108,7 @@ public:
         unsigned max_cutset_size = 8;
         unsigned max_cut_size = 4;
         while (rewrite(g, max_cut_size, max_cutset_size)) {
-//            max_cutset_size *= 2;
+            max_cutset_size = (max_cutset_size*3)/2;
             max_cut_size = std::min(max_cut_size+1, expr_network::cut::max_cut_size);
             max_cut_size = expr_network::cut::max_cut_size;
         }
