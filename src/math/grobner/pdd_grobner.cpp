@@ -138,8 +138,8 @@ namespace dd {
             DEBUG_CODE(invariant(););
         }
         catch (pdd_manager::mem_out) {
-            m_watch.reset();
             IF_VERBOSE(2, verbose_stream() << "mem-out\n");
+            DEBUG_CODE(invariant(););
             // don't reduce further
         }
     }
@@ -197,6 +197,7 @@ namespace dd {
         }
         catch (pdd_manager::mem_out) {
             // done reduce
+            IF_VERBOSE(2, verbose_stream() << "mem-out simplify\n");
             DEBUG_CODE(invariant(););
         }
     }
@@ -563,9 +564,8 @@ namespace dd {
             else if (simplified && changed_leading_term) {
                 SASSERT(target.state() == processed);
                 push_equation(to_simplify, target);
-                if (!m_watch.empty()) {
+                if (!m_var2level.empty()) {
                     m_levelp1 = std::max(m_var2level[target.poly().var()]+1, m_levelp1);
-                    add_to_watch(target);
                 }
             }
             else {
@@ -593,6 +593,7 @@ namespace dd {
             m_too_complex = true;
             return false;
         }
+        SASSERT(!t.hi().is_val() || !m.free_vars(r).contains(t.var()));        
         TRACE("grobner", 
               tout << "reduce: " << dst.poly() << "\n";
               tout << "using:  " << t << "\n";
@@ -641,7 +642,6 @@ namespace dd {
         if (!e) return false;
         scoped_process sd(*this, e);
         equation& eq = *e;
-        SASSERT(!m_watch[eq.poly().var()].contains(e));
         SASSERT(eq.state() == to_simplify);
         simplify_using(eq, m_processed);
         if (is_trivial(eq)) { sd.e = nullptr; retire(e); return true; }
@@ -651,7 +651,7 @@ namespace dd {
         if (done()) return false;
         TRACE("grobner", display(tout << "eq = ", eq););
         superpose(eq);
-        simplify_watch(eq);
+        simplify_using(m_to_simplify, eq);
         if (done()) return false;
         if (!m_too_complex) sd.done();
         return true;
@@ -665,58 +665,15 @@ namespace dd {
             m_level2var[i] = l2v[i];
             m_var2level[l2v[i]] = i;
         }
-        m_watch.reset();
-        m_watch.reserve(m_level2var.size());
         m_levelp1 = m_level2var.size();
-        for (equation* eq : m_to_simplify) add_to_watch(*eq);
     }
 
-    void grobner::add_to_watch(equation& eq) {
-        SASSERT(eq.state() == to_simplify);
-        pdd const& p = eq.poly();
-        if (!p.is_val()) {
-            m_watch[p.var()].push_back(&eq);
-        }
-    }
-
-    void grobner::simplify_watch(equation const& eq) {
-        unsigned v = eq.poly().var();
-        auto& watch = m_watch[v];
-        unsigned j = 0;
-        for (equation* _target : watch) {
-            equation& target = *_target;
-            SASSERT(target.state() == to_simplify);
-            SASSERT(target.poly().var() == v);
-            bool changed_leading_term = false;
-            if (!done()) {
-                try_simplify_using(target, eq, changed_leading_term);
-            }
-            if (is_trivial(target)) {
-                pop_equation(target);
-                retire(&target);
-            }
-            else if (is_conflict(target)) {
-                pop_equation(target);
-                set_conflict(target);
-            }
-            else if (target.poly().var() != v) {
-                // move to other watch list
-                m_watch[target.poly().var()].push_back(_target);
-            }
-            else {
-                // keep watching same variable
-                watch[j++] = _target;
-            }
-        }
-        watch.shrink(j);        
-    }
 
     grobner::equation* grobner::tuned_pick_next() {
         while (m_levelp1 > 0) {
             unsigned v = m_level2var[m_levelp1-1];
-            equation_vector const& watch = m_watch[v];
             equation* eq = nullptr;
-            for (equation* curr : watch) {
+            for (equation* curr : m_to_simplify) {
                 pdd const& p = curr->poly();
                 if (curr->state() == to_simplify && p.var() == v) {
                     if (!eq || is_simpler(*curr, *eq))
@@ -725,7 +682,6 @@ namespace dd {
             }
             if (eq) {
                 pop_equation(eq);
-                m_watch[eq->poly().var()].erase(eq);
                 return eq;
             }
             --m_levelp1;
@@ -749,7 +705,6 @@ namespace dd {
         m_processed.reset();
         m_to_simplify.reset();
         m_stats.reset();
-        m_watch.reset();
         m_level2var.reset();
         m_var2level.reset();
         m_conflict = nullptr;
@@ -763,18 +718,17 @@ namespace dd {
         }
         push_equation(to_simplify, eq);
         
-        if (!m_watch.empty()) {
+        if (!m_var2level.empty()) {
             m_levelp1 = std::max(m_var2level[p.var()]+1, m_levelp1);
-            add_to_watch(*eq);
         }
         update_stats_max_degree_and_size(*eq);
     }   
     
-    bool grobner::canceled() {
+    bool grobner::canceled() const {
         return m_limit.get_cancel_flag();
     }
     
-    bool grobner::done() {
+    bool grobner::done() const {
         return 
             m_to_simplify.size() + m_processed.size() >= m_config.m_eqs_threshold || 
             canceled() || 
@@ -853,6 +807,7 @@ namespace dd {
     }
 
     void grobner::invariant() const {
+        if (done()) return;
         // equations in processed have correct indices
         // they are labled as processed
         unsigned i = 0;
@@ -872,14 +827,19 @@ namespace dd {
             pdd p = e->poly();
             if (!p.is_val() && p.hi().is_val()) {
                 unsigned v = p.var();
-                SASSERT(!head_vars.contains(v));
+                VERIFY(!head_vars.contains(v));
                 head_vars.insert(v);
             }
         }
 
         if (!head_vars.empty()) {
             for (auto * e : m_to_simplify) {
-                for (auto v : m.free_vars(e->poly())) VERIFY(!head_vars.contains(v));
+                for (auto v : m.free_vars(e->poly())) {
+                    if (head_vars.contains(v)) {
+                        display(verbose_stream() << "free var in to_simplify: v" << v << "\n");
+                    }
+                    VERIFY(!head_vars.contains(v));
+                }
             }
             for (auto * e : m_processed) {
                 for (auto v : m.free_vars(e->poly())) VERIFY(!head_vars.contains(v));
@@ -895,21 +855,6 @@ namespace dd {
             VERIFY(e->state() == to_simplify);
             pdd const& p = e->poly();
             VERIFY(!p.is_val());
-            CTRACE("grobner", !m_watch.empty() && !m_watch[p.var()].contains(e), 
-                   display(tout << "not watched: ", *e) << "\n";);
-            VERIFY(m_watch.empty() || m_watch[p.var()].contains(e));            
-            ++i;
-        }
-        // the watch list consists of equations in to_simplify
-        // they watch the top most variable in poly
-        i = 0;
-        for (auto const& w : m_watch) {            
-            for (equation* e : w) {
-                VERIFY(!e->poly().is_val());
-                VERIFY(e->poly().var() == i);
-                VERIFY(e->state() == to_simplify);
-                VERIFY(m_to_simplify.contains(e));
-            }
             ++i;
         }
     }

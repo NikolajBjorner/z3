@@ -118,8 +118,8 @@ public:
 private:
     bool step();
     equation* pick_next();
-    bool canceled();
-    bool done();
+    bool canceled() const;
+    bool done() const;
     void superpose(equation const& eq1, equation const& eq2);
     void superpose(equation const& eq);
     void simplify_using(equation& eq, equation_vector const& eqs);
@@ -138,7 +138,6 @@ private:
     bool is_too_complex(const pdd& p) const { return p.tree_size() > m_config.m_expr_size_limit;  }
 
     // tuned implementation
-    vector<equation_vector> m_watch;           // watch list mapping variables to vector of equations where they occur (generally a subset)
     unsigned                m_levelp1;         // index into level+1
     unsigned_vector         m_level2var;       // level -> var
     unsigned_vector         m_var2level;       // var -> level
@@ -146,8 +145,6 @@ private:
     bool tuned_step();
     void tuned_init();
     equation* tuned_pick_next();
-    void simplify_watch(equation const& eq);
-    void add_to_watch(equation& eq);
 
     void del_equation(equation& eq) { del_equation(&eq); }    
     void del_equation(equation* eq);    
